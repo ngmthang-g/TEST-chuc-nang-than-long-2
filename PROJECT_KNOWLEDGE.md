@@ -4,9 +4,14 @@
 Repo test độc lập cho các cơ chế Thần Long Mobile. Chức năng chỉ được mang sang tool chính sau khi runtime test ổn định. Mỗi version phải kế thừa cả source lẫn tri thức kỹ thuật.
 
 ## Current Version
-v1.1.4-test — semantic dynamic-GameDialog selection path. BUILD đang chờ CI ở thời điểm ghi snapshot này; RUNTIME NEEDS USER TEST.
+v1.1.4-test — semantic dynamic-GameDialog selection path. BUILD PASS; RUNTIME NEEDS USER TEST.
 
 ## Current Status
+- BUILD PASS: GitHub Actions run `31906609147`.
+- Route FSM: 8/8 PASS.
+- Heal FSM: 7/7 PASS.
+- Bridge DLL compile + PE verification: PASS.
+- Controller EXE compile: PASS.
 - RUNTIME PARTIAL PASS: AutoPath tới target runtime + xuống ngựa + `ClickNPC(339)` mở đúng NPC/GameDialog.
 - RUNTIME FAIL: v1.1.0–v1.1.2 không tiến qua `Trị liệu` bằng `UIButton.HandleClickEvent()`.
 - RUNTIME FAIL: v1.1.3 dùng `GameDialog.FunctionButtonClicked(liveButton)` qua `MonoBehaviourExecutor.ExecuteUIObject` nhưng user vẫn chỉ thấy UI nháy và không sang bước xác nhận.
@@ -33,7 +38,8 @@ Auto-heal intended flow v1.1.4:
 - CONFIRMED Lua source: ordinary function choice has default `SelectedItemID = -1` when no award-item selection is required.
 - CONFIRMED: `LuaSystemAPI_Network.SendPacket(packetID,data)` is outbound Lua network bridge to `LuaSystemManager.SendPacketToServer`.
 - CONFIRMED asset: `MessageBox` has `ButtonOKClicked()` and stores semantic OK/Cancel callbacks.
-- CONFIRMED: build success is not runtime success.
+- CONFIRMED BUILD: v1.1.4 architecture audit, Route FSM, Heal FSM, DLL, PE verification and EXE all pass.
+- CONFIRMED RULE: build success is not runtime success.
 
 ## Important Files
 - `src/bridge_part03.inc` — Lua UI discovery/tree traversal.
@@ -44,8 +50,8 @@ Auto-heal intended flow v1.1.4:
 - `src/heal_logic.h` — pure dialog FSM.
 - `src/protocol.h` — shared commands/snapshot.
 - `CHANGELOG.md` — short version history.
-- `docs/HANDOFF_v1.1.3_AUTO_TRI_LIEU.md` — superseded action-layer handoff.
-- `docs/HANDOFF_v1.1.4_AUTO_TRI_LIEU.md` — current handoff when created.
+- `VERSION_v1.1.4.md` — current version test record.
+- `docs/HANDOFF_v1.1.4_AUTO_TRI_LIEU.md` — current handoff.
 
 ## Important Methods / APIs
 - `LuaSystemAPI_Game.ClickNPC(Int32)` — working runtime NPC interaction.
@@ -68,6 +74,7 @@ Auto-heal intended flow v1.1.4:
 - StopPath / dismount.
 - `ClickNPC(339)`.
 - Visible live GameDialog discovery by text.
+- v1.1.4 source/build path for reading live Tag and sending semantic packet.
 
 ## Failed / Unsafe Mechanisms
 
@@ -114,7 +121,7 @@ Auto-heal intended flow v1.1.4:
 - Full auto-heal chain has not yet achieved runtime PASS.
 - v1.1.4 treatment packet path needs runtime validation.
 - Confirmation type for this server instance is not yet runtime-proven; may be MessageBox or dynamic GameDialog.
-- Direct semantic packet does not intentionally fabricate/guess selectionID; if Tag cannot be read the feature fails closed.
+- Direct semantic packet does not fabricate/guess selectionID; if Tag cannot be read the feature fails closed.
 
 ## Open Research Questions
 1. Runtime concrete type/value exposure of `UIButton.Tag` on current build (`Int32`, backing field, etc.). v1.1.4 supports metadata-driven getter/field variants and logs failure.
@@ -123,10 +130,10 @@ Auto-heal intended flow v1.1.4:
 4. Whether local GameDialog lifecycle needs explicit close after direct semantic packet; only change this after runtime evidence.
 
 ## Next Development Priorities
-1. CI compile v1.1.4.
-2. Runtime test and capture log beginning at `ClickNPC(339)`.
-3. Expect log to expose either `selectionID`, exact SendPacket failure, or successful packet followed by next UI.
-4. If packet sends but no server transition, targeted trace only `LuaSystemAPI_Network.SendPacket`/outbound packet and active GameDialog data; do not broad reverse.
+1. Runtime test v1.1.4 and capture log beginning at `ClickNPC(339)`.
+2. Expect log to expose either `selectionID`, exact SendPacket failure, or successful packet followed by next UI.
+3. If packet sends but no server transition, targeted trace only `LuaSystemAPI_Network.SendPacket`/outbound packet and active GameDialog data; do not broad reverse.
+4. Verify MessageBox/GameDialog confirmation branch only after Treatment transitions.
 5. Only port to main after repeated successful complete cycles without crash/disconnect.
 
 ---
@@ -155,7 +162,7 @@ Resolve live button by visible text, read `Tag=selectionID`, send `CMD_SHOW_GAME
 ### Data Sources
 Canonical client `AI_INDEX.md`, Phase2 decrypted Lua docs, VERIFIED findings, `AUTO_HEAL_NPC.md`, exact action flow, packet/API databases, current runtime user test.
 ### Test Results
-BUILD pending at snapshot; RUNTIME NEEDS USER TEST.
+BUILD PASS in GitHub Actions run `31906609147`; Route 8/8; Heal 7/7; DLL/PE/EXE PASS; artifact generated. RUNTIME NEEDS USER TEST.
 
 ---
 
