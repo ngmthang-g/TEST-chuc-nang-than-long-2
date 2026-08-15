@@ -1,4 +1,4 @@
-                        HealFail(L"ClickNPC(339) thất bại 3 lần; dừng fail-closed");
+                        HealFail(L"ClickNPC thất bại 3 lần; dừng fail-closed");
                     return;
                 }
                 healPhase_ = Phase::WaitTreatment;
