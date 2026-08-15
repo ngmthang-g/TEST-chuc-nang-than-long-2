@@ -49,6 +49,17 @@ A/B test một biến:
 - `CHANGELOG.md`
 - `VERSION_v1.1.5.md`
 
+## Build Status
+GitHub Actions run `31909204317` on clean source:
+- Architecture audit: PASS.
+- Route FSM: PASS.
+- Heal FSM: PASS.
+- Bridge DLL build/PE check: PASS.
+- Controller EXE: PASS.
+- Artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.5`.
+- Artifact SHA256: `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
+
 ## Runtime Status
 NEEDS USER TEST.
 
