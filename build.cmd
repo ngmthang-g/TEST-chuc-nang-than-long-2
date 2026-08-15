@@ -12,10 +12,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
   "$bridge=((Get-ChildItem 'src' -Filter 'bridge_part*.inc' | Sort-Object Name | ForEach-Object {Get-Content $_.FullName -Raw}) -join [Environment]::NewLine); foreach($x in @('SendToggleRideState','StartAutoPath','StopAutoPath','ClickNPC','InspectHealDialog','FindScriptUIRoots')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing required method/feature '+$x)}};" ^
   "$packet=Get-Content 'src/bridge_heal_packet_v1_1_4.inc' -Raw; foreach($x in @('get_Tag','LuaSystemAPI_Network','SendPacket','100007','selectionID','selectedItemID','ClickHealDialogChoiceV113')){if($packet -notmatch [regex]::Escape($x)){throw ('semantic packet helper missing '+$x)}};" ^
-  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','Long Phá Thiên','mapID == 5','return 339','Đỗ Thanh Đằng','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.5 dual-map healer mapping missing '+$x)}};" ^
+  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap','HealNpcNameForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.5 dual-map healer mapping missing '+$x)}};" ^
   "$controller=Get-Content 'src/controller.cpp' -Raw; if($controller -match '#define kHealNpcID'){throw 'Legacy macro NPC override still present'};" ^
   "$proto=Get-Content 'src/protocol.h' -Raw; foreach($x in @('ReadState = 1','ToggleRide = 2','StartPath = 3','StopPath = 4','ClickNpc = 5','InspectHealDialog = 6','ClickHealDialogChoice = 7')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.5 captured Map 3 -> Long Pha Thien 463; Map 5 -> Do Thanh Dang 339; semantic packet path unchanged.'"
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.5 captured Map 3 -> NPC 463; Map 5 -> NPC 339; semantic packet path unchanged.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
