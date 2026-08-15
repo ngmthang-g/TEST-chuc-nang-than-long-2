@@ -12,8 +12,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
   "$bridge=((Get-ChildItem 'src' -Filter 'bridge_part*.inc' | Sort-Object Name | ForEach-Object {Get-Content $_.FullName -Raw}) -join [Environment]::NewLine); foreach($x in @('SendToggleRideState','StartAutoPath','StopAutoPath','ClickNPC','InspectHealDialog','FindScriptUIRoots')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing required method/feature '+$x)}};" ^
   "$packet=Get-Content 'src/bridge_heal_packet_v1_1_4.inc' -Raw; foreach($x in @('get_Tag','LuaSystemAPI_Network','SendPacket','100007','selectionID','selectedItemID','ClickHealDialogChoiceV113')){if($packet -notmatch [regex]::Escape($x)){throw ('v1.1.4 semantic packet helper missing '+$x)}};" ^
+  "$controller=Get-Content 'src/controller.cpp' -Raw; foreach($x in @('kHealNpcID 463','Long Pha Thien','LoadHealTarget(out) false')){if($controller -notmatch [regex]::Escape($x)){throw ('v1.1.5 NPC test override missing '+$x)}};" ^
   "$proto=Get-Content 'src/protocol.h' -Raw; foreach($x in @('ReadState = 1','ToggleRide = 2','StartPath = 3','StopPath = 4','ClickNpc = 5','InspectHealDialog = 6','ClickHealDialogChoice = 7')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.4 live GameDialog Tag -> verified CMD_SHOW_GAMEDIALOG packet.'"
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.5 Long Pha Thien 463 isolated NPC/map runtime test; semantic packet path unchanged.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
@@ -48,7 +49,7 @@ echo [7/8] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.4.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.5.exe
 if errorlevel 1 exit /b 1
 
 echo [8/8] Done.
