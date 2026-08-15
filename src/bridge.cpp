@@ -1,4 +1,5 @@
 #include "bridge_part01.inc"
+#include "bridge_lua_array.inc"
 #include "bridge_part02.inc"
 #include "bridge_part03.inc"
 #include "bridge_part04.inc"
