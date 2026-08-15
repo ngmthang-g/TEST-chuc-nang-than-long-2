@@ -15,6 +15,14 @@
 - v1.1.3 vẫn chỉ làm UI nháy và không tiến qua `Trị liệu`.
 - Canonical client KB xác nhận GameDialog button chỉ là presentation; action semantic là selectionID + CMD_SHOW_GAMEDIALOG.
 
+### Build Result
+- GitHub Actions run `31906609147`: PASS.
+- Architecture audit PASS.
+- Route FSM 8/8 PASS.
+- Heal FSM 7/7 PASS.
+- Windows bridge DLL + controller EXE PASS.
+- Artifact `ThanLongTestAutoHeal-v1.1.4` created successfully.
+
 ### Runtime Status
 - NEEDS USER TEST.
 
