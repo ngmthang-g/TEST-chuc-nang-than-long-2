@@ -4,9 +4,11 @@
 Repo test độc lập cho các cơ chế Thần Long Mobile. Chức năng chỉ được mang sang tool chính sau khi runtime test ổn định. Mỗi version phải kế thừa cả source lẫn tri thức kỹ thuật.
 
 ## Current Version
-v1.1.5-test — dual-map healer NPC isolation test. BUILD đang chờ CI cho source sạch hiện tại; RUNTIME NEEDS USER TEST.
+v1.1.5-test — dual-map healer NPC isolation test. BUILD PASS; RUNTIME NEEDS USER TEST.
 
 ## Current Status
+- BUILD PASS: clean-source GitHub Actions run `31909204317`.
+- Artifact: `ThanLongTestAutoHeal-v1.1.5`, SHA256 `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
 - RUNTIME PARTIAL PASS: runtime coordinate capture + AutoPath + xuống ngựa + `ClickNPC(339)` mở đúng Đỗ Thanh Đằng/GameDialog ở Lâu Lan.
 - RUNTIME FAIL: v1.1.0–v1.1.2 `UIButton.HandleClickEvent()` không qua `Trị liệu`; UI nháy.
 - RUNTIME FAIL: v1.1.3 `ExecuteUIObject(GameDialog.FunctionButtonClicked)` vẫn nháy, không qua Treatment.
@@ -33,6 +35,7 @@ v1.1.5 auto-heal flow:
 - CONFIRMED Lua source: GameDialog selection sends `CMD_SHOW_GAMEDIALOG = 100007` payload `selectionID:SelectedItemID`; ordinary no-award choice defaults `SelectedItemID=-1`.
 - CONFIRMED: `LuaSystemAPI_Network.SendPacket(packetID,data)` is outbound Lua network bridge.
 - CONFIRMED asset: `MessageBox` stores semantic OK/Cancel callbacks and has `ButtonOKClicked()`.
+- CONFIRMED BUILD: v1.1.5 architecture audit, Route FSM, Heal FSM, bridge DLL, PE verification, controller EXE and artifact upload all PASS in run `31909204317`.
 - CONFIRMED RULE: BUILD PASS != RUNTIME PASS.
 
 ## Important IDs / Maps
@@ -53,7 +56,7 @@ v1.1.5 auto-heal flow:
 - `src/bridge_part03.inc` / `src/bridge_part04.inc` — UI discovery and historical callback path.
 - `src/heal_logic.h` — pure heal-dialog FSM.
 - `src/protocol.h` — shared command/snapshot protocol.
-- `VERSION_v1.1.5.md` — current version test design.
+- `VERSION_v1.1.5.md` — current version test design + build result.
 - `CHANGELOG.md` — short history.
 
 ## Working Mechanisms
@@ -124,11 +127,11 @@ An intermediate v1.1.5 draft modified `src/controller.cpp` with preprocessor ove
 4. What exact confirmation UI follows a successful Treatment on each NPC/server dialog?
 
 ## Next Development Priorities
-1. Build clean v1.1.5 source in GitHub Actions.
-2. User goes to Long Phá Thiên in Lạc Dương, presses `TỰ LẤY TỌA ĐỘ NPC`, confirms saved target MapID is 3.
-3. Run Auto trị liệu and capture log beginning at `AUTO TRỊ LIỆU START • NPC 463 Long Phá Thiên`.
-4. Compare runtime behavior with NPC 339/Lâu Lan.
-5. If both fail identically, stop changing NPCs and perform targeted trace of one legitimate manual Treatment action only.
+1. User goes to Long Phá Thiên in Lạc Dương, presses `TỰ LẤY TỌA ĐỘ NPC`, confirms saved target MapID is 3.
+2. Run Auto trị liệu and capture log beginning at `AUTO TRỊ LIỆU START • NPC 463 Long Phá Thiên`.
+3. Compare runtime behavior with NPC 339/Lâu Lan.
+4. If both fail identically, stop changing NPCs and perform targeted trace of one legitimate manual Treatment action only.
+5. Only port to main after repeated full runtime PASS without crash/disconnect.
 
 ---
 
@@ -163,7 +166,7 @@ Keep action layer unchanged. Select NPC from captured target map: Map3->463, Map
 ### Data Sources
 Uploaded AI Project Knowledge Protocol; project KB; canonical `AI_INDEX.md`; `database/npcs/NPCS_0401_0600.csv`; `NPC_SERVICE_CANDIDATES.md`.
 ### Test Results
-BUILD pending for current clean source; RUNTIME NEEDS USER TEST.
+BUILD PASS in GitHub Actions run `31909204317`; artifact `ThanLongTestAutoHeal-v1.1.5`; SHA256 `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`. RUNTIME NEEDS USER TEST.
 ### Recommended Next Step
 Fresh coordinate capture next to Long Phá Thiên in Lạc Dương, then runtime A/B test.
 
