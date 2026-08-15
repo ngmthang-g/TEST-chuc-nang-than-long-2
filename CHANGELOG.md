@@ -11,10 +11,14 @@
 
 ### Confidence
 - CONFIRMED STATIC: NPC 463 = Long Phá Thiên, ResName `PuTongXiaShi2`, MapID 3 = Lạc Dương.
-- HYPOTHESIS: Long Phá Thiên exposes the desired Trị liệu service; canonical healer-family database does not currently classify 463 as LangZhong/MingYi.
+- HYPOTHESIS: Long Phá Thiên exposes the desired `Trị liệu` service; canonical healer-family database does not currently classify 463 as LangZhong/MingYi.
 
 ### Build Result
-- PENDING GitHub Actions.
+- GitHub Actions run `31907554441`: PASS.
+- Build/self-test job: PASS.
+- Artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.5`.
+- Artifact SHA256: `d81461b081dddb03941a5e93c3d4b1c01dd9f238fc12a97bc00993b92dbbf134`.
 
 ### Runtime Status
 - NEEDS USER TEST.
@@ -24,26 +28,15 @@
 ### Changed
 - `Trị liệu` và `Ta biết rồi` không còn đi qua UIButton click hoặc `ExecuteUIObject` GameDialog callback.
 - Tool tìm đúng button sống theo text, đọc `UIButton.Tag` để lấy runtime `selectionID` do server cấp.
-- Gửi semantic request thật qua `LuaSystemAPI_Network.SendPacket`:
-  - packet `CMD_SHOW_GAMEDIALOG = 100007`
-  - payload `selectionID:selectedItemID`
-  - với lựa chọn thường dùng `selectedItemID = -1` theo Lua source.
-- Nếu `Xác nhận` là một dynamic GameDialog thì dùng cùng cơ chế packet; nếu là MessageBox thì giữ `ButtonOKClicked()` semantic callback.
-
-### Why
-- v1.1.3 vẫn chỉ làm UI nháy và không tiến qua `Trị liệu`.
-- Canonical client KB xác nhận GameDialog button chỉ là presentation; action semantic là selectionID + CMD_SHOW_GAMEDIALOG.
+- Gửi semantic request thật qua `LuaSystemAPI_Network.SendPacket`: packet `CMD_SHOW_GAMEDIALOG = 100007`, payload `selectionID:selectedItemID`, default no-award `selectedItemID = -1` theo Lua source.
 
 ### Build Result
 - GitHub Actions run `31906609147`: PASS.
-- Architecture audit PASS.
-- Route FSM 8/8 PASS.
-- Heal FSM 7/7 PASS.
-- Windows bridge DLL + controller EXE PASS.
-- Artifact `ThanLongTestAutoHeal-v1.1.4` created successfully.
+- Route FSM 8/8 PASS; Heal FSM 7/7 PASS; Windows bridge DLL + controller EXE PASS.
 
-### Runtime Status
-- NEEDS USER TEST.
+### Runtime Result
+- FAIL on Đỗ Thanh Đằng `339` / Lâu Lan: user reports the same visible dialog/screen flicker and no transition through `Trị liệu`.
+- Failure cause remains unproven; this result motivates v1.1.5 NPC/map isolation rather than another action-layer rewrite.
 
 ## v1.1.3-test
 
@@ -53,13 +46,10 @@
 - Added managed `System.Object[]` bridge for `MonoBehaviourExecutor.ExecuteUIObject`.
 
 ### Build Result
-- Architecture audit PASS.
-- Route FSM 8/8 PASS.
-- Heal FSM 7/7 PASS.
-- Windows EXE + bridge DLL PASS.
+- Architecture audit PASS; Route FSM 8/8 PASS; Heal FSM 7/7 PASS; Windows EXE + bridge DLL PASS.
 
 ### Runtime Result
-- FAIL at Treatment: user reports same visual flicker as older versions and no transition to confirmation.
+- FAIL at Treatment: same visual flicker and no transition to confirmation.
 
 ## v1.1.2-test
 
@@ -68,8 +58,7 @@
 
 ### Runtime Result
 - PARTIAL PASS: route + `ClickNPC(339)` opens correct NPC.
-- FAIL: Treatment choice still does not advance.
-- Dialog/button visually flickers during attempted Treatment.
+- FAIL: Treatment choice still does not advance; dialog/button visibly flickers.
 
 ## v1.1.1-test
 
