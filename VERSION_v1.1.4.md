@@ -47,6 +47,16 @@ For `Xác nhận`:
 - no sleep on game callback thread;
 - fail closed if Tag or exact SendPacket signature cannot be resolved.
 
+## Build test
+GitHub Actions run `31906609147`:
+- Architecture audit: PASS.
+- Route FSM: 8/8 PASS.
+- Heal FSM: 7/7 PASS.
+- Bridge DLL compile + PE verification: PASS.
+- Controller EXE compile: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.4`.
+- Artifact SHA256: `3de6a2a0b5383ee649816ebd89d5a6b1b6c0b3b297cc720946af8cc5cdd4ba5e`.
+
 ## Status
-- BUILD: pending CI at document creation time.
+- BUILD: PASS.
 - RUNTIME: NEEDS USER TEST.
