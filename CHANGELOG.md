@@ -15,6 +15,12 @@
 - CONFIRMED STATIC: NPC 339 = Đỗ Thanh Đằng, MapID 5 = Lâu Lan.
 - HYPOTHESIS: NPC 463 exposes the same `Trị liệu` service. Canonical healer-family database does not classify 463 as LangZhong/MingYi, so runtime must prove it.
 
+### Build Result
+- Clean source GitHub Actions run `31909204317`: PASS.
+- Architecture audit, Route FSM, Heal FSM, bridge DLL, PE verification, controller EXE and artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.5`.
+- SHA256: `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
+
 ### Runtime Status
 - v1.1.4 on NPC 339/Lâu Lan: FAIL at Treatment; same screen/dialog flicker.
 - v1.1.5: NEEDS USER TEST on NPC 463/Lạc Dương.
