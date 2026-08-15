@@ -38,11 +38,9 @@ constexpr int IDC_STOP = 121;
 constexpr int IDC_STATUS = 122;
 constexpr int IDC_LOG = 123;
 constexpr int IDC_AUTO_HEAL = 124;
+constexpr int IDC_CAPTURE_HEAL = 125;
 
-constexpr int kHealMapID = 5;
 constexpr int kHealNpcID = 339;
-constexpr int kHealX = 29400;
-constexpr int kHealY = 17200;
 constexpr int kHealTolerance = 160;
 
 template <typename T>

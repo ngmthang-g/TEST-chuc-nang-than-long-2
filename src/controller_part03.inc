@@ -1,16 +1,25 @@
         addFont(Make(L"STATIC", L"Sai số:", 0, 578, 228, 50, 20, 0));
         tolerance_ = Make(L"EDIT", L"120", WS_BORDER | ES_NUMBER | ES_CENTER, 625, 224, 40, 27, IDC_TOLERANCE); addFont(tolerance_);
 
-        addFont(Make(L"BUTTON", L"BẮT ĐẦU GIỮ BÃI", BS_PUSHBUTTON, 18, 272, 200, 42, IDC_START));
-        addFont(Make(L"BUTTON", L"AUTO TRỊ LIỆU", BS_DEFPUSHBUTTON, 228, 272, 215, 42, IDC_AUTO_HEAL));
-        addFont(Make(L"BUTTON", L"DỪNG", BS_PUSHBUTTON, 453, 272, 212, 42, IDC_STOP));
+        addFont(Make(L"BUTTON", L"GIỮ BÃI", BS_PUSHBUTTON, 18, 272, 145, 42, IDC_START));
+        addFont(Make(L"BUTTON", L"TỰ LẤY TỌA ĐỘ NPC", BS_PUSHBUTTON, 173, 272, 180, 42, IDC_CAPTURE_HEAL));
+        addFont(Make(L"BUTTON", L"AUTO TRỊ LIỆU", BS_DEFPUSHBUTTON, 363, 272, 155, 42, IDC_AUTO_HEAL));
+        addFont(Make(L"BUTTON", L"DỪNG", BS_PUSHBUTTON, 528, 272, 137, 42, IDC_STOP));
         status_ = Make(L"STATIC", L"TRẠNG THÁI: ĐÃ DỪNG", SS_CENTER | SS_CENTERIMAGE | WS_BORDER,
                        18, 326, 647, 48, IDC_STATUS); addFont(status_);
-        log_ = Make(L"EDIT", L"TEST v1.1.0: Route sạch + Auto trị liệu Đỗ Thanh Đằng (Lâu Lan).\r\n",
+        log_ = Make(L"EDIT", L"TEST v1.1.0: Auto trị liệu dùng tọa độ NPC do người dùng tự lấy.\r\n",
                     WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
                     18, 388, 647, 132, IDC_LOG); addFont(log_);
         SetTimer(hwnd_, kTimer, 500, nullptr);
-        spots_ = LoadSpots(); RefreshSpotCombo(); ScanClients();
+        spots_ = LoadSpots(); RefreshSpotCombo();
+        healTargetReady_ = LoadHealTarget(healTarget_);
+        if (healTargetReady_) {
+            Log(L"Đã nạp tọa độ NPC trị liệu đã lưu • Map " + std::to_wstring(healTarget_.mapID) +
+                L" • " + std::to_wstring(healTarget_.x) + L"," + std::to_wstring(healTarget_.y));
+        } else {
+            Log(L"Chưa có tọa độ NPC trị liệu • đứng tại NPC rồi bấm TỰ LẤY TỌA ĐỘ NPC");
+        }
+        ScanClients();
     }
 
     void Log(const std::wstring& line) {
@@ -108,6 +117,27 @@
         for (std::size_t i = 0; i < spots_.size(); ++i) if (_wcsicmp(spots_[i].name.c_str(), name.c_str()) == 0)
             SendMessageW(targetCombo_, CB_SETCURSEL, static_cast<WPARAM>(i), 0);
         Log(L"Đã lưu: " + name + L" • Map " + std::to_wstring(s.mapID) + L" • " + std::to_wstring(s.x) + L"," + std::to_wstring(s.y));
+    }
+
+    void CaptureHealTarget() {
+        std::wstring error;
+        if (!EnsureAttach(error)) { Log(L"LỖI: " + error); return; }
+        Snapshot s{};
+        if (!ReadSnapshot(s, error) || !s.mapReady || s.waitingChangeMap ||
+            (s.validMask & (ValidMap | ValidPosition)) != (ValidMap | ValidPosition)) {
+            Log(L"Chưa lấy được tọa độ NPC: " + (error.empty() ? L"state chưa ổn định" : error));
+            return;
+        }
+        healTarget_ = Spot{L"Đỗ Thanh Đằng", s.mapID, s.x, s.y};
+        if (!SaveHealTarget(healTarget_)) {
+            healTargetReady_ = false;
+            Log(L"Không lưu được tọa độ NPC trị liệu vào ThanLongAutoHeal.target.tsv");
+            return;
+        }
+        healTargetReady_ = true;
+        Log(L"ĐÃ TỰ LẤY TỌA ĐỘ NPC • dùng nguyên state game, không nhân/chia • Map " +
+            std::to_wstring(s.mapID) + L" • " + std::to_wstring(s.x) + L"," + std::to_wstring(s.y));
+        SetText(status_, L"AUTO TRỊ LIỆU: ĐÃ LƯU TỌA ĐỘ NPC");
     }
 
     void DeleteSpot() {

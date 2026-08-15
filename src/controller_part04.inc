@@ -6,6 +6,11 @@
     }
 
     void StartAutoHeal() {
+        if (!healTargetReady_) {
+            Log(L"AUTO TRỊ LIỆU CHƯA CHẠY: chưa có tọa độ NPC. Đứng tại Đỗ Thanh Đằng rồi bấm TỰ LẤY TỌA ĐỘ NPC trước.");
+            SetText(status_, L"AUTO TRỊ LIỆU: CHƯA CÓ TỌA ĐỘ NPC");
+            return;
+        }
         std::wstring error;
         if (!EnsureAttach(error)) { Log(L"LỖI: " + error); return; }
         running_ = false;
@@ -19,7 +24,9 @@
         lastAction_ = Action::Wait;
         qualifiedMap_ = 0; candidateMap_ = 0; candidateCount_ = 0;
         SetText(status_, L"AUTO TRỊ LIỆU: ĐANG TỚI ĐỖ THANH ĐẰNG");
-        Log(L"AUTO TRỊ LIỆU START • Map 5 Lâu Lan • NPC 339 Đỗ Thanh Đằng • tọa độ game 29400,17200 (294:172)");
+        Log(L"AUTO TRỊ LIỆU START • NPC 339 Đỗ Thanh Đằng • tọa độ tự lấy Map " +
+            std::to_wstring(healTarget_.mapID) + L" • " + std::to_wstring(healTarget_.x) + L"," +
+            std::to_wstring(healTarget_.y));
     }
 
     void HealFail(const std::wstring& reason) {
@@ -116,7 +123,7 @@
             logic.valid = true; logic.mapReady = true; logic.waitingMap = false;
             logic.mapID = s.mapID; logic.x = s.x; logic.y = s.y;
             logic.riding = s.riding != 0; logic.autoPathing = s.autoPathing != 0;
-            Target target{kHealMapID, kHealX, kHealY, kHealTolerance};
+            Target target{healTarget_.mapID, healTarget_.x, healTarget_.y, kHealTolerance};
             Action a = Decide(logic, target);
             if (a == Action::Hold) {
                 healPhase_ = Phase::OpenNpc;

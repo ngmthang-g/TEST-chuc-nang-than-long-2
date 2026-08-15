@@ -7,7 +7,7 @@ Tài liệu này dành cho AI/dev mang tính năng đã test PASS sang tool chí
 Khi người dùng bấm `AUTO TRỊ LIỆU`:
 
 1. đi tới Lâu Lan (`MapID=5`);
-2. tới tọa độ NPC Đỗ Thanh Đằng (`294:172` -> raw test `29400,17200`);
+2. tới tọa độ NPC Đỗ Thanh Đằng do người test bấm `TỰ LẤY TỌA ĐỘ NPC`;
 3. xuống ngựa;
 4. gọi NPC `339` bằng API game;
 5. chờ `GameDialog` có lựa chọn `Trị liệu`;
@@ -71,23 +71,30 @@ Pure FSM cho ba bước dialog. Không phụ thuộc Win32, có thể unit-test 
 
 ### `src/controller.cpp`
 
-Constants test:
+Dữ liệu test:
 
-```cpp
-kHealMapID = 5
+```text
 kHealNpcID = 339
-kHealX = 29400
-kHealY = 17200
+healTarget_.mapID/x/y = lấy runtime từ nút TỰ LẤY TỌA ĐỘ NPC
 kHealTolerance = 160
 ```
 
-`TickAutoHeal()` dùng Route FSM cũ để đi NPC, sau đó chuyển sang dialog FSM.
+`CaptureHealTarget()` đọc trực tiếp `Snapshot.mapID/x/y`, lưu vào `ThanLongAutoHeal.target.tsv`. `TickAutoHeal()` dùng Route FSM cũ để đi target đã lưu rồi chuyển sang dialog FSM. Nếu chưa có target, Auto trị liệu từ chối chạy; không có fallback tọa độ mặc định.
+
+
+## Tọa độ NPC — quy tắc bắt buộc
+
+- Không hardcode `294:172`, `29400,17200` hay bất kỳ scale suy đoán nào.
+- Người test đứng đúng vị trí cạnh NPC và bấm `TỰ LẤY TỌA ĐỘ NPC`.
+- Tool lưu nguyên `MapID/X/Y` scanner đọc được vào `ThanLongAutoHeal.target.tsv`.
+- Mở lại tool sẽ nạp target này.
+- Chưa có target hợp lệ thì `AUTO TRỊ LIỆU` không chạy.
 
 ## State machine
 
 ```text
 Travel
-  -> route tới Map 5 / 29400,17200
+  -> route tới MapID/X/Y đã tự lấy từ client
   -> StopPath
   -> Dismount
 OpenNpc
@@ -128,10 +135,9 @@ Nếu trace runtime sau này chứng minh selection ID/payload ổn định và 
 
 ## Điểm CHƯA được xác minh bằng runtime
 
-1. `294:172 -> 29400,17200` cần test client thật.
-2. `MainFindUI/MonoBehaviourExecutor -> UIRoot` đã có hai fallback nhưng cần client thật chứng minh đường nào đang dùng.
-3. Sau khi bấm `Trị liệu`, xác nhận có thể là `MessageBox` hoặc `GameDialog`; code hỗ trợ cả hai, nhưng log test phải ghi loại UI thực tế.
-4. Không được gọi version này là PASS để ghép main cho đến khi log thực tế đi đủ 4 action: `ClickNPC -> Trị liệu -> Xác nhận -> Ta biết rồi` ít nhất nhiều vòng liên tiếp.
+1. `MainFindUI/MonoBehaviourExecutor -> UIRoot` đã có hai fallback nhưng cần client thật chứng minh đường nào đang dùng.
+2. Sau khi bấm `Trị liệu`, xác nhận có thể là `MessageBox` hoặc `GameDialog`; code hỗ trợ cả hai, nhưng log test phải ghi loại UI thực tế.
+3. Không được gọi version này là PASS để ghép main cho đến khi log thực tế đi đủ 4 action: `ClickNPC -> Trị liệu -> Xác nhận -> Ta biết rồi` ít nhất nhiều vòng liên tiếp.
 
 ## Checklist trước khi ghép sang main
 

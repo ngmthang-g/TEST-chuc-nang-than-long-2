@@ -20,7 +20,7 @@ Dữ liệu đã bóc trực tiếp từ client được cung cấp:
 
 - Lâu Lan: `MapID = 5`.
 - NPC Đỗ Thanh Đằng: `NPC ID / ResID = 339`, `ResName = LangZhong1`.
-- tọa độ yêu cầu: `294:172`; source route hiện dùng tọa độ raw theo thang `x100`, nên target test là `29400,17200`.
+- **Không hardcode tọa độ NPC.** Người test đứng đúng vị trí cạnh NPC rồi bấm `TỰ LẤY TỌA ĐỘ NPC`; tool lưu nguyên `MapID/X/Y` đang đọc từ client, không nhân/chia hay đổi scale.
 - mở NPC bằng `FGStudio.LuaSystem.API.LuaSystemAPI_Game.ClickNPC(Int32)` được resolve từ metadata lúc runtime, không hardcode RVA.
 - `GameDialog` tạo button lựa chọn động; text nằm ở `UIButton.Text`, selection ID nằm ở `Tag`.
 - button dialog thật chạy handler Lua `FunctionButtonClicked` và gửi `CMD_SHOW_GAMEDIALOG`.

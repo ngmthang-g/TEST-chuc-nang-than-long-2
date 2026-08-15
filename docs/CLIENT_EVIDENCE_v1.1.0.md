@@ -31,14 +31,15 @@ Lưu ý encoding TextAsset ghi ký tự `Ð`; về nghĩa/nội dung đây là t
 
 ## 2. Tọa độ
 
-Người dùng cung cấp tọa độ giao diện `294:172`.
+Tọa độ giao diện người dùng cung cấp không được dùng để suy diễn raw bằng phép nhân/chia. Bản test hiện tại **không hardcode X/Y**.
 
-Source sạch hiện đọc `get_PosX/get_PosY` và truyền raw Int32 trực tiếp cho `AutoPathManager.StartAutoPath(map,x,y)`. Dữ liệu runtime trước đó có dạng `9400,5400` tương ứng cách hiển thị `94,54`. Vì vậy bản test dùng:
+Người test đứng tại vị trí muốn dùng để mở NPC rồi bấm `TỰ LẤY TỌA ĐỘ NPC`. Tool lấy trực tiếp các giá trị scanner đang đọc:
 
-- `X = 29400`
-- `Y = 17200`
+- `Snapshot.mapID`
+- `Snapshot.x`
+- `Snapshot.y`
 
-Đây là **suy luận có căn cứ nhưng vẫn cần xác nhận runtime**. Nếu client thực tế route lệch 100 lần, sửa duy nhất constants `kHealX/kHealY` ở `src/controller.cpp`; không sửa FSM/UI logic.
+Các giá trị được lưu nguyên vào `ThanLongAutoHeal.target.tsv` và truyền nguyên cho `AutoPathManager.StartAutoPath(map,x,y)`. Không có fallback về `29400,17200`.
 
 ## 3. API mở NPC
 

@@ -83,6 +83,39 @@ bool SaveSpots(const std::vector<Spot>& spots) {
     CloseHandle(h); return ok;
 }
 
+std::wstring HealTargetPath() { return ExeDir() + L"\\ThanLongAutoHeal.target.tsv"; }
+
+bool LoadHealTarget(Spot& out) {
+    HANDLE h = CreateFileW(HealTargetPath().c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    char buf[256]{}; DWORD got = 0;
+    const bool readOk = ReadFile(h, buf, static_cast<DWORD>(sizeof(buf) - 1), &got, nullptr) != FALSE;
+    CloseHandle(h);
+    if (!readOk || got == 0) return false;
+    std::string line(buf, buf + got);
+    if (const std::size_t eol = line.find_first_of("\r\n"); eol != std::string::npos) line.resize(eol);
+    std::stringstream ss(line); std::string m, x, y;
+    if (!std::getline(ss, m, '\t') || !std::getline(ss, x, '\t') || !std::getline(ss, y, '\t')) return false;
+    Spot value{L"Đỗ Thanh Đằng", std::atoi(m.c_str()), std::atoi(x.c_str()), std::atoi(y.c_str())};
+    if (value.mapID <= 0) return false;
+    out = value;
+    return true;
+}
+
+bool SaveHealTarget(const Spot& target) {
+    const std::string body = std::to_string(target.mapID) + "\t" +
+                             std::to_string(target.x) + "\t" +
+                             std::to_string(target.y) + "\r\n";
+    HANDLE h = CreateFileW(HealTargetPath().c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    DWORD done = 0;
+    const bool ok = WriteFile(h, body.data(), static_cast<DWORD>(body.size()), &done, nullptr) && done == body.size();
+    CloseHandle(h);
+    return ok;
+}
+
 class App {
 public:
     bool Create(HINSTANCE instance) {

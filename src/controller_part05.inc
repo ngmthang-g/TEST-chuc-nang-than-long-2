@@ -10,7 +10,7 @@
                 if (s.autoPathing) SetText(status_, L"AUTO TRỊ LIỆU: ĐANG AUTOPATH TỚI NPC");
                 return;
             }
-            Spot npcTarget{L"Đỗ Thanh Đằng", kHealMapID, kHealX, kHealY};
+            Spot npcTarget = healTarget_;
             SendDecision(a, npcTarget);
             return;
         }
@@ -119,6 +119,7 @@
                 switch (LOWORD(wp)) {
                     case IDC_SCAN: ScanClients(); break;
                     case IDC_SAVE_SPOT: SaveCurrentSpot(); break;
+                    case IDC_CAPTURE_HEAL: CaptureHealTarget(); break;
                     case IDC_DELETE_SPOT: DeleteSpot(); break;
                     case IDC_START: StartRoute(); break;
                     case IDC_AUTO_HEAL: StartAutoHeal(); break;
@@ -144,6 +145,8 @@
     BridgeClient bridge_;
     bool running_ = false;
     bool healRunning_ = false;
+    Spot healTarget_{};
+    bool healTargetReady_ = false;
     Phase healPhase_ = Phase::Idle;
     DWORD healPhaseTick_ = 0;
     int healNpcRetries_ = 0;
@@ -155,4 +158,3 @@
 };
 
 } // namespace
-
