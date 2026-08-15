@@ -4,165 +4,168 @@
 Repo test độc lập cho các cơ chế Thần Long Mobile. Chức năng chỉ được mang sang tool chính sau khi runtime test ổn định. Mỗi version phải kế thừa cả source lẫn tri thức kỹ thuật.
 
 ## Current Version
-v1.1.4-test — semantic dynamic-GameDialog selection path. BUILD PASS; RUNTIME NEEDS USER TEST.
+v1.1.5-test — dual-map healer NPC isolation test. BUILD đang chờ CI cho source sạch hiện tại; RUNTIME NEEDS USER TEST.
 
 ## Current Status
-- BUILD PASS: GitHub Actions run `31906609147`.
-- Route FSM: 8/8 PASS.
-- Heal FSM: 7/7 PASS.
-- Bridge DLL compile + PE verification: PASS.
-- Controller EXE compile: PASS.
-- RUNTIME PARTIAL PASS: AutoPath tới target runtime + xuống ngựa + `ClickNPC(339)` mở đúng NPC/GameDialog.
-- RUNTIME FAIL: v1.1.0–v1.1.2 không tiến qua `Trị liệu` bằng `UIButton.HandleClickEvent()`.
-- RUNTIME FAIL: v1.1.3 dùng `GameDialog.FunctionButtonClicked(liveButton)` qua `MonoBehaviourExecutor.ExecuteUIObject` nhưng user vẫn chỉ thấy UI nháy và không sang bước xác nhận.
-- v1.1.4 chuyển sang semantic request đã VERIFIED từ canonical client KB: đọc runtime `selectionID` từ `UIButton.Tag`, gửi `CMD_SHOW_GAMEDIALOG=100007` với `selectionID:selectedItemID`.
+- RUNTIME PARTIAL PASS: runtime coordinate capture + AutoPath + xuống ngựa + `ClickNPC(339)` mở đúng Đỗ Thanh Đằng/GameDialog ở Lâu Lan.
+- RUNTIME FAIL: v1.1.0–v1.1.2 `UIButton.HandleClickEvent()` không qua `Trị liệu`; UI nháy.
+- RUNTIME FAIL: v1.1.3 `ExecuteUIObject(GameDialog.FunctionButtonClicked)` vẫn nháy, không qua Treatment.
+- RUNTIME FAIL: v1.1.4 semantic `selectionID` + `CMD_SHOW_GAMEDIALOG=100007` trên NPC 339/Lâu Lan theo user report vẫn chỉ nháy, chưa qua Treatment.
+- v1.1.5 giữ nguyên action layer v1.1.4 và đổi biến test NPC/map: captured Map 3 -> Long Phá Thiên 463; captured Map 5 -> Đỗ Thanh Đằng 339.
 
 ## Canonical Knowledge Source
-Trước khi sửa feature phải đọc repo `ngmthang-g/clinent-game-than-long-DATA-2222` theo `AI_INDEX.md`. Với UI/auto flow ưu tiên:
-`Lua source -> Config/Layout semantic data -> exact handler/payload -> native reverse only if exact information is still missing`.
+Bắt buộc đọc `ngmthang-g/clinent-game-than-long-DATA-2222/AI_INDEX.md`, `research/VERIFIED.md` và database/feature đúng task trước khi nghiên cứu. Với UI/auto flow ưu tiên:
+`Lua source -> Config/Layout semantic data -> exact handler/payload -> targeted native reverse only if exact fact still missing`.
 Không broad reverse lại client.
 
 ## Architecture
 `Controller -> shared command -> WH_GETMESSAGE callback đúng target game thread -> metadata-driven IL2CPP bridge -> semantic game action -> observer/state machine`.
 
-Auto-heal intended flow v1.1.4:
-`ReadState -> route target -> ClickNPC(339) -> inspect live GameDialog -> match text Trị liệu -> read live button.Tag(selectionID) -> Network.SendPacket(100007, "selectionID:-1") -> wait real confirmation -> confirm -> wait Ta biết rồi -> read new Tag -> SendPacket(100007, "selectionID:-1") -> DONE`.
+v1.1.5 auto-heal flow:
+`capture raw MapID/X/Y -> choose NPC by captured map -> route -> ClickNPC(npcID) -> inspect live GameDialog -> read live selectionID -> send verified semantic request -> wait next real UI/state`.
 
 ## Confirmed Technical Facts
-- CONFIRMED Config: Đỗ Thanh Đằng uses NPC/ResID `339`; Lâu Lan MapID `5`.
-- CONFIRMED RUNTIME: `ClickNPC(339)` opens the intended NPC dialog.
-- CONFIRMED: NPC coordinates must not be inferred/hardcoded; user captures raw runtime MapID/X/Y into `ThanLongAutoHeal.target.tsv`.
-- CONFIRMED canonical KB: dynamic `GameDialog` receives `Selections[selectionID] = visibleText`.
-- CONFIRMED canonical KB: generated GameDialog button stores `selectionID` in `Tag`.
-- CONFIRMED Lua source: GameDialog business selection sends `CMD_SHOW_GAMEDIALOG = 100007` payload `selectionID:SelectedItemID`.
-- CONFIRMED Lua source: ordinary function choice has default `SelectedItemID = -1` when no award-item selection is required.
-- CONFIRMED: `LuaSystemAPI_Network.SendPacket(packetID,data)` is outbound Lua network bridge to `LuaSystemManager.SendPacketToServer`.
-- CONFIRMED asset: `MessageBox` has `ButtonOKClicked()` and stores semantic OK/Cancel callbacks.
-- CONFIRMED BUILD: v1.1.4 architecture audit, Route FSM, Heal FSM, DLL, PE verification and EXE all pass.
-- CONFIRMED RULE: build success is not runtime success.
+- CONFIRMED STATIC: Đỗ Thanh Đằng = NPC/ResID `339`, MapID `5` Lâu Lan.
+- CONFIRMED STATIC: Long Phá Thiên = NPC/ResID `463`, `ResName=PuTongXiaShi2`, MapID `3` Lạc Dương.
+- CONFIRMED RUNTIME: `ClickNPC(339)` opens intended Lâu Lan NPC dialog.
+- CONFIRMED: NPC X/Y must not be inferred/hardcoded; user captures raw runtime MapID/X/Y into `ThanLongAutoHeal.target.tsv`.
+- CONFIRMED canonical KB: dynamic `GameDialog` has `Selections[selectionID] = visibleText`; generated button stores selectionID in `Tag`.
+- CONFIRMED Lua source: GameDialog selection sends `CMD_SHOW_GAMEDIALOG = 100007` payload `selectionID:SelectedItemID`; ordinary no-award choice defaults `SelectedItemID=-1`.
+- CONFIRMED: `LuaSystemAPI_Network.SendPacket(packetID,data)` is outbound Lua network bridge.
+- CONFIRMED asset: `MessageBox` stores semantic OK/Cancel callbacks and has `ButtonOKClicked()`.
+- CONFIRMED RULE: BUILD PASS != RUNTIME PASS.
+
+## Important IDs / Maps
+- `339` = Đỗ Thanh Đằng = Map `5` Lâu Lan.
+- `463` = Long Phá Thiên = Map `3` Lạc Dương.
+- `CMD_SHOW_GAMEDIALOG = 100007`.
+
+## Confidence / Hypotheses
+- CONFIRMED STATIC: identity/map of NPC 463.
+- HYPOTHESIS: Long Phá Thiên 463 provides the same `Trị liệu` service. Canonical `NPC_SERVICE_CANDIDATES.md` does not classify 463 in LangZhong/MingYi healer families. Do not call it a verified healer until runtime proves it.
+- HYPOTHESIS under test: failure may be specific to NPC 339/Lâu Lan rather than shared action layer.
 
 ## Important Files
-- `src/bridge_part03.inc` — Lua UI discovery/tree traversal.
-- `src/bridge_part04.inc` — historical v1.1.3 GameDialog/MessageBox callback path and UI inspect.
-- `src/bridge_heal_packet_v1_1_4.inc` — current semantic selectionID + packet implementation.
-- `src/bridge.cpp` — selects v1.1.4 implementation while retaining v1.1.3 under legacy name for MessageBox fallback.
-- `src/controller_part04.inc` — runtime heal FSM orchestration.
-- `src/heal_logic.h` — pure dialog FSM.
-- `src/protocol.h` — shared commands/snapshot.
-- `CHANGELOG.md` — short version history.
-- `VERSION_v1.1.4.md` — current version test record.
-- `docs/HANDOFF_v1.1.4_AUTO_TRI_LIEU.md` — current handoff.
-
-## Important Methods / APIs
-- `LuaSystemAPI_Game.ClickNPC(Int32)` — working runtime NPC interaction.
-- `LuaSystemAPI_GUI.FindUI/MainFindUI` — current UI discovery.
-- `UIButton.Tag` / `get_Tag` — v1.1.4 source for server-provided selectionID.
-- `LuaSystemAPI_Network.SendPacket(packetID,data)` — v1.1.4 semantic action.
-- `GameDialog.FunctionButtonClicked(uiButton)` — source evidence for payload semantics, but v1.1.3 runtime invocation path FAILED.
-- `MessageBox.ButtonOKClicked()` — semantic MessageBox confirmation path, runtime of this heal branch not yet confirmed.
-
-## Important IDs / Payloads
-- Heal NPC ResID: `339`.
-- MapID Lâu Lan: `5`.
-- `CMD_SHOW_GAMEDIALOG = 100007`.
-- GameDialog payload: `selectionID:SelectedItemID`.
-- Default no-award selected item: `-1`.
+- `src/controller_part04.inc` — v1.1.5 map->NPC selection and heal runtime FSM.
+- `src/controller_part05.inc` — continuation of runtime FSM/controller.
+- `src/controller.cpp` — clean includes only; legacy macro NPC override removed.
+- `src/bridge_heal_packet_v1_1_4.inc` — semantic selectionID packet implementation retained unchanged for isolation test.
+- `src/bridge_part03.inc` / `src/bridge_part04.inc` — UI discovery and historical callback path.
+- `src/heal_logic.h` — pure heal-dialog FSM.
+- `src/protocol.h` — shared command/snapshot protocol.
+- `VERSION_v1.1.5.md` — current version test design.
+- `CHANGELOG.md` — short history.
 
 ## Working Mechanisms
 - Runtime coordinate capture/persistence.
 - Clean Route AutoPath.
 - StopPath / dismount.
-- `ClickNPC(339)`.
-- Visible live GameDialog discovery by text.
-- v1.1.4 source/build path for reading live Tag and sending semantic packet.
+- `ClickNPC(339)` runtime opening in Lâu Lan.
+- Live GameDialog discovery by text.
+- Source/build path for semantic `selectionID` request.
 
 ## Failed / Unsafe Mechanisms
 
-### FAILED-001 — hardcoded/inferred coordinate scale
+### FAILED-001 — inferred coordinate scale
 **Attempt:** infer displayed 294:172 as 29400,17200.
-**Result:** wrong coordinate per user runtime test.
-**Lesson:** capture raw runtime MapID/X/Y; never infer display scale.
+**Result:** wrong coordinate.
+**Lesson:** raw runtime capture only.
 
 ### FAILED-002 — `UIButton.HandleClickEvent()` as Treatment business action
 **Versions:** v1.1.0–v1.1.2.
-**Attempt:** resolve live button by text and call generic UIButton click.
-**Result:** NPC opens but treatment does not advance; UI visibly flickers.
-**Lesson:** visual click reaction is not proof the semantic Lua/server action ran.
-**Retry Conditions:** only if a trace proves this exact call reaches same semantic request reliably.
+**Result:** UI flicker, no Treatment transition.
+**Lesson:** visual click is not semantic success.
+**Retry Conditions:** only after trace proves it reaches same business request.
 
 ### FAILED-003 — UI resolver-only fix
 **Version:** v1.1.2.
-**Attempt:** `FindUI -> MainFindUI -> executor` fallback.
-**Result:** build PASS, runtime still fails Treatment.
+**Result:** UI discovery improved/build PASS, Treatment still FAIL.
 **Lesson:** discovery alone was not root cause.
 
 ### FAILED-004 — `ExecuteUIObject(GameDialog.FunctionButtonClicked(liveButton))`
 **Version:** v1.1.3.
-**Reason tried:** exact Lua source showed this callback constructs correct GameDialog request.
-**Result:** BUILD PASS, runtime user test still only produces same UI flicker and no transition to confirmation.
-**Failure Cause:** not fully proven. The `ExecuteUIObject` invocation/action bridge is not trusted as semantic success on this runtime even when UI reacts.
-**Lesson:** use the callback source as documentation of the real packet, not necessarily as the action entry point.
-**Retry Conditions:** only after targeted runtime trace proves the executor call signature/receiver/args and callback execution end-to-end.
+**Result:** same flicker, no Treatment transition.
+**Lesson:** callback source is useful documentation of semantic request; current executor invocation is not authoritative runtime success.
+
+### FAILED-005 — v1.1.4 semantic packet on NPC 339/Lâu Lan
+**Attempt:** resolve live treatment button, read `Tag=selectionID`, send source-verified `CMD_SHOW_GAMEDIALOG 100007` payload `selectionID:-1`.
+**Result:** user reports same screen/dialog flicker and no progression.
+**Failure Cause:** NOT CONFIRMED. Could be NPC/server-dialog-specific, wrong runtime data exposure, lifecycle issue, or action path despite source-correct payload.
+**Lesson:** do not immediately rewrite action layer again; isolate NPC/map variable first.
+**Retry Conditions:** after A/B test with NPC 463 or targeted trace of actual manual Treatment request.
+
+### DEPRECATED IMPLEMENTATION — macro NPC override hotfix
+An intermediate v1.1.5 draft modified `src/controller.cpp` with preprocessor overrides for `kHealNpcID`/target loading. It was removed before current handoff because it was brittle and risked recursive macro behavior. Current mapping is explicit in `controller_part04.inc`.
 
 ## Architectural Rules
-- Read canonical `AI_INDEX.md` + VERIFIED/database before investigation.
-- Do not broad reverse binary if exact information already exists in KB.
-- Only perform targeted binary/metadata analysis when exact needed fact is absent from VERIFIED/database.
-- No screen-coordinate mouse click for internal feature.
-- No stale UI pointer across transition.
-- Do not invent fixed treatment selectionID; always obtain active runtime selectionID.
-- Do not invent packet payloads; only use Lua-source VERIFIED payloads.
-- Do not Sleep on game callback thread to prove readiness.
-- One mutable action at a time; advance FSM only after concrete state evidence.
+- Read uploaded Knowledge Protocol + project KB before code changes.
+- Read canonical client `AI_INDEX.md` + VERIFIED/database before reverse.
+- No broad binary reverse when exact fact exists in docs/database.
+- Only targeted binary/metadata analysis for exact missing facts.
+- No hardcoded NPC X/Y.
+- No fixed/guessed Treatment selectionID.
+- No guessed packet payload.
+- No stale UI pointer across UI transition.
+- No `Sleep` on game callback thread as readiness proof.
+- One mutable action at a time; advance on concrete state evidence.
 - BUILD PASS != RUNTIME PASS.
-- Preserve failed attempts and corrections.
+- Preserve failed attempts/corrections.
 
 ## Known Bugs / Limitations
-- Full auto-heal chain has not yet achieved runtime PASS.
-- v1.1.4 treatment packet path needs runtime validation.
-- Confirmation type for this server instance is not yet runtime-proven; may be MessageBox or dynamic GameDialog.
-- Direct semantic packet does not fabricate/guess selectionID; if Tag cannot be read the feature fails closed.
+- Full auto-heal chain has not achieved runtime PASS.
+- Long Phá Thiên 463 healer service semantics are not yet runtime verified.
+- Confirmation branch after successful Treatment has not been runtime reached in current test series.
+- Existing saved target file does not store NPC ID; v1.1.5 intentionally derives NPC from captured MapID (3 or 5). Map other than 3/5 fails closed.
 
 ## Open Research Questions
-1. Runtime concrete type/value exposure of `UIButton.Tag` on current build (`Int32`, backing field, etc.). v1.1.4 supports metadata-driven getter/field variants and logs failure.
-2. Exact runtime signature of `LuaSystemAPI_Network.SendPacket`; v1.1.4 accepts exact `(Int32,String)` or `(UInt32,String)` and fails closed otherwise.
-3. After treatment packet, which UI/state is actual confirmation on this NPC/server?
-4. Whether local GameDialog lifecycle needs explicit close after direct semantic packet; only change this after runtime evidence.
+1. Does NPC 463/Map 3 expose a `Trị liệu` GameDialog and advance with the unchanged v1.1.4 semantic action?
+2. If 463 also fails identically, what exact outbound request occurs when user manually clicks `Trị liệu`?
+3. Does local GameDialog lifecycle need a separate semantic close/transition after direct request?
+4. What exact confirmation UI follows a successful Treatment on each NPC/server dialog?
 
 ## Next Development Priorities
-1. Runtime test v1.1.4 and capture log beginning at `ClickNPC(339)`.
-2. Expect log to expose either `selectionID`, exact SendPacket failure, or successful packet followed by next UI.
-3. If packet sends but no server transition, targeted trace only `LuaSystemAPI_Network.SendPacket`/outbound packet and active GameDialog data; do not broad reverse.
-4. Verify MessageBox/GameDialog confirmation branch only after Treatment transitions.
-5. Only port to main after repeated successful complete cycles without crash/disconnect.
+1. Build clean v1.1.5 source in GitHub Actions.
+2. User goes to Long Phá Thiên in Lạc Dương, presses `TỰ LẤY TỌA ĐỘ NPC`, confirms saved target MapID is 3.
+3. Run Auto trị liệu and capture log beginning at `AUTO TRỊ LIỆU START • NPC 463 Long Phá Thiên`.
+4. Compare runtime behavior with NPC 339/Lâu Lan.
+5. If both fail identically, stop changing NPCs and perform targeted trace of one legitimate manual Treatment action only.
 
 ---
 
 # VERSION HISTORY
 
 ## VERSION 1.1.0-test — 2026-08-16
-Initial auto-heal test using NPC 339, route, dynamic GameDialog inspect. Build/FSM passed; runtime not initially proven.
+Initial route/NPC/GameDialog auto-heal test using NPC 339.
 
 ## VERSION 1.1.1-test — 2026-08-16
-Removed inferred NPC coordinates. Added `TỰ LẤY TỌA ĐỘ NPC` and persistence. Runtime later proved route sufficient to reach/open NPC.
+Removed inferred X/Y; added user runtime coordinate capture/persistence.
 
 ## VERSION 1.1.2-test — 2026-08-16
-User reported NPC opens but Treatment does not. Changed UI root discovery order. Build PASS; runtime still FAIL at Treatment.
+UI resolver adjustment. Route/NPC open PARTIAL PASS; Treatment FAIL.
 
 ## VERSION 1.1.3-test — 2026-08-16
-Changed GameDialog action from generic UIButton click to `GameDialog.FunctionButtonClicked(liveButton)` via `MonoBehaviourExecutor.ExecuteUIObject`; MessageBox uses `ButtonOKClicked`. Build PASS (Route 8/8, Heal 7/7). User runtime test: still same flicker, no Treatment transition. Mark executor GameDialog path FAILED.
+Exact Lua callback through ExecuteUIObject. Build PASS; runtime Treatment FAIL with same flicker.
 
 ## VERSION 1.1.4-test — 2026-08-16
-### User Request / Runtime Evidence
-v1.1.3 still only flickers; user explicitly requires reading canonical `AI_INDEX.md` + knowledge base and forbids broad re-reverse.
+Semantic dynamic GameDialog request using live `selectionID` + verified packet/payload. Build PASS. Runtime on NPC 339/Lâu Lan reported FAIL with same flicker.
+
+## VERSION 1.1.5-test — 2026-08-16
+### User Requests
+Force-read MD/knowledge; suspect Lâu Lan NPC; add Long Phá Thiên Lạc Dương while keeping user-captured coordinates.
+### Initial State
+v1.1.4 NPC 339 still flickers/fails at Treatment.
 ### Investigation
-Canonical `features/AUTO_HEAL_NPC.md` and `analysis/11_EXACT_INTERNAL_ACTION_FLOWS.md` state the stable semantic unit is active GameDialog `selectionID`, not transient click behavior.
+Canonical NPC database directly confirms Long Phá Thiên = 463, MapID 3 Lạc Dương; no binary reverse required. NPC_SERVICE_CANDIDATES does not verify 463 as healer.
 ### Solution
-Resolve live button by visible text, read `Tag=selectionID`, send `CMD_SHOW_GAMEDIALOG 100007` payload `selectionID:-1` through `LuaSystemAPI_Network.SendPacket`.
+Keep action layer unchanged. Select NPC from captured target map: Map3->463, Map5->339; other maps fail closed.
+### Files Changed
+`src/controller.cpp`, `src/controller_part04.inc`, `src/controller_part05.inc`, `build.cmd`, `.github/workflows/build.yml`, `VERSION_v1.1.5.md`, `CHANGELOG.md`, `PROJECT_KNOWLEDGE.md`.
 ### Data Sources
-Canonical client `AI_INDEX.md`, Phase2 decrypted Lua docs, VERIFIED findings, `AUTO_HEAL_NPC.md`, exact action flow, packet/API databases, current runtime user test.
+Uploaded AI Project Knowledge Protocol; project KB; canonical `AI_INDEX.md`; `database/npcs/NPCS_0401_0600.csv`; `NPC_SERVICE_CANDIDATES.md`.
 ### Test Results
-BUILD PASS in GitHub Actions run `31906609147`; Route 8/8; Heal 7/7; DLL/PE/EXE PASS; artifact generated. RUNTIME NEEDS USER TEST.
+BUILD pending for current clean source; RUNTIME NEEDS USER TEST.
+### Recommended Next Step
+Fresh coordinate capture next to Long Phá Thiên in Lạc Dương, then runtime A/B test.
 
 ---
 
@@ -174,26 +177,28 @@ BUILD PASS in GitHub Actions run `31906609147`; Route 8/8; Heal 7/7; DLL/PE/EXE 
 
 ## DECISION-002
 **Status:** SUPERSEDED by DECISION-004
-**Decision:** Prefer `GameDialog.FunctionButtonClicked(liveButton)` over generic UIButton click.
-**Reason superseded:** v1.1.3 runtime still fails through executor invocation despite source-correct callback semantics.
+**Decision:** Prefer exact GameDialog Lua callback over generic UIButton click.
 
 ## DECISION-003
 **Status:** ACTIVE
-**Decision:** Never solve UI readiness by sleeping on the game callback thread; gate state across observations/ticks.
+**Decision:** Never solve UI readiness by sleeping on game callback thread; gate across observations/ticks.
 
 ## DECISION-004
-**Date:** 2026-08-16
 **Status:** ACTIVE
-**Decision:** For dynamic GameDialog choices, treat live `selectionID` + VERIFIED `CMD_SHOW_GAMEDIALOG` payload as the authoritative semantic action. UI button is used only to locate/read the active selectionID.
-**Context:** generic UIButton click and ExecuteUIObject callback both produce visual flicker without runtime business transition.
-**Alternatives Considered:** more delays; retry HandleClickEvent; retry same ExecuteUIObject callback.
-**Why Rejected:** they repeat failed action layers and do not use the canonical source-verified semantic request.
-**Consequences:** future code must never hardcode healer selectionID and must fail closed if active selectionID cannot be obtained.
+**Decision:** For dynamic GameDialog, use live server-provided selection semantics and source-verified packet/payload rather than guessed button behavior.
 
 ## DECISION-005
+**Status:** ACTIVE
+**Decision:** Canonical client repo is read-first; native reverse is targeted-only for exact missing facts.
+
+## DECISION-006
 **Date:** 2026-08-16
 **Status:** ACTIVE
-**Decision:** Canonical client repo is read-first; binary analysis is targeted-only when exact required information is absent from VERIFIED/database.
+**Decision:** v1.1.5 isolates NPC/map without changing v1.1.4 action layer. Captured MapID selects the test NPC (3->463, 5->339).
+**Context:** v1.1.4 still fails on 339/Lâu Lan and user suspects NPC-specific issue.
+**Alternatives Considered:** rewrite packet/action again; hardcode Long Phá Thiên coordinates; replace 339 globally.
+**Why Rejected:** those alter multiple variables or violate runtime-coordinate rule.
+**Consequences:** v1.1.5 is an A/B test. Runtime results determine whether NPC-specific investigation is justified.
 
 ---
 
@@ -201,12 +206,17 @@ BUILD PASS in GitHub Actions run `31906609147`; Route 8/8; Heal 7/7; DLL/PE/EXE 
 
 ## CORRECTION-001
 **Old Knowledge:** live UIButton `HandleClickEvent()` could be sufficient for Treatment.
-**New Finding:** runtime v1.1.2 proves it is not sufficient for this flow.
+**New Finding:** runtime disproved it.
 **Status:** DEPRECATED/FAILED.
 
 ## CORRECTION-002
-**Old Knowledge:** source-correct `GameDialog.FunctionButtonClicked(liveButton)` invoked through current `ExecuteUIObject` bridge was the likely complete fix.
-**New Finding:** runtime v1.1.3 still only flickers and does not advance.
-**Evidence:** user runtime observation after v1.1.3 artifact.
-**Affected Versions:** v1.1.3.
-**Impact:** callback source remains valuable to derive exact packet semantics, but executor invocation is no longer treated as authoritative action success. v1.1.4 sends the verified semantic request directly.
+**Old Knowledge:** source-correct `FunctionButtonClicked` through current ExecuteUIObject bridge was likely complete fix.
+**New Finding:** runtime v1.1.3 still fails.
+**Status:** DEPRECATED as authoritative action path for this feature.
+
+## CORRECTION-003
+**Old Knowledge:** v1.1.4 semantic packet path was awaiting runtime test.
+**New Finding:** user reports v1.1.4 on NPC 339/Lâu Lan still only flickers and does not advance.
+**Evidence:** user runtime report immediately before v1.1.5 request.
+**Affected Version:** v1.1.4.
+**Impact:** mark runtime FAIL on 339/Lâu Lan; retain action layer only for controlled A/B test with 463/Lạc Dương.
