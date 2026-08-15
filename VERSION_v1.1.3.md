@@ -19,6 +19,15 @@
 ## Timing note
 Controller đang poll 500 ms. Vì vậy giả thuyết “quá nhanh” không được coi là root cause đã xác nhận. v1.1.3 thay action layer bằng callback Lua thật thay vì chỉ tăng delay.
 
+## Build Test
+GitHub Actions run `31905470360`:
+- Architecture audit: PASS.
+- Route FSM: 8/8 PASS.
+- Heal FSM: 7/7 PASS.
+- Bridge DLL compile + PE verification: PASS.
+- Controller EXE compile: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.3`.
+
 ## Status
-- BUILD: pending CI khi file này được tạo.
+- BUILD: PASS.
 - RUNTIME: NEEDS USER TEST.
