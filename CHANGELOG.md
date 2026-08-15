@@ -3,53 +3,43 @@
 ## v1.1.5-test
 
 ### Changed
-- Active Auto trị liệu test NPC switched from Đỗ Thanh Đằng `339` / Lâu Lan to Long Phá Thiên `463` / Lạc Dương.
-- Exact static source: canonical `database/npcs/NPCS_0401_0600.csv`.
-- Existing v1.1.4 semantic GameDialog packet path is intentionally unchanged so this is a one-variable NPC/map isolation test.
-- Previous saved heal target is not auto-loaded in this version; user must press `TỰ LẤY TỌA ĐỘ NPC` again beside Long Phá Thiên.
-- No NPC X/Y is hardcoded.
+- Added Long Phá Thiên `463` / Lạc Dương `MapID 3` as a second healer-NPC runtime test target.
+- Existing Đỗ Thanh Đằng `339` / Lâu Lan `MapID 5` remains available.
+- NPC is selected from the **captured target map**: Map 3 -> 463, Map 5 -> 339.
+- Coordinates remain raw runtime values captured by `TỰ LẤY TỌA ĐỘ NPC`; no NPC X/Y is hardcoded.
+- Removed an intermediate macro-override implementation from `controller.cpp`; mapping now lives cleanly in the heal controller logic.
+- v1.1.4 semantic GameDialog packet action is intentionally unchanged for A/B isolation.
 
 ### Confidence
-- CONFIRMED STATIC: NPC 463 = Long Phá Thiên, ResName `PuTongXiaShi2`, MapID 3 = Lạc Dương.
-- HYPOTHESIS: Long Phá Thiên exposes the desired `Trị liệu` service; canonical healer-family database does not currently classify 463 as LangZhong/MingYi.
-
-### Build Result
-- GitHub Actions run `31907554441`: PASS.
-- Build/self-test job: PASS.
-- Artifact upload: PASS.
-- Artifact: `ThanLongTestAutoHeal-v1.1.5`.
-- Artifact SHA256: `d81461b081dddb03941a5e93c3d4b1c01dd9f238fc12a97bc00993b92dbbf134`.
+- CONFIRMED STATIC: NPC 463 = Long Phá Thiên, `ResName=PuTongXiaShi2`, MapID 3 = Lạc Dương.
+- CONFIRMED STATIC: NPC 339 = Đỗ Thanh Đằng, MapID 5 = Lâu Lan.
+- HYPOTHESIS: NPC 463 exposes the same `Trị liệu` service. Canonical healer-family database does not classify 463 as LangZhong/MingYi, so runtime must prove it.
 
 ### Runtime Status
-- NEEDS USER TEST.
+- v1.1.4 on NPC 339/Lâu Lan: FAIL at Treatment; same screen/dialog flicker.
+- v1.1.5: NEEDS USER TEST on NPC 463/Lạc Dương.
 
 ## v1.1.4-test
 
 ### Changed
-- `Trị liệu` và `Ta biết rồi` không còn đi qua UIButton click hoặc `ExecuteUIObject` GameDialog callback.
-- Tool tìm đúng button sống theo text, đọc `UIButton.Tag` để lấy runtime `selectionID` do server cấp.
-- Gửi semantic request thật qua `LuaSystemAPI_Network.SendPacket`: packet `CMD_SHOW_GAMEDIALOG = 100007`, payload `selectionID:selectedItemID`, default no-award `selectedItemID = -1` theo Lua source.
+- `Trị liệu` and `Ta biết rồi` use live `UIButton.Tag` to obtain runtime `selectionID`.
+- Sends source-verified `CMD_SHOW_GAMEDIALOG = 100007` payload `selectionID:selectedItemID`; default no-award `selectedItemID=-1`.
 
 ### Build Result
 - GitHub Actions run `31906609147`: PASS.
 - Route FSM 8/8 PASS; Heal FSM 7/7 PASS; Windows bridge DLL + controller EXE PASS.
 
 ### Runtime Result
-- FAIL on Đỗ Thanh Đằng `339` / Lâu Lan: user reports the same visible dialog/screen flicker and no transition through `Trị liệu`.
-- Failure cause remains unproven; this result motivates v1.1.5 NPC/map isolation rather than another action-layer rewrite.
+- FAIL on Đỗ Thanh Đằng `339` / Lâu Lan: same visible flicker and no Treatment transition.
 
 ## v1.1.3-test
 
 ### Changed
-- Replaced Treatment/Ack `UIButton.HandleClickEvent()` with exact Lua `GameDialog.FunctionButtonClicked(liveButton)`.
+- Replaced Treatment/Ack `UIButton.HandleClickEvent()` with `GameDialog.FunctionButtonClicked(liveButton)` via `ExecuteUIObject`.
 - Confirmation calls `MessageBox.ButtonOKClicked()` when MessageBox is present.
-- Added managed `System.Object[]` bridge for `MonoBehaviourExecutor.ExecuteUIObject`.
-
-### Build Result
-- Architecture audit PASS; Route FSM 8/8 PASS; Heal FSM 7/7 PASS; Windows EXE + bridge DLL PASS.
 
 ### Runtime Result
-- FAIL at Treatment: same visual flicker and no transition to confirmation.
+- FAIL at Treatment: same visual flicker and no transition.
 
 ## v1.1.2-test
 
@@ -58,7 +48,7 @@
 
 ### Runtime Result
 - PARTIAL PASS: route + `ClickNPC(339)` opens correct NPC.
-- FAIL: Treatment choice still does not advance; dialog/button visibly flickers.
+- FAIL: Treatment choice does not advance.
 
 ## v1.1.1-test
 
