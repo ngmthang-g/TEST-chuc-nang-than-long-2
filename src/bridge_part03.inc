@@ -74,19 +74,44 @@ bool NormalizeUiRoot(Il2CppObject* candidate, Il2CppObject*& root, wchar_t* deta
     return true;
 }
 
-bool FindUiRootViaPublicApi(const Classes& c, const wchar_t* uiName, Il2CppObject*& root,
-                            wchar_t* detail, std::size_t cap) {
+bool TryFindUiRootPublicMethod(const Classes& c, const char* methodName, const wchar_t* uiName,
+                               Il2CppObject*& root, wchar_t* detail, std::size_t cap) {
     root = nullptr;
     if (!c.guiApi) return true;
-    const MethodInfo* find = ExactMethod(c.guiApi, "MainFindUI", 1, true, "System.String");
-    if (!find) find = ExactMethod(c.guiApi, "FindUI", 1, true, "System.String");
+    const MethodInfo* find = ExactMethod(c.guiApi, methodName, 1, true, "System.String");
     if (!find) return true;
     Il2CppString* name = NewString(uiName);
-    if (!name) return false;
+    if (!name) { SetText(detail, cap, L"Không tạo được tên Lua UI"); return false; }
     void* args[] = { name };
     Il2CppObject* candidate = nullptr;
     if (!InvokeObjectArgs(find, nullptr, args, candidate, detail, cap)) return false;
+    if (!candidate) return true;
     return NormalizeUiRoot(candidate, root, detail, cap);
+}
+
+bool FindUiRootViaPublicApi(const Classes& c, const wchar_t* uiName, Il2CppObject*& root,
+                            wchar_t* detail, std::size_t cap) {
+    root = nullptr;
+    wchar_t probe[160]{};
+
+    // Runtime v1.1.0: ClickNPC(339) mở GameDialog thật nhưng MainFindUI-first trả null.
+    // Thử registry Lua thường trước; chỉ fallback MainFindUI khi FindUI chưa trả root.
+    if (!TryFindUiRootPublicMethod(c, "FindUI", uiName, root, probe, _countof(probe))) {
+        SetText(detail, cap, probe); return false;
+    }
+    if (root) {
+        SetText(detail, cap, L"UI root qua FindUI: "); Append(detail, cap, uiName);
+        return true;
+    }
+
+    probe[0] = 0;
+    if (!TryFindUiRootPublicMethod(c, "MainFindUI", uiName, root, probe, _countof(probe))) {
+        SetText(detail, cap, probe); return false;
+    }
+    if (root) {
+        SetText(detail, cap, L"UI root qua MainFindUI fallback: "); Append(detail, cap, uiName);
+    }
+    return true;
 }
 
 bool FindUiRootViaExecutor(const Classes& c, const wchar_t* uiName, Il2CppObject*& root,
@@ -117,10 +142,23 @@ bool FindUiRootViaExecutor(const Classes& c, const wchar_t* uiName, Il2CppObject
 bool FindUiRoot(const Classes& c, const wchar_t* uiName, Il2CppObject*& root,
                 wchar_t* detail, std::size_t cap) {
     root = nullptr;
-    wchar_t ignored[128]{};
-    if (FindUiRootViaPublicApi(c, uiName, root, ignored, _countof(ignored)) && root) return true;
-    if (FindUiRootViaExecutor(c, uiName, root, detail, cap) && root) return true;
-    root = nullptr;
+    wchar_t publicDetail[192]{};
+    if (!FindUiRootViaPublicApi(c, uiName, root, publicDetail, _countof(publicDetail))) {
+        SetText(detail, cap, publicDetail); return false;
+    }
+    if (root) { SetText(detail, cap, publicDetail); return true; }
+
+    wchar_t executorDetail[192]{};
+    if (!FindUiRootViaExecutor(c, uiName, root, executorDetail, _countof(executorDetail))) {
+        SetText(detail, cap, executorDetail); return false;
+    }
+    if (root) {
+        SetText(detail, cap, L"UI root qua executor fallback: "); Append(detail, cap, uiName);
+        return true;
+    }
+
+    SetText(detail, cap, L"Chưa thấy UI qua FindUI -> MainFindUI -> executor: ");
+    Append(detail, cap, uiName);
     return true;
 }
 
