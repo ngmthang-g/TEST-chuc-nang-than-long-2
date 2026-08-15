@@ -39,6 +39,78 @@ bool FindButtonInUi(const Classes& c, const wchar_t* uiName, const wchar_t* butt
     return WalkForButton(root, buttonText, button, 0, detail, cap);
 }
 
+bool FindLuaUiObjectV113(const Classes& c, const wchar_t* uiName, Il2CppObject*& ui,
+                         wchar_t* detail, std::size_t cap) {
+    ui = nullptr;
+    if (!c.guiApi) { SetText(detail, cap, L"LuaSystemAPI_GUI chưa resolve"); return false; }
+    Il2CppString* name = NewString(uiName);
+    if (!name) { SetText(detail, cap, L"Không tạo được tên Lua UI"); return false; }
+    void* args[] = { name };
+
+    const MethodInfo* find = ExactMethod(c.guiApi, "FindUI", 1, true, "System.String");
+    if (find) {
+        wchar_t probe[128]{};
+        if (!InvokeObjectArgs(find, nullptr, args, ui, probe, _countof(probe))) {
+            SetText(detail, cap, probe); return false;
+        }
+        if (ui) return true;
+    }
+
+    const MethodInfo* mainFind = ExactMethod(c.guiApi, "MainFindUI", 1, true, "System.String");
+    if (mainFind) {
+        wchar_t probe[128]{};
+        if (!InvokeObjectArgs(mainFind, nullptr, args, ui, probe, _countof(probe))) {
+            SetText(detail, cap, probe); return false;
+        }
+        if (ui) return true;
+    }
+
+    SetText(detail, cap, L"Không tìm thấy Lua UI object: "); Append(detail, cap, uiName);
+    return true;
+}
+
+const MethodInfo* ResolveExecuteUiObjectV113(Il2CppClass* executorClass) {
+    if (!executorClass) return nullptr;
+    const MethodInfo* m = FindMethod(executorClass, "ExecuteUIObject", 3);
+    if (!m) m = FindMethod(executorClass, "ExecuteUiObject", 3);
+    if (!m || StaticMethod(m)) return nullptr;
+    return m;
+}
+
+bool InvokeLuaUiActionV113(const Classes& c, const wchar_t* uiName, const wchar_t* functionName,
+                           Il2CppObject* argument, bool hasArgument,
+                           wchar_t* detail, std::size_t cap) {
+    if (!c.executor) { SetText(detail, cap, L"MonoBehaviourExecutor chưa resolve"); return false; }
+
+    Il2CppObject* ui = nullptr;
+    if (!FindLuaUiObjectV113(c, uiName, ui, detail, cap) || !ui) return false;
+
+    const MethodInfo* getInstance = FindMethod(c.executor, "get_Instance", 0);
+    if (!getInstance || !StaticMethod(getInstance)) {
+        SetText(detail, cap, L"Không resolve MonoBehaviourExecutor.Instance"); return false;
+    }
+    Il2CppObject* executor = nullptr;
+    if (!InvokeObject(getInstance, nullptr, executor, detail, cap) || !executor) return false;
+
+    const MethodInfo* execute = ResolveExecuteUiObjectV113(c.executor);
+    if (!execute) {
+        SetText(detail, cap, L"Không resolve ExecuteUIObject/ExecuteUiObject(3 args)");
+        return false;
+    }
+
+    Il2CppString* function = NewString(functionName);
+    if (!function) { SetText(detail, cap, L"Không tạo được tên Lua function"); return false; }
+    Il2CppObject* luaArgs = nullptr;
+    if (!CreateObjectArrayV113(argument, hasArgument, luaArgs, detail, cap) || !luaArgs) return false;
+
+    void* args[] = { ui, function, luaArgs };
+    if (!InvokeVoid(execute, executor, args, detail, cap)) return false;
+
+    SetText(detail, cap, L"Đã gọi Lua action: "); Append(detail, cap, uiName);
+    Append(detail, cap, L"."); Append(detail, cap, functionName);
+    return true;
+}
+
 bool InspectHealDialog(Snapshot& s, wchar_t* detail, std::size_t cap) {
     Classes c{};
     if (!ResolveClasses(c, detail, cap)) return false;
@@ -72,25 +144,43 @@ bool ClickNpc(int npcID, wchar_t* detail, std::size_t cap) {
 
 bool ClickHealDialogChoice(HealDialogChoice choice, wchar_t* detail, std::size_t cap) {
     Classes c{}; if (!ResolveClasses(c, detail, cap) || !SafeForAction(c, detail, cap)) return false;
-    const wchar_t* uiName = L"GameDialog";
-    const wchar_t* label = nullptr;
-    if (choice == HealDialogChoice::Treatment) label = L"Trị liệu";
-    else if (choice == HealDialogChoice::Confirm) { uiName = L"MessageBox"; label = L"Xác nhận"; }
-    else if (choice == HealDialogChoice::Know) label = L"Ta biết rồi";
-    else { SetText(detail, cap, L"HealDialogChoice không hợp lệ"); return false; }
 
-    Il2CppObject* button = nullptr;
-    if (!FindButtonInUi(c, uiName, label, button, detail, cap)) return false;
-    if (!button && choice == HealDialogChoice::Confirm) {
+    if (choice == HealDialogChoice::Treatment || choice == HealDialogChoice::Know) {
+        const wchar_t* label = choice == HealDialogChoice::Treatment ? L"Trị liệu" : L"Ta biết rồi";
+        Il2CppObject* button = nullptr;
         if (!FindButtonInUi(c, L"GameDialog", label, button, detail, cap)) return false;
+        if (!button) { SetText(detail, cap, L"Chưa thấy GameDialog button sống: "); Append(detail, cap, label); return false; }
+        // Asset-confirmed business callback. Do NOT call UIButton.HandleClickEvent here:
+        // GameDialog.FunctionButtonClicked reads button.Tag, sends CMD_SHOW_GAMEDIALOG, then destroys dialog.
+        if (!InvokeLuaUiActionV113(c, L"GameDialog", L"FunctionButtonClicked",
+                                   button, true, detail, cap)) return false;
+        Append(detail, cap, L" • label="); Append(detail, cap, label);
+        return true;
     }
-    if (!button) { SetText(detail, cap, L"Chưa thấy button sống đúng bước; không click"); return false; }
-    Il2CppClass* bc = g_api.object_get_class(button);
-    const MethodInfo* click = bc ? FindMethod(bc, "HandleClickEvent", 0) : nullptr;
-    if (!click || StaticMethod(click)) { SetText(detail, cap, L"Button sống không có HandleClickEvent() hợp lệ"); return false; }
-    if (!InvokeVoid(click, button, nullptr, detail, cap)) return false;
-    SetText(detail, cap, L"Đã click button sống: "); Append(detail, cap, label);
-    return true;
+
+    if (choice == HealDialogChoice::Confirm) {
+        // Preferred asset-confirmed confirmation path.
+        Il2CppObject* messageBox = nullptr;
+        wchar_t probe[192]{};
+        if (!FindLuaUiObjectV113(c, L"MessageBox", messageBox, probe, _countof(probe))) {
+            SetText(detail, cap, probe); return false;
+        }
+        if (messageBox) {
+            return InvokeLuaUiActionV113(c, L"MessageBox", L"ButtonOKClicked",
+                                         nullptr, false, detail, cap);
+        }
+
+        // Conservative server-variant fallback: if confirm is another GameDialog choice,
+        // use the same exact GameDialog business callback rather than generic HandleClickEvent.
+        Il2CppObject* button = nullptr;
+        if (!FindButtonInUi(c, L"GameDialog", L"Xác nhận", button, detail, cap)) return false;
+        if (!button) { SetText(detail, cap, L"Chưa thấy MessageBox hoặc GameDialog Xác nhận"); return false; }
+        return InvokeLuaUiActionV113(c, L"GameDialog", L"FunctionButtonClicked",
+                                     button, true, detail, cap);
+    }
+
+    SetText(detail, cap, L"HealDialogChoice không hợp lệ");
+    return false;
 }
 
 bool ReadState(Snapshot& s, wchar_t* detail, std::size_t cap) {
