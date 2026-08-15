@@ -10,10 +10,10 @@ echo [1/8] Architecture audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
-  "$bridge=((Get-ChildItem 'src' -Filter 'bridge_part*.inc' | Sort-Object Name | ForEach-Object {Get-Content $_.FullName -Raw}) -join [Environment]::NewLine); foreach($x in @('SendToggleRideState','StartAutoPath','StopAutoPath','ClickNPC','InspectHealDialog','ClickHealDialogChoice','FindScriptUIRoots')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing required method/feature '+$x)}};" ^
-  "$fix=Get-Content 'src/bridge_ui_root_fix_v1_1_2.inc' -Raw; foreach($x in @('FindUI','MainFindUI','FindUiRootViaExecutor')){if($fix -notmatch [regex]::Escape($x)){throw ('UI root fix missing '+$x)}};" ^
+  "$bridge=((Get-ChildItem 'src' -Filter 'bridge_part*.inc' | Sort-Object Name | ForEach-Object {Get-Content $_.FullName -Raw}) -join [Environment]::NewLine); foreach($x in @('SendToggleRideState','StartAutoPath','StopAutoPath','ClickNPC','InspectHealDialog','ClickHealDialogChoice','FindScriptUIRoots','FunctionButtonClicked','ButtonOKClicked','ExecuteUIObject')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing required method/feature '+$x)}};" ^
+  "$lua=Get-Content 'src/bridge_lua_array.inc' -Raw; foreach($x in @('il2cpp_array_new','System.Object','CreateObjectArrayV113')){if($lua -notmatch [regex]::Escape($x)){throw ('Lua array helper missing '+$x)}};" ^
   "$proto=Get-Content 'src/protocol.h' -Raw; foreach($x in @('ReadState = 1','ToggleRide = 2','StartPath = 3','StopPath = 4','ClickNpc = 5','InspectHealDialog = 6','ClickHealDialogChoice = 7')){if($proto -notmatch [regex]::Escape($x)){throw ('Protocol missing '+$x)}};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: route + auto-heal + v1.1.2 UI-root resolver.'"
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.3 exact Lua auto-heal callbacks.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
@@ -48,7 +48,7 @@ echo [7/8] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.2.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.3.exe
 if errorlevel 1 exit /b 1
 
 echo [8/8] Done.
