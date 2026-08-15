@@ -1,0 +1,23 @@
+name: Build Windows test artifact
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Build and self-test
+        shell: cmd
+        run: build.cmd
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThanLongTestAutoHeal-v1.1.0
+          path: |
+            dist/ThanLongTestAutoHeal_v1.1.0.exe
+            dist/ThanLongCleanRouteBridge.dll
