@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## v1.1.3-test
+
+### Changed
+- Replaced Treatment/Ack `UIButton.HandleClickEvent()` with exact Lua `GameDialog.FunctionButtonClicked(liveButton)`.
+- Confirmation now calls exact Lua `MessageBox.ButtonOKClicked()` when MessageBox is present.
+- Added managed `System.Object[]` bridge for `MonoBehaviourExecutor.ExecuteUIObject`.
+- Kept GameDialog-confirm fallback through the same exact Lua callback.
+
+### Build Result
+- Architecture audit PASS.
+- Route FSM 8/8 PASS.
+- Heal FSM 7/7 PASS.
+- Windows EXE + bridge DLL PASS.
+
+### Runtime Status
+- NEEDS USER TEST.
+
 ## v1.1.2-test
 
 ### Fixed
