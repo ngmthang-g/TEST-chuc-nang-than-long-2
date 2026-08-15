@@ -5,10 +5,28 @@
         Log(L"BẮT ĐẦU • mục tiêu " + target.name + L" • Map " + std::to_wstring(target.mapID) + L" • " + std::to_wstring(target.x) + L"," + std::to_wstring(target.y));
     }
 
+    int HealNpcIdForCapturedMap() const {
+        if (healTarget_.mapID == 3) return 463; // Long Phá Thiên — Lạc Dương
+        if (healTarget_.mapID == 5) return 339; // Đỗ Thanh Đằng — Lâu Lan
+        return 0;
+    }
+
+    const wchar_t* HealNpcNameForCapturedMap() const {
+        if (healTarget_.mapID == 3) return L"Long Phá Thiên";
+        if (healTarget_.mapID == 5) return L"Đỗ Thanh Đằng";
+        return L"NPC không hỗ trợ";
+    }
+
     void StartAutoHeal() {
         if (!healTargetReady_) {
-            Log(L"AUTO TRỊ LIỆU CHƯA CHẠY: chưa có tọa độ NPC. Đứng tại Đỗ Thanh Đằng rồi bấm TỰ LẤY TỌA ĐỘ NPC trước.");
+            Log(L"AUTO TRỊ LIỆU CHƯA CHẠY: chưa có tọa độ NPC. Đứng tại NPC cần test rồi bấm TỰ LẤY TỌA ĐỘ NPC trước.");
             SetText(status_, L"AUTO TRỊ LIỆU: CHƯA CÓ TỌA ĐỘ NPC");
+            return;
+        }
+        const int npcID = HealNpcIdForCapturedMap();
+        if (npcID == 0) {
+            Log(L"AUTO TRỊ LIỆU CHƯA CHẠY: target đã tự lấy không thuộc Map 3 Lạc Dương hoặc Map 5 Lâu Lan; không đoán NPC.");
+            SetText(status_, L"AUTO TRỊ LIỆU: MAP NPC KHÔNG HỖ TRỢ");
             return;
         }
         std::wstring error;
@@ -23,10 +41,10 @@
         lastActionTick_ = 0;
         lastAction_ = Action::Wait;
         qualifiedMap_ = 0; candidateMap_ = 0; candidateCount_ = 0;
-        SetText(status_, L"AUTO TRỊ LIỆU: ĐANG TỚI ĐỖ THANH ĐẰNG");
-        Log(L"AUTO TRỊ LIỆU START • NPC 339 Đỗ Thanh Đằng • tọa độ tự lấy Map " +
-            std::to_wstring(healTarget_.mapID) + L" • " + std::to_wstring(healTarget_.x) + L"," +
-            std::to_wstring(healTarget_.y));
+        SetText(status_, std::wstring(L"AUTO TRỊ LIỆU: ĐANG TỚI ") + HealNpcNameForCapturedMap());
+        Log(L"AUTO TRỊ LIỆU START • NPC " + std::to_wstring(npcID) + L" " + HealNpcNameForCapturedMap() +
+            L" • tọa độ tự lấy Map " + std::to_wstring(healTarget_.mapID) + L" • " +
+            std::to_wstring(healTarget_.x) + L"," + std::to_wstring(healTarget_.y));
     }
 
     void HealFail(const std::wstring& reason) {
@@ -82,7 +100,9 @@
             SetText(status_, L"AUTO TRỊ LIỆU: CHỜ DIALOG TRỊ LIỆU");
             if (elapsed >= 4000 && healNpcRetries_ < 2) {
                 ++healNpcRetries_;
-                if (SendHealBridge(Command::ClickNpc, kHealNpcID, L"AUTO TRỊ LIỆU: THỬ MỞ LẠI NPC"))
+                const int npcID = HealNpcIdForCapturedMap();
+                if (npcID == 0) { HealFail(L"Mất mapping NPC theo map target"); return; }
+                if (SendHealBridge(Command::ClickNpc, npcID, L"AUTO TRỊ LIỆU: THỬ MỞ LẠI NPC"))
                     healPhaseTick_ = now;
                 return;
             }
@@ -138,5 +158,7 @@
                 }
                 ++healOpenNpcAttempts_;
                 healOpenNpcAttemptTick_ = now;
-                if (!SendHealBridge(Command::ClickNpc, kHealNpcID, L"AUTO TRỊ LIỆU: ĐÃ GỌI NPC • CHỜ TRỊ LIỆU")) {
+                const int npcID = HealNpcIdForCapturedMap();
+                if (npcID == 0) { HealFail(L"Mất mapping NPC theo map target"); return; }
+                if (!SendHealBridge(Command::ClickNpc, npcID, L"AUTO TRỊ LIỆU: ĐÃ GỌI NPC • CHỜ TRỊ LIỆU")) {
                     if (healOpenNpcAttempts_ >= 3)
