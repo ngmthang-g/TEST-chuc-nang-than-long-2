@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## v1.1.5-test
+
+### Changed
+- Active Auto trị liệu test NPC switched from Đỗ Thanh Đằng `339` / Lâu Lan to Long Phá Thiên `463` / Lạc Dương.
+- Exact static source: canonical `database/npcs/NPCS_0401_0600.csv`.
+- Existing v1.1.4 semantic GameDialog packet path is intentionally unchanged so this is a one-variable NPC/map isolation test.
+- Previous saved heal target is not auto-loaded in this version; user must press `TỰ LẤY TỌA ĐỘ NPC` again beside Long Phá Thiên.
+- No NPC X/Y is hardcoded.
+
+### Confidence
+- CONFIRMED STATIC: NPC 463 = Long Phá Thiên, ResName `PuTongXiaShi2`, MapID 3 = Lạc Dương.
+- HYPOTHESIS: Long Phá Thiên exposes the desired Trị liệu service; canonical healer-family database does not currently classify 463 as LangZhong/MingYi.
+
+### Build Result
+- PENDING GitHub Actions.
+
+### Runtime Status
+- NEEDS USER TEST.
+
 ## v1.1.4-test
 
 ### Changed
