@@ -12,6 +12,8 @@ bool ClickHealDialogChoice(cleanroute::HealDialogChoice choice, wchar_t* detail,
 #define ClickHealDialogChoice ClickHealDialogChoiceV113
 #include "bridge_part04.inc"
 #undef ClickHealDialogChoice
+[[maybe_unused]] bool (*const kLegacyHealChoiceV113)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
+    &ClickHealDialogChoiceV113;
 #include "bridge_part05.inc"
 #include "bridge_part06.inc"
 // v1.1.4 semantic packet helper remains in source/history but is intentionally
