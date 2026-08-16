@@ -6,8 +6,8 @@
     }
 
     int HealNpcIdForCapturedMap() const {
-        if (healTarget_.mapID == 3) return 463; // Long Phá Thiên — Lạc Dương
-        if (healTarget_.mapID == 5) return 339; // Đỗ Thanh Đằng — Lâu Lan
+        if (healTarget_.mapID == 3) return 463;
+        if (healTarget_.mapID == 5) return 339;
         return 0;
     }
 
@@ -99,6 +99,7 @@
         if (healPhase_ == Phase::WaitTreatment) {
             if ((ui.healDialogMask & HealDialogPresent) != 0) {
                 SetText(status_, L"AUTO TRỊ LIỆU: DIALOG ĐÃ MỞ • CHỜ NHẬN DIỆN TRỊ LIỆU");
+                if (ui.healDialogDetail[0]) Log(ui.healDialogDetail);
                 if (elapsed >= 15000) {
                     HealFail(L"GameDialog đã mở nhưng 15 giây vẫn không resolve được lựa chọn Trị liệu; không mở lại NPC");
                 }
