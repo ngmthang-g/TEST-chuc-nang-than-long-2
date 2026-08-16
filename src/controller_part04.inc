@@ -97,6 +97,13 @@
         DWORD now = GetTickCount();
         const DWORD elapsed = now - healPhaseTick_;
         if (healPhase_ == Phase::WaitTreatment) {
+            if ((ui.healDialogMask & HealDialogPresent) != 0) {
+                SetText(status_, L"AUTO TRỊ LIỆU: DIALOG ĐÃ MỞ • CHỜ NHẬN DIỆN TRỊ LIỆU");
+                if (elapsed >= 15000) {
+                    HealFail(L"GameDialog đã mở nhưng 15 giây vẫn không resolve được lựa chọn Trị liệu; không mở lại NPC");
+                }
+                return;
+            }
             SetText(status_, L"AUTO TRỊ LIỆU: CHỜ DIALOG TRỊ LIỆU");
             if (elapsed >= 4000 && healNpcRetries_ < 2) {
                 ++healNpcRetries_;
@@ -106,7 +113,7 @@
                     healPhaseTick_ = now;
                 return;
             }
-            if (elapsed >= 15000) { HealFail(L"Quá hạn chờ lựa chọn Trị liệu"); return; }
+            if (elapsed >= 15000) { HealFail(L"Quá hạn chờ GameDialog Trị liệu xuất hiện"); return; }
         } else if (healPhase_ == Phase::WaitConfirm) {
             SetText(status_, L"AUTO TRỊ LIỆU: CHỜ XÁC NHẬN");
             if (elapsed >= 15000) { HealFail(L"Quá hạn chờ Xác nhận"); return; }
