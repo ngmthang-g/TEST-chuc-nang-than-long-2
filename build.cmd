@@ -10,13 +10,13 @@ echo [1/8] Architecture audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; if(-not(Test-Path 'AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md')){throw 'Missing mandatory V2 knowledge protocol'}; if(-not(Test-Path 'AI_CLIENT_ANALYSIS_RULES.txt')){throw 'Missing mandatory client analysis rules'}; if(-not(Test-Path 'AI_START_HERE.md')){throw 'Missing AI_START_HERE'}; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
-  "$lua=Get-Content 'src/bridge_lua_dialog_v1_1_9.inc' -Raw; foreach($x in @('RunLuaChunkV119','LuaSystemManager','DoString','Selections','ReadLuaDialogIdsV119','LUA_DIALOG_V119')){if($lua -notmatch [regex]::Escape($x)){throw ('v1.1.9 Lua dialog observer missing '+$x)}};" ^
-  "$action=Get-Content 'src/bridge_action_v1_1_9.inc' -Raw; foreach($x in @('SendGameDialogSelectionV119','kCmdShowGameDialog = 100007','SendCurrentLuaDialogSelectionV119','ACTION_V119','current Lua GameDialogData.Selections')){if($action -notmatch [regex]::Escape($x)){throw ('v1.1.9 semantic action missing '+$x)}};" ^
+  "$manager=Get-Content 'src/bridge_lua_manager_v1_1_10.inc' -Raw; foreach($x in @('ResolveLuaEnvV120','static LuaSystemManager.get_LuaEnv','ScanStaticReferencesV120','TryUnityObjectLookupV120','ReadLuaDialogIdsV120','LUA_MANAGER_V120','LUA_DIALOG_V120')){if($manager -notmatch [regex]::Escape($x)){throw ('v1.1.10 manager/dialog resolver missing '+$x)}};" ^
+  "$action=Get-Content 'src/bridge_action_v1_1_10.inc' -Raw; foreach($x in @('SendCurrentLuaDialogSelectionV120','ReadLuaDialogIdsV120','ACTION_V120','current Lua GameDialogData.Selections')){if($action -notmatch [regex]::Escape($x)){throw ('v1.1.10 semantic action missing '+$x)}};" ^
   "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('MainThread proof helper missing '+$x)}};" ^
-  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_lua_dialog_v1_1_9.inc','bridge_action_v1_1_9.inc','InspectHealDialogLegacyV118','ClickHealDialogChoiceV116')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.9 bridge wiring missing '+$x)}};" ^
-  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.9 controller guard missing '+$x)}}; if($heal -match 'healNpcRetries_\s*<'){throw 'WaitTreatment ClickNPC retry loop still active'}; if($heal -match 'THỬ MỞ LẠI NPC'){throw 'WaitTreatment reopen string still active'};" ^
-  "$protocol=Get-Content 'src/protocol.h' -Raw; if($protocol -notmatch '0x00010109u'){throw 'Protocol not bumped to v1.1.9'};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.9 reads live Lua GameDialogData.Selections; no UIRoot/UIButton dependency for Treatment.'"
+  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_lua_manager_v1_1_10.inc','bridge_action_v1_1_10.inc','InspectHealDialogLegacyV119','ClickHealDialogChoiceLegacyV119')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.10 bridge wiring missing '+$x)}};" ^
+  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.10 controller guard missing '+$x)}}; if($heal -match 'healNpcRetries_\s*<'){throw 'WaitTreatment ClickNPC retry loop still active'}; if($heal -match 'THỬ MỞ LẠI NPC'){throw 'WaitTreatment reopen string still active'};" ^
+  "$protocol=Get-Content 'src/protocol.h' -Raw; if($protocol -notmatch '0x00010110u'){throw 'Protocol not bumped to v1.1.10'};" ^
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.10 fixes LuaSystemManager/LuaEnv resolution without returning to UIRoot/UIButton.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
@@ -51,7 +51,7 @@ echo [7/8] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.9.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.10.exe
 if errorlevel 1 exit /b 1
 
 echo [8/8] Done.
