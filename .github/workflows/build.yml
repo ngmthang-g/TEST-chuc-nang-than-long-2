@@ -17,7 +17,14 @@ jobs:
       - name: Upload test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ThanLongTestAutoHeal-v1.1.10
+          name: ThanLongTestAutoHeal-v1.1.11
           path: |
-            dist/ThanLongTestAutoHeal_v1.1.10.exe
+            dist/ThanLongTestAutoHeal_v1.1.11.exe
             dist/ThanLongCleanRouteBridge.dll
+            dist/AI_PROJECT_HANDOFF_FULL.md
+            dist/AI_START_HERE.md
+            dist/AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md
+            dist/AI_CLIENT_ANALYSIS_RULES.txt
+            dist/PROJECT_KNOWLEDGE.md
+            dist/CHANGELOG.md
+            dist/BUILD_EVIDENCE.txt

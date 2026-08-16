@@ -1,77 +1,120 @@
 # VERSION v1.1.10-test — LuaSystemManager / LuaEnv resolver
 
-## Trigger
-User runtime-tested delivered v1.1.9 on 2026-08-16. The screenshot/log shows NPC 339 / Map 5 opens the dialog, then every live-selection probe fails at exactly:
+## A. Identity / Lineage
+- Version: v1.1.10-test
+- Date: 2026-08-16
+- Based On: v1.1.9-test
+- Reason Created: v1.1.9 runtime failed before LuaEnv at `LuaSystemManager instance unresolved`.
+- Last Known-Good full Auto Heal: NONE.
+- Superseded By: v1.1.11-test for the next confirmed failing layer.
+- Related BUG: BUG-001.
 
-`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`
+## B. User Request / Trigger
+User runtime-tested delivered v1.1.9. NPC 339 / Map 5 opened GameDialog, then every live-selection probe failed at:
+`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`.
 
-The status remains `DIALOG ĐÃ MỞ • CHỜ LIVE SELECTION TRỊ LIỆU`.
+v1.1.10 was created to correct only manager/LuaEnv resolution without touching route/NPC/no-reopen or the downstream current-Selections model.
 
-## What this proves
-- route/NPC-open path is still working;
-- v1.1.9 does not reach `LuaEnv.DoString`, `Selections`, Treatment ID, `MAINTHREAD_PROOF` action stage or packet send;
-- the new failure is narrower than v1.1.8: UIRoot was already abandoned, and now the exact failing stage is the assumed `LuaSystemManager` singleton resolution;
-- this runtime does **not** prove the Lua probe logic, packet action or server behavior is bad because none of those stages were reached.
+## C. State Before Modification
+Working/protected:
+- route/mount/AutoPath/dismount;
+- one semantic NPC open;
+- v1.1.8 anti-reopen behavior.
 
-## Source correction
-v1.1.9 `ResolveLuaEnvV119()` first required `ResolveLuaSystemManagerV119()` even though metadata only verifies `get_LuaEnv/set_LuaEnv`, not a canonical `get_Instance` contract. It then tried only `get_Instance` plus four guessed static field names.
+Broken:
+- v1.1.9 assumed it could obtain a LuaSystemManager instance via `get_Instance` or four guessed static field names before checking the LuaEnv getter.
 
-v1.1.10 changes only this boundary.
+Unknown before v1.1.10 runtime:
+- whether LuaEnv could be obtained;
+- whether DoString was present/callable;
+- current Treatment selection ID/action/server response.
 
-### New resolver order
-1. Resolve `LuaSystemManager` class semantically.
-2. Resolve `get_LuaEnv`.
-3. **If `get_LuaEnv` is static, invoke it directly** without requiring a manager instance.
-4. If an instance getter is required, try semantic `get_Instance` if present.
-5. Enumerate static **reference** fields on the manager hierarchy and a bounded set of known Lua bridge classes; read them only through `il2cpp_field_static_get_value`; accept a candidate only when its runtime class is `LuaSystemManager` or derives from it.
-6. If the manager is actually in the `UnityEngine.Object` hierarchy, try typed Unity lookups (`FindFirstObjectByType`, `FindAnyObjectByType`, legacy `FindObjectOfType`) using the real managed `System.Type`.
-7. If still unresolved, fail closed with `LUA_MANAGER_V120` diagnostics including static reference count/candidates and whether Unity lookup was applicable.
+## D. Investigation / Root Cause
+v1.1.9 source required manager instance first even though canonical client KB only verified `get_LuaEnv/set_LuaEnv`, not a stable singleton contract.
 
-No heap pointer guessing, broad scanning, UIRoot retry, hardcoded Treatment ID or NPC reopen was added.
+Root cause for v1.1.9 failure: **CONFIRMED overly narrow manager-instance resolution path**.
 
-## Active flow
-`one NPC open -> current GameDialog presence -> ResolveLuaEnvV120 -> DoString -> current GameDialogData.Selections -> semantic text match -> re-read current selection at action time -> exact CMD_SHOW_GAMEDIALOG request -> fresh state proof`.
+## E. Changes Made
+`src/bridge_lua_manager_v1_1_10.inc`:
+1. if `get_LuaEnv` is static, call it directly;
+2. otherwise try semantic `get_Instance` if exposed;
+3. enumerate bounded static reference fields using IL2CPP metadata and validate candidate runtime class;
+4. typed Unity object lookup only if the manager class hierarchy proves UnityEngine.Object ancestry;
+5. fail closed with `LUA_MANAGER_V120` diagnostics.
 
-Diagnostics:
-- `LUA_MANAGER_V120 ...`
-- `LUA_DIALOG_V120 ... route=... T=... C=... K=...`
-- `ACTION_V120 ...`
+`src/bridge_action_v1_1_10.inc` retained live current-ID action semantics and used V120 markers.
 
-## Canonical facts used
-- `LuaSystemManager` exposes `get_LuaEnv/set_LuaEnv`, but canonical KB does not claim a stable singleton getter/field name.
-- IL2CPP snapshot exports field/class reflection helpers used for metadata-driven bounded resolution.
-- GameDialog identity remains `Selections[selectionID]=visibleText`.
-- selection request remains `CMD_SHOW_GAMEDIALOG=100007`, payload `selectionID:SelectedItemID`.
+No heap pointer guessing, UIRoot retry, hardcoded Treatment ID or WaitTreatment NPC reopen was added.
 
-## Source/build
-Relevant v1.1.10 code:
+## F. Important Implementation Details
+Active v1.1.10 flow:
+`one NPC open -> ResolveLuaEnvV120 -> old FindLuaDoStringV119 -> bounded Lua Selections probe -> current ID -> exact semantic request -> fresh state proof`.
+
+The DoString stage intentionally remained from v1.1.9 so v1.1.10 isolated the manager/LuaEnv variable.
+
+## G. Files / Components Changed
+Added:
 - `src/bridge_lua_manager_v1_1_10.inc`
 - `src/bridge_action_v1_1_10.inc`
+
+Modified:
 - `src/bridge.cpp`
 - `src/protocol.h`
-- controller title/start log + build/workflow versioning.
+- controller version strings
+- build/workflow versioning
+- knowledge/history.
 
+## H. Build / CI History
 Source-bearing build commit: `d35517385266d4fa75011374966816a0e8d5ada1`.
+Run `31933118883`: architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL/PE PASS; controller EXE PASS; artifact upload PASS.
 
-GitHub Actions run `31933118883`:
-- architecture audit PASS;
-- Route FSM PASS;
-- Heal FSM PASS;
-- bridge DLL compile + PE verification PASS;
-- controller EXE compile PASS;
-- artifact upload PASS.
+Final branch build around the delivered v1.1.10 lineage also passed. BUILD/CI did not establish runtime completion.
 
-Artifact: `ThanLongTestAutoHeal-v1.1.10`, ID `9259895908`, ZIP digest `sha256:4b43c205bedd4177288b562ed7df20b08adb5f295b6b1601a11699e0bb80ef60`.
+## I. Runtime Result — UPDATED AFTER USER TEST
+**RUNTIME: PARTIAL PASS + FAIL AT NEXT LAYER**
 
-## Status
-- BUILD/CI: **PASS** for source-bearing resolver build.
-- RUNTIME v1.1.10: **UNTESTED**.
-- BUG-001: **OPEN**.
+User exact runtime log:
+```text
+Đã gửi AutoPath tới map=5 x=9454 y=5477
+Đã gửi lệnh xuống ngựa
+Đã gọi ClickNPC npcID=339
+LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)
+```
+The final line repeats while waiting.
 
-## Next runtime proof
-The next user log should identify the earliest reached stage:
-1. `LUA_DIALOG_V120` with resolver route and `T=<id>`;
-2. or exact `LUA_MANAGER_V120` failure details;
-3. then, only if T resolves, `MAINTHREAD_PROOF` / `ACTION_V120` and the server-driven follow-up.
+Confirmed working in this run:
+- route to healer area;
+- dismount;
+- semantic NPC open path;
+- LuaSystemManager/LuaEnv resolver progresses far enough to return a LuaEnv object.
 
-Do not redesign later stages until this resolver boundary is runtime-proven.
+Still failing:
+- old DoString resolver `FindLuaDoStringV119`.
+
+Not reached / still UNKNOWN:
+- actual Lua chunk execution;
+- current GameDialog Selections;
+- Treatment selection ID;
+- `ACTION_V120`/packet;
+- server follow-up/HP/money completion.
+
+Why LuaEnv is considered partial PASS:
+`RunLuaChunkV120()` returns immediately if `ResolveLuaEnvV120()` fails. The logged `DoString unresolved` is emitted only after a LuaEnv object is available and its runtime class is queried.
+
+## J. Regression / Failed Attempts
+This runtime does not regress the V120 LuaEnv resolver; it narrows the next failure to method lookup. Do not revert the V120 resolver while debugging DoString without contrary evidence.
+
+## K. Known-Good Established
+No full Auto Heal known-good established. Only the LuaEnv boundary gained runtime partial-pass evidence.
+
+## L. Remaining Bugs / New Knowledge / Decisions
+- BUG-001 remains OPEN.
+- EVID-016 records the v1.1.10 runtime boundary.
+- DEC-012 in v1.1.11 replaces the narrow DoString assumption with live overload metadata resolution.
+- User also reported the v1.1.10 ZIP lacked the requested consolidated knowledge handoff; DEC-013 corrects artifact packaging from v1.1.11.
+
+## M. Handoff
+Next version must start at:
+`LuaEnv resolved -> DoString method resolution`.
+
+Do NOT restart at NPC coordinates, UIRoot, button text, guessed selection ID or packet/server theory.

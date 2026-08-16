@@ -43,7 +43,7 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
     &ClickHealDialogChoiceV116;
 
 // Preserve v1.1.9 Lua probe/action as lineage. Runtime v1.1.9 proved the exact failure
-// is earlier: LuaSystemManager instance resolution, before LuaEnv/DoString/Selections.
+// was earlier: LuaSystemManager instance resolution, before LuaEnv/DoString/Selections.
 #define InspectHealDialog InspectHealDialogLegacyV119
 #include "bridge_lua_dialog_v1_1_9.inc"
 #undef InspectHealDialog
@@ -56,7 +56,21 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
 [[maybe_unused]] bool (*const kLegacyHealChoiceV119)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
     &ClickHealDialogChoiceLegacyV119;
 
-// v1.1.10 active path: resolve LuaEnv without assuming a named singleton. First try
-// static get_LuaEnv; then semantic singleton/static-reference/Unity-object fallbacks.
+// Preserve v1.1.10 manager/LuaEnv resolver and action for lineage. Runtime v1.1.10
+// proves this layer reaches a non-null LuaEnv, then fails specifically at DoString lookup.
+#define InspectHealDialog InspectHealDialogLegacyV120
 #include "bridge_lua_manager_v1_1_10.inc"
+#undef InspectHealDialog
+[[maybe_unused]] bool (*const kLegacyInspectHealV120)(cleanroute::Snapshot&, wchar_t*, std::size_t) =
+    &InspectHealDialogLegacyV120;
+
+#define ClickHealDialogChoice ClickHealDialogChoiceLegacyV120
 #include "bridge_action_v1_1_10.inc"
+#undef ClickHealDialogChoice
+[[maybe_unused]] bool (*const kLegacyHealChoiceV120)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
+    &ClickHealDialogChoiceLegacyV120;
+
+// v1.1.11 active path: keep the runtime-proven V120 LuaEnv resolver, replace only
+// the failed DoString method resolution with overload-aware String/Byte[] metadata logic.
+#include "bridge_lua_dostring_v1_1_11.inc"
+#include "bridge_action_v1_1_11.inc"

@@ -10,7 +10,7 @@ NPC 463 / Lạc Dương reproduced flicker/no-progress, weakening an NPC-339-onl
 
 ## EVID-003 — MainThread dispatcher contract
 **Type:** CANONICAL CLIENT SOURCE  
-`MainThread.Execute(System.Action)` queues a managed action and Unity Update drains/invokes it. Mechanism VERIFIED; not itself proof of BUG-001 cause.
+`MainThread.Execute(System.Action)` queues a managed action and Unity Update drains/invokes Actions. Mechanism VERIFIED; not itself proof of BUG-001 cause.
 
 ## EVID-004 — GameDialog is server-driven and rebuilt
 **Type:** CANONICAL CLIENT SOURCE  
@@ -52,24 +52,42 @@ Source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`, run `31932086373`: arc
 ## EVID-013 — v1.1.9 runtime fails specifically at LuaSystemManager instance resolution
 **Type:** USER_RUNTIME + SCREENSHOT/EXACT LOG + SOURCE CORRELATION  
 **Date / Version:** 2026-08-16 / delivered v1.1.9  
-**Context:** PID 4324, Map 5, NPC 339 Đỗ Thanh Đằng. The captured UI status says the GameDialog is open and it is waiting for live Treatment selection. Log shows `Đã gọi ClickNPC npcID=339` followed by repeated:
+**Context:** PID 4324, Map 5, NPC 339 Đỗ Thanh Đằng. Log shows one `ClickNPC npcID=339` followed by repeated:
+`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`.
 
-`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`
-
-**Supports:** the failure is before LuaEnv/DoString/Selections/action. Source audit confirms v1.1.9 `ResolveLuaEnvV119()` first required `ResolveLuaSystemManagerV119()`, whose only instance paths were `get_Instance` and four named static fields.  
+**Supports:** failure is before LuaEnv/DoString/Selections/action. Source audit confirms v1.1.9 forced manager-instance resolution first.  
 **Does NOT Prove:** DoString failure, missing Treatment text/ID, packet rejection, MessageBox behavior or server refusal.  
-**Confidence:** **CONFIRMED runtime boundary + source implementation fact**.
+**Confidence:** CONFIRMED runtime boundary + source implementation fact.
 
 ## EVID-014 — Canonical KB does not verify a LuaSystemManager singleton contract
 **Type:** CANONICAL CLIENT KB  
-`LuaSystemManager` high-value members include `get_LuaEnv/set_LuaEnv`; IL2CPP reflection/static-field APIs are verified. The current canonical docs do not claim a stable `get_Instance` or a particular singleton backing-field name for LuaSystemManager. This supports correcting the resolver rather than declaring Lua data inaccessible.
+`LuaSystemManager` high-value members include `get_LuaEnv/set_LuaEnv`; canonical docs did not establish a stable `get_Instance` or particular singleton backing-field name. This supported the v1.1.10 resolver correction.
 
-## EVID-015 — v1.1.10 source-bearing resolver build passes
+## EVID-015 — v1.1.10 source/final builds pass
 **Type:** CI / BUILD ARTIFACT  
-**Source-bearing commit:** `d35517385266d4fa75011374966816a0e8d5ada1`  
-**Actions run:** `31933118883`  
-Architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL + PE verification PASS; controller build PASS; artifact upload PASS.  
-Artifact `ThanLongTestAutoHeal-v1.1.10`, ID `9259895908`, ZIP digest `sha256:4b43c205bedd4177288b562ed7df20b08adb5f295b6b1601a11699e0bb80ef60`.  
-**Supports:** the new resolver/fallback code compiles/packages correctly.  
-**Does NOT Prove:** that the live client resolves LuaEnv, that T is found, or that Treatment completes.  
-**Confidence:** CONFIRMED BUILD; **RUNTIME UNTESTED**.
+Source-bearing/final v1.1.10 builds pass architecture audit, FSM tests, bridge/controller compile and artifact upload. BUILD evidence does not establish runtime success.
+
+## EVID-016 — v1.1.10 runtime reaches LuaEnv then fails at old DoString resolver
+**Type:** USER_RUNTIME + EXACT LOG + SOURCE CORRELATION  
+**Date / Version:** 2026-08-16 / delivered v1.1.10  
+**Context:** Map 5, NPC 339. Exact user log begins:
+```text
+Đã gửi AutoPath tới map=5 x=9454 y=5477
+Đã gửi lệnh xuống ngựa
+Đã gọi ClickNPC npcID=339
+LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)
+```
+The failure repeats.
+
+**Supports:** current `RunLuaChunkV120` first calls `ResolveLuaEnvV120`; only after receiving LuaEnv does it attempt `FindLuaDoStringV119`. Thus LuaSystemManager/LuaEnv resolution is RUNTIME PARTIAL PASS and the old DoString resolver is the first confirmed failing stage.  
+**Does NOT Prove:** that Lua chunk execution works; current Selections/Treatment ID is still unseen; no `ACTION_V120`/packet/server result is established.  
+**Confidence:** CONFIRMED runtime boundary + source control-flow correlation.
+
+## EVID-017 — Upstream xLua exposes both String and Byte[] DoString overloads
+**Type:** EXTERNAL PRIMARY SOURCE / TARGETED RESEARCH  
+**Date / Used by:** 2026-08-16 / v1.1.11 investigation  
+Official Tencent xLua `LuaEnv.cs` contains both `DoString(byte[] chunk, string chunkName, LuaTable env)` and `DoString(string chunk, string chunkName, LuaTable env)`, with the String overload UTF-8 encoding into the byte[] overload.
+
+**Supports:** a robust resolver should not assume only one String-first overload and should inspect the live runtime method metadata.  
+**Does NOT Prove:** that this game client ships exactly the same xLua version or that either overload survived IL2CPP stripping. Live client metadata/runtime remains authoritative.  
+**Confidence:** CONFIRMED upstream source fact; applicability to exact client = guidance only.

@@ -4,10 +4,13 @@ This repository is a runtime test lab. Before any analysis, code change, build, 
 
 1. `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
 2. `AI_CLIENT_ANALYSIS_RULES.txt`
-3. `PROJECT_KNOWLEDGE.md`
-4. `CHANGELOG.md`
-5. affected feature / bug / decision / evidence docs under `docs/`
-6. current source/tests for the affected subsystem
+3. `AI_PROJECT_HANDOFF_FULL.md`
+4. `PROJECT_KNOWLEDGE.md`
+5. `CHANGELOG.md`
+6. affected feature / bug / decision / evidence docs under `docs/`
+7. current source/tests for the affected subsystem
+
+If you received only a build artifact ZIP, read `AI_PROJECT_HANDOFF_FULL.md` first, then the mandatory protocol/rules/current-knowledge files packaged beside it.
 
 When client knowledge is needed, use canonical repository:
 
@@ -26,6 +29,7 @@ Rules:
 - Preserve failed attempts and user runtime reports.
 - Every meaningful version must update project knowledge before handoff.
 - Do not silently replace or remove the two mandatory protocol/rules files.
+- Every delivered CI artifact must be self-describing and contain at minimum: `AI_PROJECT_HANDOFF_FULL.md`, this file, the V2 protocol, client-analysis TXT, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`, and generated `BUILD_EVIDENCE.txt` beside EXE/DLL.
 
 Current feature route for Auto trị liệu:
 
@@ -35,4 +39,8 @@ If the failure is in the mutation execution boundary/MainThread bridge, addition
 
 `contexts/BUILD_MAINTHREAD_BRIDGE.md`
 
-This file is the startup pointer only; detailed history belongs in `PROJECT_KNOWLEDGE.md` and `docs/`.
+Current continuation point after v1.1.10 runtime:
+
+`GameDialog open -> LuaEnv resolved -> DoString overload resolver -> current Selections -> live Treatment ID -> one semantic action -> fresh result proof`.
+
+This file is the startup pointer only; detailed history belongs in `AI_PROJECT_HANDOFF_FULL.md`, `PROJECT_KNOWLEDGE.md` and `docs/`.

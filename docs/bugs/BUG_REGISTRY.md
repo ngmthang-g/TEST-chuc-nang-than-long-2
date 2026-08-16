@@ -5,7 +5,7 @@
 **Status:** OPEN  
 **Severity:** HIGH for Auto Heal feature  
 **First Observed:** v1.1.0-test  
-**Last Runtime Tested:** v1.1.9-test delivered artifact, 2026-08-16  
+**Last Runtime Tested:** v1.1.10-test delivered artifact, 2026-08-16  
 **Last Known-Good:** NONE for full Treatment flow  
 **Related Feature:** Auto trị liệu NPC
 
@@ -13,25 +13,34 @@
 - raw NPC coordinate capture;
 - route/mount/AutoPath/dismount;
 - `ClickNPC(339)` opens the intended server-driven GameDialog;
-- v1.1.8 tested transaction removed the old WaitTreatment reopen behavior.
+- v1.1.8 tested transaction removed the old WaitTreatment reopen behavior;
+- v1.1.10 advances through the LuaSystemManager/LuaEnv resolver far enough to attempt DoString resolution.
 
 ### Runtime-confirmed failures by layer
 #### v1.1.8 — UIRoot representation
-After one NPC open, every probe returned `DIALOG_V118 NO MATCH ... clickable=0 • texts=0 • labels=<none>` until fail-closed. GameDialog presence existed. This proves the active UIRoot/CoreChildren representation does not expose the needed dynamic content in that runtime.
+After one NPC open, every probe returned `DIALOG_V118 NO MATCH ... clickable=0 • texts=0 • labels=<none>` until fail-closed. GameDialog presence existed. The active UIRoot/CoreChildren representation does not expose the needed dynamic content in that runtime.
 
-#### v1.1.9 — LuaSystemManager resolver
-User screenshot/live log shows the dialog opens and the tool repeatedly reports:
+#### v1.1.9 — LuaSystemManager singleton resolver
+After GameDialog opened, repeated:
+`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`.
 
-`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`
+This failed before LuaEnv/DoString/Selections/action.
 
-Therefore v1.1.9 fails **before** `LuaEnv.DoString`, before current `Selections`, before Treatment ID and before `ACTION_V119`. Do not classify Lua probe/parser/packet/server as failed from this run.
+#### v1.1.10 — old DoString resolver
+Latest user log after route/dismount/one ClickNPC:
+`LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)`.
+
+Current source calls `ResolveLuaEnvV120()` before this lookup. Therefore:
+- LuaSystemManager -> LuaEnv = **RUNTIME PARTIAL PASS**;
+- old `FindLuaDoStringV119` = **RUNTIME FAIL**;
+- chunk execution / Selections / Treatment ID / action / server = NOT REACHED / UNKNOWN.
 
 ### Canonical semantic source of truth
 - `GameDialog.Selections[selectionID] = visibleText`.
 - built-in AutoFight dialog logic stores/inspects current server selections.
 - `CMD_SHOW_GAMEDIALOG = 100007`, payload `selectionID:SelectedItemID`.
 - no universal static Treatment ID.
-- canonical KB verifies `LuaSystemManager.get_LuaEnv/set_LuaEnv`, but does not verify a stable manager singleton getter/field name.
+- canonical KB verifies LuaSystemManager `get_LuaEnv/set_LuaEnv`; exact client DoString overload visibility was not already documented.
 
 ### Attempts / lineage
 1. v1.1.0–v1.1.2: initial UIRoot/button experiments; full runtime FAIL.
@@ -41,17 +50,18 @@ Therefore v1.1.9 fails **before** `LuaEnv.DoString`, before current `Selections`
 5. v1.1.6: CTS/MainThread queued UIButton experiment; build PASS, action-stage runtime evidence not preserved.
 6. v1.1.7: observer redesign; final CI failed and source retained gaps.
 7. v1.1.8: all-descendant scan + live Tag gate + no WaitTreatment reopen. Runtime anti-reopen PASS, UIRoot representation FAIL.
-8. v1.1.9: moved observer to Lua runtime `Selections`; BUILD PASS, runtime FAIL at `LuaSystemManager instance unresolved` before LuaEnv/DoString.
-9. v1.1.10: correct only the manager/LuaEnv resolver boundary; source-bearing BUILD PASS, runtime pending.
+8. v1.1.9: moved observer to Lua runtime Selections; BUILD PASS, runtime FAIL at manager-instance resolver before LuaEnv.
+9. v1.1.10: metadata-driven LuaEnv resolver. BUILD PASS; runtime reaches LuaEnv, then FAILS at old DoString resolver.
+10. v1.1.11: retain V120 LuaEnv resolution; replace only DoString lookup with overload-aware runtime metadata resolver and self-describing diagnostics. Artifact also gains mandatory consolidated handoff package.
 
-### v1.1.10 fix strategy
-- check whether `get_LuaEnv` is static and call it directly first;
-- if an instance is genuinely required, try `get_Instance` only if metadata exposes it;
-- enumerate bounded static reference fields with IL2CPP APIs instead of guessing four names;
-- validate candidate runtime class as LuaSystemManager/derived before accepting it;
-- use typed Unity object lookup only if manager hierarchy proves it is a Unity object;
-- fail closed with `LUA_MANAGER_V120` diagnostics if unresolved;
-- keep Lua `Selections` probe/action logic unchanged after the resolver.
+### v1.1.11 strategy
+- actual runtime LuaEnv class + declared get_LuaEnv return class are both inspected;
+- enumerate current DoString overloads and direct-lookup by arity as second route;
+- prefer String chunk overload;
+- support Byte[] chunk overload with managed UTF-8 byte array;
+- only invoke arity/type combinations validated by runtime metadata;
+- fail closed with `LUA_DOSTRING_V121` actual class/signature diagnostics;
+- if probe succeeds, use V121 current Selections and re-read live ID before any action.
 
 ### Root cause status
 **CONFIRMED resolved component:** WaitTreatment NPC reopen removed in tested v1.1.8 transaction.
@@ -60,7 +70,11 @@ Therefore v1.1.9 fails **before** `LuaEnv.DoString`, before current `Selections`
 
 **CONFIRMED failed component:** v1.1.9 singleton resolver assumption/path.
 
-**UNKNOWN:** whether v1.1.10 resolves LuaEnv and what actual Treatment selectionID/follow-up sequence is returned.
+**RUNTIME PARTIAL PASS:** v1.1.10 LuaSystemManager -> LuaEnv resolution.
+
+**CONFIRMED failed component:** v1.1.10 old DoString resolver.
+
+**UNKNOWN:** whether v1.1.11 resolves a usable DoString method; current Treatment ID and follow-up sequence remain unknown until probe success.
 
 ### Current workaround
 None. Do not port Auto Heal to production.
@@ -69,10 +83,10 @@ None. Do not port Auto Heal to production.
 UNKNOWN until complete runtime PASS.
 
 ### Next diagnostic step
-Run v1.1.10. Preserve the earliest resolver/probe line:
-- `LUA_DIALOG_V120 • route=... • T=...` if LuaEnv/DoString succeeds; or
-- `LUA_MANAGER_V120 ...` exact fallback/candidate failure.
-Only after T resolves should `MAINTHREAD_PROOF`, `ACTION_V120`, subsequent GameDialog/MessageBox and HP/money state be evaluated.
+Run v1.1.11. Preserve earliest new line:
+- `LUA_DOSTRING_V121 unresolved ...` if lookup still fails; or
+- `LUA_DIALOG_V121 ... T=...` if the Lua chunk executes.
+Only after T resolves should `MAINTHREAD_PROOF`, `ACTION_V121`, subsequent GameDialog/MessageBox and HP/money state be evaluated.
 
 ### Do-not-do
 - no broad reverse;
@@ -80,4 +94,5 @@ Only after T resolves should `MAINTHREAD_PROOF`, `ACTION_V120`, subsequent GameD
 - no hardcoded Treatment ID;
 - no WaitTreatment ClickNPC retry;
 - no fixed Sleep as success proof;
-- no claim of packet/server failure before a live current selection is actually sent.
+- no claim of packet/server failure before a live current selection is actually sent;
+- no reverting the runtime-proven V120 LuaEnv resolver while diagnosing DoString.
