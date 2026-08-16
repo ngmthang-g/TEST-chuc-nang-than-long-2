@@ -40,7 +40,9 @@ No broad reverse. Binary/native work is targeted-only when an exact fact require
 ### Build state
 - v1.1.6: CI/BUILD PASS, runtime artifact-version result not preserved as confirmed evidence.
 - v1.1.7 final CI run `31925922772`: **CI FAILED** at controller compile due broken `kTitle` macro/scope wiring. Therefore v1.1.7 was never a valid build handoff.
-- v1.1.8: source prepared; CI/runtime status must be updated after the new commit/run.
+- v1.1.8 source commit `1da643b8384dfa64a2523938dffb4ddd9885b181`: **CI/BUILD PASS** in run `31926671467`.
+- v1.1.8 artifact: `ThanLongTestAutoHeal-v1.1.8`, artifact ID `9258076757`, digest `sha256:390ae27248eebee99db7b1a6a463e291a797150a23de770aeed6d29aed8cd9d5`.
+- v1.1.8 runtime remains **RUNTIME UNTESTED**.
 
 ## Critical v1.1.8 Correction
 v1.1.7 did not fully implement its stated observer guarantee:
@@ -138,14 +140,14 @@ Status: OPEN.
 Current v1.1.8 theory under test: transient/missed dialog observation plus retry-driven NPC reopen contributes directly to flicker; exact action-stage success after removal remains UNKNOWN.
 
 ## Open Questions
-1. Does v1.1.8 show exactly one successful `ClickNPC` per Treatment transaction?
+1. Does v1.1.8 show exactly one successful `ClickNPC` per Treatment transaction after the initial NPC open?
 2. Which exact live `selectionID` is reported for visible `Trị liệu`?
 3. Does `ACTION_V118` advance the server dialog/state after the selection gate passes?
 4. What actual follow-up sequence appears: MessageBox confirm, second GameDialog, acknowledgement, or immediate result?
 5. What HP/money/dialog evidence should establish runtime Treatment PASS?
 
 ## Next Development Priority
-First make v1.1.8 CI/BUILD PASS. Then run one live Treatment transaction and preserve log from the initial NPC call through `DIALOG_V118`, `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118` and the next state. Do not broad-reverse or rotate more NPCs before that evidence.
+Runtime-test the build-valid v1.1.8 artifact and preserve log from the initial NPC call through `DIALOG_V118`, `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118` and the next state. Do not broad-reverse or rotate more NPCs before that evidence.
 
 ## Knowledge Index
 - `docs/features/AUTO_HEAL_NPC.md`
