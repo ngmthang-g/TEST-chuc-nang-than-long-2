@@ -38,7 +38,9 @@ bool FirstTextInSubtreeV117(Il2CppObject* object, wchar_t* out, std::size_t cap,
         wchar_t normalized[256]{};
         NormalizeSemanticTextV117(text, normalized, _countof(normalized));
         if (normalized[0]) {
-            wcsncpy_s(out, cap, normalized, _TRUNCATE);
+            std::size_t i = 0;
+            for (; normalized[i] && i + 1 < cap; ++i) out[i] = normalized[i];
+            out[i] = 0;
             return true;
         }
     }
@@ -164,18 +166,12 @@ bool InspectHealDialog(Snapshot& s, wchar_t* detail, std::size_t cap) {
 
     bool gameDialogExists = false;
     if (!LuaUiExistsV117(c, L"GameDialog", gameDialogExists, detail, cap)) return false;
+    if (gameDialogExists) s.healDialogMask |= HealDialogPresent;
 
     Il2CppObject* b = nullptr;
     wchar_t treatmentProbe[384]{};
     if (!FindButtonInUi(c, L"GameDialog", L"Trị liệu", b, treatmentProbe, _countof(treatmentProbe))) return false;
-    if (b) {
-        s.healDialogMask |= HealDialogTreatment;
-    } else if (gameDialogExists) {
-        // Critical v1.1.7 guard: once the server-driven GameDialog exists, do not reopen NPC.
-        // Force the FSM into the action attempt; the action path will either resolve the live
-        // button on a later tick or fail with the detailed observed-label diagnostic.
-        s.healDialogMask |= HealDialogTreatment;
-    }
+    if (b) s.healDialogMask |= HealDialogTreatment;
 
     b = nullptr;
     if (!FindButtonInUi(c, L"MessageBox", L"Xác nhận", b, detail, cap)) return false;
