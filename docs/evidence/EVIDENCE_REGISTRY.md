@@ -1,115 +1,85 @@
 # EVIDENCE REGISTRY
 
-## EVID-001 — NPC dialog opens but full Treatment flow does not advance
+## EVID-001 — NPC dialog opens but complete Treatment flow is not yet proven
 **Type:** USER_RUNTIME  
-Early tests confirm raw route and `ClickNPC(339)` can open intended dialog; full Treatment has no runtime PASS.
+Route/NPC open has runtime evidence; full Treatment has no known-good version.
 
-## EVID-002 — Alternate NPC/map reproduces overall symptom
+## EVID-002 — Alternate NPC/map reproduced the historical no-progress symptom
 **Type:** USER_RUNTIME / v1.1.5  
-NPC 463 / Lạc Dương reproduced no-progress symptom.
+NPC 463 / Lạc Dương weakened an NPC-339-only explanation.
 
 ## EVID-003 — MainThread dispatcher contract
 **Type:** CANONICAL CLIENT SOURCE  
-`MainThread.Execute(System.Action)` queues a managed action and Unity Update drains/invokes it.
+`MainThread.Execute(System.Action)` queues managed work drained by Unity Update. Keep as preferred production mutation boundary.
 
 ## EVID-004 — GameDialog is server-driven and rebuilt
 **Type:** CANONICAL CLIENT SOURCE  
-Inbound GameDialog processing may destroy/recreate UI; flicker is not success proof.
+Inbound GameDialog handling may destroy/recreate the current UI. Visual flicker is not completion proof.
 
-## EVID-005 — Historical repeated ClickNPC while waiting for Treatment
-**Type:** USER_RUNTIME + SOURCE CORRELATION  
-Old logs/source established a real retry/rebuild pollution path.
+## EVID-005 — Historical WaitTreatment reopen pollution
+**Type:** USER_RUNTIME + SOURCE  
+Old controller retry could re-open the NPC while observation was unresolved. v1.1.8 removed this path.
 
-## EVID-006 — Old same-object discovery assumption
-**Type:** SOURCE  
-Historical button walker coupled text and click-handler discovery on same object.
+## EVID-006 — UIRoot representation failed for the live dynamic GameDialog
+**Type:** USER_RUNTIME / v1.1.8  
+GameDialog existed while observer repeatedly saw `clickable=0 • texts=0 • labels=<none>`. UIRoot/UIButton is abandoned for this feature.
 
-## EVID-007 — Pre-v1.1.8 user flicker report
-**Type:** USER_RUNTIME  
-Flicker/no-progress persisted in older artifacts.
-
-## EVID-008 — v1.1.7 source/CI gaps
-**Type:** SOURCE + CI  
-First-text-only matching, residual retry and final controller compile failure made v1.1.7 invalid handoff.
-
-## EVID-009 — v1.1.8 build-valid artifact
-**Type:** CI / BUILD  
-Architecture audit, tests and binaries passed.
-
-## EVID-010 — v1.1.8 runtime isolates UIRoot representation failure
-**Type:** USER_RUNTIME + EXACT LOG  
-After one NPC open, every observer sample reported `clickable=0 • texts=0 • labels=<none>` until fail-closed. Anti-reopen passed for that transaction; UIRoot/CoreChildren representation failed.
-
-## EVID-011 — Runtime Selections is stronger GameDialog source
+## EVID-007 — Canonical current Selections contract
 **Type:** CANONICAL CLIENT SOURCE/KB  
-`Selections[selectionID]=visibleText`; command `100007` submits `selectionID:SelectedItemID`.
+`GameDialogData.Selections[selectionID]=visibleText`; `CMD_SHOW_GAMEDIALOG=100007` submits `selectionID:SelectedItemID`; current ID is runtime state.
 
-## EVID-012 — v1.1.9 source build passes
-**Type:** CI / BUILD ARTIFACT  
-Build/package success only; runtime remained separate.
+## EVID-008 — v1.1.9 failed before returned script object
+**Type:** USER_RUNTIME + SOURCE  
+After GameDialog open: `LuaSystemManager instance unresolved`. DoString/Selections/action were not reached.
 
-## EVID-013 — v1.1.9 runtime fails at LuaSystemManager instance resolution
+## EVID-009 — v1.1.10 progresses to object returned by get_LuaEnv
+**Type:** USER_RUNTIME + SOURCE  
+The next failure was old DoString lookup, proving the returned-object resolver progressed beyond the prior singleton boundary.
+
+## EVID-010 — v1.1.11 identifies MoonSharp and exact DoString metadata
+**Type:** USER_RUNTIME + RUNTIME METADATA  
+Repeated runtime diagnostics report `actual=MoonSharp.Interpreter.Script`, `declared=MoonSharp.Interpreter.Script`, and `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`. V121 source rejected the real overload before invocation because it expected parameter #2 String.
+
+## EVID-011 — Official MoonSharp API matches live metadata
+**Type:** EXTERNAL PRIMARY SOURCE / TARGETED RESEARCH  
+MoonSharp defines `Script.DoString(string code, Table globalContext = null, string codeFriendlyName = null) -> DynValue` and exposes `DynValue.String`. Used to implement V122 argument/result handling; exact client runtime remained source of truth.
+
+## EVID-012 — v1.1.12 build lineage
+**Type:** CI / BUILD  
+Initial V122 run `31937607280` failed before compiler because architecture audit required an unnecessary class-name literal. Corrected source commit `33a3b56b44724d76ec6983bf7ec4dcff1edfa2b1`, run `31937703988`, passed architecture audit, Route/Heal tests, bridge/controller build, packaging and artifact upload. Final v1.1.12 HEAD `03b33595e122217baa4c006a0fe8998af3395d44`, run `31938051044`, also passed.
+
+## EVID-013 — v1.1.12 runtime passes MoonSharp execution/result and isolates observer representation
 **Type:** USER_RUNTIME + EXACT LOG + SOURCE CORRELATION  
-After GameDialog open, repeated `LuaSystemManager instance unresolved`. Returned object/DoString/Selections/action not reached.
-
-## EVID-014 — Canonical KB lacked stable LuaSystemManager singleton contract
-**Type:** CANONICAL CLIENT KB  
-`get_LuaEnv/set_LuaEnv` documented but no stable singleton getter/field contract verified.
-
-## EVID-015 — v1.1.10 source/final builds pass
-**Type:** CI / BUILD ARTIFACT  
-Build validity only.
-
-## EVID-016 — v1.1.10 runtime reaches returned object then old DoString lookup fails
-**Type:** USER_RUNTIME + EXACT LOG + SOURCE CORRELATION  
-`RunLuaChunkV120()` reaches `ResolveLuaEnvV120()` then reports old DoString unresolved. Manager -> returned object = runtime PARTIAL PASS; old DoString resolver = first confirmed failing stage.
-
-## EVID-017 — Upstream xLua DoString research
-**Type:** EXTERNAL PRIMARY SOURCE / FAILED-GUIDANCE HISTORY  
-Official Tencent xLua exposes String/Byte[] DoString shapes. This guided V121 diagnostics, but later live runtime proves current returned client object is MoonSharp. xLua is not current engine identity at this boundary.
-
-## EVID-018 — v1.1.11 build + self-contained handoff artifact pass
-**Type:** CI / BUILD ARTIFACT + ARTIFACT INSPECTION  
-Source commit `95f285f929a32c9748342a3480748a5b79d1a4d0`, run `31935080947` PASS. Final pre-v1.1.12 HEAD `4c9b0d5dceaa3828e3452aee339b3a03ceb0ef3b`, run `31935342682` PASS, artifact ID `9260507355`. ZIP contained EXE/DLL + handoff/startup/protocol/rules/current knowledge/changelog/build evidence.
-
-## EVID-019 — v1.1.11 runtime identifies MoonSharp and exact live DoString signature
-**Type:** USER_RUNTIME + EXACT LOG + RUNTIME METADATA  
-**Date / Version:** 2026-08-16 / delivered v1.1.11  
-Repeated:
+**Date / Version:** 2026-08-16 / delivered v1.1.12  
+After one `ClickNPC npcID=339`, repeated:
 
 ```text
-LUA_DIALOG_V121 PROBE FAIL • LUA_DOSTRING_V121 unresolved • actual=MoonSharp.Interpreter.Script • declared=MoonSharp.Interpreter.Script • DoString={DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue | ...}
+LUA_DIALOG_V122 • route=static LuaSystemManager.get_LuaEnv -> MoonSharp.Script.DoString(String,Table,String) • GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}
 ```
 
-**Supports:** actual/declared returned object is `MoonSharp.Interpreter.Script`; current metadata exposes `DoString(String,Table,String)->DynValue`; V121 reached method enumeration.  
-**Source correlation:** V121 required parameter index 1 to be `System.String`; live index 1 is `MoonSharp.Interpreter.Table`, so correct method was rejected before invocation.  
-**Does NOT Prove:** chunk execution, current Selections, Treatment ID, action/packet acceptance or server result.  
-**Confidence:** CONFIRMED runtime identity/signature + confirmed source rejection condition.
+**Supports:** current Script resolution PASS; exact MoonSharp DoString invocation PASS; DynValue.String extraction PASS; GameDialog and AutoFight_Main are returned as Lua tables; MessageBox absent; V122 observer does not expose T/C/K.  
+**Does NOT Prove:** that no Treatment choice exists, that four selections exist, or that packet/server rejects Treatment.  
+**Confidence:** CONFIRMED runtime boundary.
 
-## EVID-020 — Official MoonSharp source matches runtime contract
-**Type:** EXTERNAL PRIMARY SOURCE / TARGETED RESEARCH  
-Official MoonSharp `Script.cs` defines `DoString(string code, Table globalContext = null, string codeFriendlyName = null)` returning `DynValue`. Official `DynValue.cs` exposes `String` property.  
-**Supports:** V122 argument order `{code, null Table, friendlyName}` and result extraction through `get_String()`.  
-**Does NOT Prove:** GameDialog probe will find Treatment.  
-**Confidence:** CONFIRMED upstream API shape, directly consistent with live metadata.
+## EVID-014 — V122 `N=4` means four traversed table nodes, not four selections
+**Type:** SOURCE CORRECTION  
+In `kGameDialogProbeLuaV119`, `nodes` increments once per table accepted by `scan()`, and the returned diagnostic writes `N=nodes`. Therefore the runtime `N=4` is table traversal count only. Any statement that V122 observed four selections is incorrect.
 
-## EVID-021 — v1.1.12 initial CI failure is an audit false-positive
-**Type:** CI / BUILD LOG  
-**Commit:** `ad2f0403863251330b1aca80eb1eba9681b58c9a`  
-**Run:** `31937607280`  
-Architecture audit failed before compiler with `v1.1.12 MoonSharp resolver missing MoonSharp.Interpreter.Script`. Source did not hardcode this literal because current method signature is metadata-validated. Artifact upload skipped.  
-**Supports:** initial v1.1.12 build state = CI FAILED; failure is build-audit configuration, not MoonSharp C++ compile/runtime behavior.  
-**Confidence:** CONFIRMED.
+## EVID-015 — V122 semantic field lookup is raw-only
+**Type:** SOURCE  
+V122 reuses the V119 probe, which calls `rawget(t,"Selections")` and `rawget(t,key)` for priority fields. Lua `rawget` bypasses `__index`/metatable resolution. This creates a concrete observer limitation consistent with `GD=table`, `AF=table`, `S=` empty.
 
-## EVID-022 — v1.1.12 corrected source-bearing build passes
-**Type:** CI / BUILD ARTIFACT + ARTIFACT INSPECTION  
-**Correction commit:** `33a3b56b44724d76ec6983bf7ec4dcff1edfa2b1`  
-**Run:** `31937703988`  
-**Result:** architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL/PE PASS; controller EXE PASS; knowledge packaging PASS; artifact upload PASS.  
-**Artifact:** `ThanLongTestAutoHeal-v1.1.12`, ID `9261162703`, ZIP digest `sha256:d25f999934be62152cf02fd0251f533743f3e9eaa0d4178f74c2fa1007d85c19`.  
-**Verified members:** exactly 9 required files.  
-**EXE SHA-256:** `32a3977469a26f5807be192a620630fba9ea3242e265706522fd7d93bb27c823`.  
-**DLL SHA-256:** `553c1d245c06c614561b9c2c1e6368daf30cb671b46602aec60b1938f326a037`.  
-`BUILD_EVIDENCE.txt` records source head `33a3b56...`, checkout SHA `3855f781...`, run `31937703988`, BUILD PASS and RUNTIME UNTESTED.  
-**Does NOT Prove:** V122 runtime success.  
-**Confidence:** CONFIRMED BUILD; RUNTIME UNTESTED.
+**Supports:** a normal-indexing/metatable-aware read-only observer is a targeted next experiment.  
+**Does NOT Prove:** that the live data definitely resides behind `__index`; that remains a hypothesis until V123 runtime.
+
+## EVID-016 — Canonical client still defines Selections as the semantic source
+**Type:** CANONICAL CLIENT KB  
+Current canonical docs continue to verify `GameDialogData.Selections[selectionID]=visibleText` and built-in automation inspecting current Selections. No contrary runtime evidence yet establishes a changed server contract.
+
+## EVID-017 — v1.1.13 experiment scope
+**Type:** SOURCE DESIGN  
+V123 preserves the runtime-proven MoonSharp execution primitive and changes only the read-only table observer: normal indexing under `pcall`, bounded child traversal, bounded metatable/table-`__index` traversal, and diagnostics `NODE/ST/SV/MT/KS/S`. Mutation remains fail-closed until a positive current semantic ID is re-read.
+
+## Current evidence boundary
+Earliest unresolved stage:
+`MoonSharp execution PASS -> DynValue.String PASS -> current Lua table representation/access -> current Selections -> live Treatment ID -> action -> follow-up/result`.

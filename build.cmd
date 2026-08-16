@@ -10,16 +10,16 @@ echo [1/9] Architecture audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; foreach($p in @('AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md','AI_CLIENT_ANALYSIS_RULES.txt','AI_START_HERE.md','AI_PROJECT_HANDOFF_FULL.md','PROJECT_KNOWLEDGE.md','CHANGELOG.md')){if(-not(Test-Path $p)){throw ('Missing mandatory knowledge/handoff file: '+$p)}}; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
-  "$moon=Get-Content 'src/bridge_lua_moonsharp_v1_1_12.inc' -Raw; foreach($x in @('ResolveMoonSharpDoStringV122','MoonSharp.Interpreter.Table','MoonSharp.Interpreter.DynValue','get_String','RunLuaChunkV122','ReadLuaDialogIdsV122','LUA_MOONSHARP_V122','LUA_DIALOG_V122')){if($moon -notmatch [regex]::Escape($x)){throw ('v1.1.12 MoonSharp resolver missing '+$x)}};" ^
-  "$action=Get-Content 'src/bridge_action_v1_1_12.inc' -Raw; foreach($x in @('SendCurrentLuaDialogSelectionV122','ReadLuaDialogIdsV122','ACTION_V122','current Lua GameDialogData.Selections')){if($action -notmatch [regex]::Escape($x)){throw ('v1.1.12 semantic action missing '+$x)}};" ^
-  "$manager=Get-Content 'src/bridge_lua_manager_v1_1_10.inc' -Raw; foreach($x in @('ResolveLuaEnvV120','ScanStaticReferencesV120','LUA_MANAGER_V120')){if($manager -notmatch [regex]::Escape($x)){throw ('runtime-proven v1.1.10 LuaEnv resolver missing '+$x)}};" ^
-  "$legacy=Get-Content 'src/bridge_lua_dostring_v1_1_11.inc' -Raw; foreach($x in @('LUA_DOSTRING_V121','DescribeMethodV121','TypeNameV121')){if($legacy -notmatch [regex]::Escape($x)){throw ('v1.1.11 lineage/metadata helper missing '+$x)}};" ^
+  "$moon=Get-Content 'src/bridge_lua_moonsharp_v1_1_12.inc' -Raw; foreach($x in @('ResolveMoonSharpDoStringV122','MoonSharp.Interpreter.Table','MoonSharp.Interpreter.DynValue','get_String','RunLuaChunkV122','LUA_MOONSHARP_V122')){if($moon -notmatch [regex]::Escape($x)){throw ('runtime-proven V122 MoonSharp primitive missing '+$x)}};" ^
+  "$observer=Get-Content 'src/bridge_lua_dialog_v1_1_13.inc' -Raw; foreach($x in @('kGameDialogProbeLuaV123','safeget','getmetatable','Selections','NODE=','ST=','SV=','KS=','ReadLuaDialogIdsV123','LUA_DIALOG_V123')){if($observer -notmatch [regex]::Escape($x)){throw ('v1.1.13 observer missing '+$x)}};" ^
+  "$action=Get-Content 'src/bridge_action_v1_1_13.inc' -Raw; foreach($x in @('SendCurrentLuaDialogSelectionV123','ReadLuaDialogIdsV123','ACTION_V123','metatable-aware GameDialogData.Selections')){if($action -notmatch [regex]::Escape($x)){throw ('v1.1.13 semantic action missing '+$x)}};" ^
+  "$manager=Get-Content 'src/bridge_lua_manager_v1_1_10.inc' -Raw; foreach($x in @('ResolveLuaEnvV120','ScanStaticReferencesV120','LUA_MANAGER_V120')){if($manager -notmatch [regex]::Escape($x)){throw ('runtime-proven v1.1.10 returned-object resolver missing '+$x)}};" ^
   "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('MainThread proof helper missing '+$x)}};" ^
-  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_lua_moonsharp_v1_1_12.inc','bridge_action_v1_1_12.inc','InspectHealDialogLegacyV121','ClickHealDialogChoiceLegacyV121')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.12 bridge wiring missing '+$x)}};" ^
-  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.12 controller guard missing '+$x)}}; if($heal -match 'healNpcRetries_\s*<'){throw 'WaitTreatment ClickNPC retry loop still active'}; if($heal -match 'THỬ MỞ LẠI NPC'){throw 'WaitTreatment reopen string still active'};" ^
-  "$protocol=Get-Content 'src/protocol.h' -Raw; if($protocol -notmatch '0x00010112u'){throw 'Protocol not bumped to v1.1.12'};" ^
-  "$handoff=Get-Content 'AI_PROJECT_HANDOFF_FULL.md' -Raw; foreach($x in @('v1.1.12','v1.1.11','MoonSharp.Interpreter.Script','DoString(System.String,MoonSharp.Interpreter.Table,System.String)','DynValue','artifact')){if($handoff -notmatch [regex]::Escape($x)){throw ('handoff missing '+$x)}};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.12 uses runtime-proven MoonSharp Script.DoString(String,Table,String) and preserves the self-contained AI handoff.'"
+  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_lua_dialog_v1_1_13.inc','bridge_action_v1_1_13.inc','InspectHealDialogLegacyV122','ClickHealDialogChoiceLegacyV122')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.13 bridge wiring missing '+$x)}};" ^
+  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.13 controller guard missing '+$x)}}; if($heal -match 'healNpcRetries_\s*<'){throw 'WaitTreatment ClickNPC retry loop still active'}; if($heal -match 'THỬ MỞ LẠI NPC'){throw 'WaitTreatment reopen string still active'};" ^
+  "$protocol=Get-Content 'src/protocol.h' -Raw; if($protocol -notmatch '0x00010113u'){throw 'Protocol not bumped to v1.1.13'};" ^
+  "$handoff=Get-Content 'AI_PROJECT_HANDOFF_FULL.md' -Raw; foreach($x in @('v1.1.13','v1.1.12','N=4','NODE','ST','SV','rawget','metatable')){if($handoff -notmatch [regex]::Escape($x)){throw ('handoff missing '+$x)}};" ^
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.13 preserves runtime-proven MoonSharp execution and changes only GameDialog Selections observation to normal-indexing/metatable-aware bounded scanning.'"
 if errorlevel 1 exit /b 1
 
 echo [2/9] Route FSM self-test...
@@ -54,7 +54,7 @@ echo [7/9] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.12.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.13.exe
 if errorlevel 1 exit /b 1
 
 echo [8/9] Package AI handoff + knowledge...
@@ -75,15 +75,15 @@ if not defined RUN_ID set "RUN_ID=LOCAL"
 set "RUN_NUMBER=%GITHUB_RUN_NUMBER%"
 if not defined RUN_NUMBER set "RUN_NUMBER=LOCAL"
 > dist\BUILD_EVIDENCE.txt echo PROJECT=ThanLongTestAutoHeal
->> dist\BUILD_EVIDENCE.txt echo VERSION=v1.1.12-test
+>> dist\BUILD_EVIDENCE.txt echo VERSION=v1.1.13-test
 >> dist\BUILD_EVIDENCE.txt echo SOURCE_HEAD_SHA=%SRC_SHA%
 >> dist\BUILD_EVIDENCE.txt echo CHECKOUT_SHA=%CHECKOUT_SHA%
 >> dist\BUILD_EVIDENCE.txt echo GITHUB_RUN_ID=%RUN_ID%
 >> dist\BUILD_EVIDENCE.txt echo GITHUB_RUN_NUMBER=%RUN_NUMBER%
->> dist\BUILD_EVIDENCE.txt echo ARTIFACT=ThanLongTestAutoHeal-v1.1.12
+>> dist\BUILD_EVIDENCE.txt echo ARTIFACT=ThanLongTestAutoHeal-v1.1.13
 >> dist\BUILD_EVIDENCE.txt echo BUILD=PASS
->> dist\BUILD_EVIDENCE.txt echo RUNTIME=UNTESTED_FOR_V1.1.12
->> dist\BUILD_EVIDENCE.txt echo NOTE=v1.1.11 runtime proved LuaEnv is MoonSharp.Interpreter.Script and exposed exact DoString String-Table-String signature; see AI_PROJECT_HANDOFF_FULL.md
+>> dist\BUILD_EVIDENCE.txt echo RUNTIME=UNTESTED_FOR_V1.1.13
+>> dist\BUILD_EVIDENCE.txt echo NOTE=v1.1.12 runtime passed MoonSharp DoString and DynValue.String but rawget-only observer returned T/C/K=0; N=4 was node count, not selection count.
 
 echo [9/9] Done.
 echo BUILD THANH CONG

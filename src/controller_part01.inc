@@ -21,7 +21,7 @@ using Clock = std::chrono::steady_clock;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long TEST v1.1.12 • Auto trị liệu • MoonSharp DoString";
+constexpr wchar_t kTitle[] = L"Thần Long TEST v1.1.13 • Auto trị liệu • Lua table observer";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 

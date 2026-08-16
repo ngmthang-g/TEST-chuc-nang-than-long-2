@@ -85,8 +85,22 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
 [[maybe_unused]] bool (*const kLegacyHealChoiceV121)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
     &ClickHealDialogChoiceLegacyV121;
 
-// v1.1.12 active path: keep runtime-proven ResolveLuaEnvV120, call the exact live
-// MoonSharp Script.DoString(code, globalContext, codeFriendlyName) shape, then read
-// DynValue.String before parsing the current GameDialog Selections probe.
+// Preserve v1.1.12 exact MoonSharp invocation as lineage and as the runtime-proven
+// execution primitive used by the v1.1.13 observer. V122 runtime proves DoString +
+// DynValue.String works, but its rawget-only table observer returned T/C/K=0.
+#define InspectHealDialog InspectHealDialogLegacyV122
 #include "bridge_lua_moonsharp_v1_1_12.inc"
+#undef InspectHealDialog
+[[maybe_unused]] bool (*const kLegacyInspectHealV122)(cleanroute::Snapshot&, wchar_t*, std::size_t) =
+    &InspectHealDialogLegacyV122;
+
+#define ClickHealDialogChoice ClickHealDialogChoiceLegacyV122
 #include "bridge_action_v1_1_12.inc"
+#undef ClickHealDialogChoice
+[[maybe_unused]] bool (*const kLegacyHealChoiceV122)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
+    &ClickHealDialogChoiceLegacyV122;
+
+// v1.1.13 active path: keep V122 MoonSharp invocation, replace only the read-only
+// dialog representation with normal-indexing + metatable-aware bounded observation.
+#include "bridge_lua_dialog_v1_1_13.inc"
+#include "bridge_action_v1_1_13.inc"

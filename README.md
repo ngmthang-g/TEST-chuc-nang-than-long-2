@@ -1,6 +1,6 @@
 # Thần Long TEST — Auto trị liệu runtime lab
 
-Repository này là **test lab độc lập**, không phải tool production. Mục tiêu hiện tại là chứng minh chuỗi Auto trị liệu theo state thật của client trước khi port sang bản chính.
+Repository này là **test lab độc lập**, không phải tool production. Mục tiêu là chứng minh chuỗi Auto trị liệu bằng state thật của client trước khi port sang bản chính.
 
 ## Bắt buộc đọc trước mỗi version
 1. `AI_START_HERE.md`
@@ -9,46 +9,45 @@ Repository này là **test lab độc lập**, không phải tool production. M�
 4. `AI_PROJECT_HANDOFF_FULL.md`
 5. `PROJECT_KNOWLEDGE.md`
 6. `CHANGELOG.md`
-7. feature / BUG / DEC / EVID / version history liên quan
+7. feature / BUG / DEC / EVID / version history / investigation liên quan
 8. source/tests hiện tại.
 
-Canonical client knowledge: `ngmthang-g/clinent-game-than-long-DATA-2222`. Không broad reverse lại client khi fact exact đã có trong VERIFIED/database/docs.
+Canonical client knowledge: `ngmthang-g/clinent-game-than-long-DATA-2222`. Không broad reverse khi exact fact đã có trong VERIFIED/database/docs.
 
 ## Current version
-`v1.1.12-test`
+`v1.1.13-test`
 
 Runtime known-good partial path:
-`tọa độ user capture -> route/mount -> stop/dismount -> ClickNPC -> GameDialog mở`.
+`tọa độ runtime -> route/mount -> stop/dismount -> ClickNPC -> GameDialog mở -> MoonSharp Script.DoString chạy -> DynValue.String trả probe`.
 
 Full `Trị liệu -> follow-up -> completion proof`: **chưa có runtime PASS**.
 
-### Latest runtime evidence — v1.1.11
-Delivered v1.1.11 repeatedly reports:
+## Latest runtime evidence — v1.1.12
+Delivered v1.1.12 repeatedly returned:
 
-`actual=MoonSharp.Interpreter.Script • declared=MoonSharp.Interpreter.Script • DoString={DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue ...}`
+```text
+LUA_DIALOG_V122 • route=static LuaSystemManager.get_LuaEnv -> MoonSharp.Script.DoString(String,Table,String) • GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}
+```
 
-This is the current runtime source of truth. v1.1.11 successfully exposed the real method but rejected it because its accepted-shape scorer expected argument #2 to be `System.String`; the live method uses `MoonSharp.Interpreter.Table`. The Lua chunk was not invoked, so Selections/action/server remain not reached.
+This proves the exact MoonSharp execution/result path works and isolates the current problem to observing the live Lua dialog representation.
 
-### v1.1.12 experiment
-- keeps the runtime-proven v1.1.10 returned-object resolver;
-- treats the current object as `MoonSharp.Interpreter.Script`;
-- requires exact live method `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`;
-- invokes `DoString(code, null, friendlyName)` in that order;
-- extracts the returned diagnostic string through `DynValue.get_String()`;
-- only then continues to current runtime `Selections[selectionID]=visibleText`;
-- markers: `LUA_MOONSHARP_V122`, `LUA_DIALOG_V122`, `ACTION_V122`.
+**Important correction:** V122 `N=4` is four traversed table nodes, **not four selections**.
 
-Official MoonSharp source independently matches this signature/result model. The earlier xLua assumption is preserved only as failed investigation history and is not current engine identity for this boundary.
+## v1.1.13 experiment
+V122 observer used `rawget` for `Selections`/priority fields, which bypasses `__index`/metatable lookup. v1.1.13 keeps the runtime-proven MoonSharp execution unchanged and replaces only the read-only observer:
+- normal `t[key]` indexing under `pcall`;
+- bounded child-table traversal;
+- bounded metatable/table-`__index` traversal;
+- canonical `Selections`/`GameDialogData` field checks;
+- diagnostics `NODE`, `ST`, `SV`, `MT`, `KS`, `S`;
+- current action only when `T>0`, with live ID re-read immediately before send;
+- markers `LUA_DIALOG_V123`, `ACTION_V123`.
+
+Canonical contract remains `GameDialogData.Selections[selectionID]=visibleText`; no static Treatment ID is assumed.
 
 ## Artifact handoff rule
-From v1.1.11 onward the CI ZIP is self-describing. It contains EXE/DLL plus:
-- `AI_PROJECT_HANDOFF_FULL.md`;
-- `AI_START_HERE.md`;
-- mandatory protocol/rules;
-- `PROJECT_KNOWLEDGE.md`;
-- `CHANGELOG.md`;
-- generated `BUILD_EVIDENCE.txt`.
+Every v1.1.11+ CI ZIP contains exactly 9 files: EXE, bridge DLL, consolidated handoff, startup file, V2 protocol, client-analysis rules, project knowledge, changelog and `BUILD_EVIDENCE.txt`.
 
-If you only have the ZIP, read `AI_PROJECT_HANDOFF_FULL.md` first.
+If only the ZIP is available, read `AI_PROJECT_HANDOFF_FULL.md` first.
 
-See `docs/history/VERSION_v1.1.12.md` and `docs/investigations/V121_MOONSHARP_RUNTIME_FINDING.md`.
+See `docs/history/VERSION_v1.1.13.md` and `docs/investigations/V122_SELECTIONS_RUNTIME_FINDING.md`.
