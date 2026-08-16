@@ -53,12 +53,12 @@ This does NOT yet prove that no second action-stage issue exists.
 ### Controller anti-flicker rule
 - Removed the `WaitTreatment` loop that retried `ClickNPC` after 4 seconds.
 - After a successful initial NPC interaction request, that transaction waits for current GameDialog state and fails closed after 15 seconds instead of reopening the NPC.
-- Existing OpenNpc transport-failure retry code is retained for now; the known visible-dialog retry loop is removed.
+- Existing OpenNpc transport-failure retry code is retained; the known visible-dialog WaitTreatment retry is removed.
 
 ### Build wiring
 - Removed the broken `kTitle` macro override in `controller.cpp` and put the v1.1.8 title back in the canonical `controller_part01.inc` definition.
 - Build artifact renamed to `ThanLongTestAutoHeal_v1.1.8.exe` / `ThanLongTestAutoHeal-v1.1.8`.
-- Architecture audit now uses ASCII symbol checks only for implementation assertions, avoiding the v1.1.7 PowerShell UTF-8 matching failure.
+- Architecture audit uses ASCII symbol checks only for implementation assertions, avoiding the v1.1.7 PowerShell UTF-8 matching failure.
 
 ## F. Important Implementation Details
 - Current client truth: `GameDialog.Selections[selectionID] = visibleText`; generated button `Tag = selectionID`.
@@ -84,9 +84,15 @@ Modified:
 
 ## H. Build / CI History
 - Inherited v1.1.7 final run `31925922772`: **CI FAILED** at controller compile due `kTitle` wiring.
-- v1.1.8 initial CI: PENDING at source commit creation.
-- Final Build: UNKNOWN until GitHub Actions completes.
-- Artifact: UNKNOWN until CI upload succeeds.
+- v1.1.8 source commit: `1da643b8384dfa64a2523938dffb4ddd9885b181`.
+- GitHub Actions run `31926671467`: **CI PASS / BUILD PASS**.
+- Architecture audit: PASS.
+- Route FSM self-test: PASS (8/8 inherited test suite).
+- Heal FSM self-test: PASS (7/7 inherited test suite).
+- Bridge DLL build + PE verification: PASS.
+- Controller EXE build: PASS.
+- Artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.8`, artifact ID `9258076757`, SHA-256 digest `390ae27248eebee99db7b1a6a463e291a797150a23de770aeed6d29aed8cd9d5`.
 
 ## I. Runtime Result
 - RUNTIME: **UNTESTED for v1.1.8**.
@@ -108,9 +114,9 @@ None for full Auto Heal.
 
 ## M. Handoff
 Inspect first:
-1. v1.1.8 CI result and compiler logs.
-2. runtime log from first NPC interaction through `DIALOG_V118`, `selectionID=`, `MAINTHREAD_PROOF`, `ACTION_V118`.
-3. whether any second `ClickNPC` appears after the initial successful NPC-open call.
+1. runtime log from first NPC interaction through `DIALOG_V118`, `selectionID=`, `MAINTHREAD_PROOF`, `ACTION_V118`.
+2. whether any second `ClickNPC` appears after the initial successful NPC-open call.
+3. the exact next server/UI state after Treatment.
 
 Do not first:
 - broad reverse the client;
