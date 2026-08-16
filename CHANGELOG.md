@@ -11,15 +11,15 @@
 - Added root `AI_CLIENT_ANALYSIS_RULES.txt`.
 - Added `AI_START_HERE.md` with mandatory per-version read order and canonical client routing.
 - Added `src/bridge_mainthread_v1_1_6.inc`.
-- Treatment/Confirm/`Ta biết rồi` button events are no longer directly invoked as the authoritative v1.1.6 path from the WH_GETMESSAGE request.
-- v1.1.6 constructs a legitimate `System.Action(target=live UIButton, callback=HandleClickEvent)` and enqueues it through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` for later Unity Update execution.
+- v1.1.6 constructs a legitimate `System.Action(target=live UIButton, callback=HandleClickEvent)` and enqueues it through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` for later Unity Update execution instead of treating direct hook mutation as authoritative.
 - Added harmless MainThread bridge proof using `CancellationTokenSource.Cancel()`; real button action is blocked until later polling observes `IsCancellationRequested false -> true`.
+- Historical v1.1.4 direct packet helper remains in source/history but is no longer compiled into active v1.1.6 bridge.
 - Removed obsolete duplicate v1.1.5 CI workflow.
 
 ### Investigation
 - v1.1.5 Long Phá Thiên/Lạc Dương shows the same Treatment-dialog flicker/non-progression as Đỗ Thanh Đằng/Lâu Lan.
 - This strongly weakens/disproves NPC 339/Lâu Lan as the sole root cause.
-- Canonical `BUILD_MAINTHREAD_BRIDGE` / `MAINTHREAD_BRIDGE_V1` says the validated message hook is a producer context, but mutable action callbacks should still be queued through `MainThread.Execute(Action)` and execute later in normal Unity Update to avoid re-entrant mutation.
+- Canonical `BUILD_MAINTHREAD_BRIDGE` / `MAINTHREAD_BRIDGE_V1` says the message hook is a producer context, but mutable callbacks should still be queued through `MainThread.Execute(Action)` and execute later in normal Unity Update.
 - Root cause status: **LIKELY common action execution-boundary problem; not yet CONFIRMED**.
 
 ### Files / Modules
@@ -27,6 +27,11 @@
 - `AI_CLIENT_ANALYSIS_RULES.txt`
 - `AI_START_HERE.md`
 - `PROJECT_KNOWLEDGE.md`
+- `docs/features/AUTO_HEAL_NPC.md`
+- `docs/bugs/BUG_REGISTRY.md`
+- `docs/evidence/EVIDENCE_REGISTRY.md`
+- `docs/decisions/DECISIONS.md`
+- `docs/history/VERSION_v1.1.6.md`
 - `src/bridge_mainthread_v1_1_6.inc`
 - `src/bridge.cpp`
 - `src/controller_part01.inc`
@@ -35,21 +40,30 @@
 - removed `.github/workflows/build_v1_1_5.yml`
 
 ### Build
-- Initial: PENDING at changelog snapshot.
-- Final: PENDING.
-- CI: PENDING.
-- Artifact target: `ThanLongTestAutoHeal-v1.1.6`.
+- Initial CI run `31923691864` / commit `be99b7d...`: **FAILED** because historical `ClickHealDialogChoiceV114` became unused and `-Werror,-Wunused-function` rejected the bridge compile.
+- Correction: removed v1.1.4 helper from active compilation; retained v1.1.3 helper with explicit `[[maybe_unused]]` reference because its compilation unit still supplies shared current UI/state/NPC logic.
+- Final source commit: `e54d537d8870c6e7e131816f3b7e78b60f10a62f`.
+- Final GitHub Actions run: `31924151093` — **CI PASS / BUILD PASS**.
+- Architecture audit: PASS.
+- Route FSM: **8/8 PASS**.
+- Heal FSM: **7/7 PASS**.
+- Bridge DLL + PE verification: PASS (`0x2022`).
+- Controller EXE: PASS.
+- Artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.6`.
+- Artifact ID: `9257330034`.
+- Artifact ZIP SHA256: `452e0093090b4ce3b7c00f7e4fc815b384d880554ebdfc4ff6b01bbee20cbd34`.
 
 ### Runtime
-- Status: `RUNTIME UNTESTED` for v1.1.6.
+- Status: **RUNTIME UNTESTED** for v1.1.6.
 - Confirmed working inherited: coordinate capture, route, dismount, NPC opening.
-- Still failing in previous versions: Treatment progression.
+- Still failing in last tested version: Treatment progression.
 - Awaiting test: CTS MainThread proof and queued live UIButton action.
 
 ### Regression / Known-Good / Related Bugs
 - BUG-001 remains OPEN.
 - No full Auto Heal known-good version exists.
-- v1.1.5 A/B test now records RUNTIME FAIL at Treatment on NPC 463/Lạc Dương.
+- v1.1.5 A/B test is RUNTIME FAIL at Treatment on NPC 463/Lạc Dương.
 
 ### Next Version Notes
 - If CTS proof fails, fix only the indicated delegate/MainThread stage.
@@ -70,7 +84,7 @@
 - SHA256: `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
 
 ### Runtime
-- **RUNTIME FAIL at Treatment** on NPC 463/Lạc Dương: user reports the same visible flicker and no progression as NPC 339/Lâu Lan.
+- **RUNTIME FAIL at Treatment** on NPC 463/Lạc Dương: user reports same visible flicker and no progression as NPC 339/Lâu Lan.
 - Route/NPC-open remains partial working behavior.
 
 ## [v1.1.4-test] - 2026-08-16
