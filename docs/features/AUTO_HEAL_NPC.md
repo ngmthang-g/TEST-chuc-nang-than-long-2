@@ -13,100 +13,97 @@ If only a build ZIP is available, `AI_PROJECT_HANDOFF_FULL.md` is the first-read
 - raw user-captured MapID/X/Y;
 - mount / route / StopPath / dismount;
 - Map 5 -> NPC 339 Đỗ Thanh Đằng;
-- Map 3 -> NPC 463 alternate test candidate;
 - semantic NPC interaction/open;
-- no WaitTreatment NPC reopen after successful initial open.
+- no WaitTreatment NPC reopen after successful initial open in tested v1.1.8 transaction.
 
 ## Runtime layer findings
 ### v1.1.8
-GameDialog opens but UIRoot observer reports `clickable=0`, `texts=0`, `labels=<none>` until fail-closed. UIRoot/UIButton is not the active Treatment observer anymore.
+GameDialog opened, but bridge-visible UIRoot observer reported `clickable=0`, `texts=0`, `labels=<none>` until fail-closed. UIRoot/UIButton is not the active observer.
 
 ### v1.1.9
-GameDialog opens then repeatedly:
-`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`.
-This fails before LuaEnv/DoString/Selections/Treatment ID/action.
+GameDialog opened then `LuaSystemManager instance unresolved`. Returned script object/DoString/Selections/action were not reached.
 
 ### v1.1.10
-Latest user runtime:
-```text
-Đã gửi AutoPath tới map=5 x=9454 y=5477
-Đã gửi lệnh xuống ngựa
-Đã gọi ClickNPC npcID=339
-LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)
-```
+Manager resolver advanced to a non-null object returned by `get_LuaEnv`; old DoString lookup then failed. Manager -> returned object = RUNTIME PARTIAL PASS.
 
-Current source calls `ResolveLuaEnvV120()` before old `FindLuaDoStringV119()`. Therefore:
-- manager/LuaEnv resolution = **RUNTIME PARTIAL PASS**;
-- old DoString resolver = **RUNTIME FAIL**;
-- Lua probe execution / Selections / live Treatment ID / action/server = NOT REACHED.
+### v1.1.11 — MoonSharp discovery
+User runtime repeatedly reports:
 
-## Current implementation — v1.1.11
-### LuaEnv resolver — protected from v1.1.10
-`src/bridge_lua_manager_v1_1_10.inc` remains the active prerequisite. Do not redesign it merely because the next DoString layer failed.
+`LUA_DOSTRING_V121 unresolved • actual=MoonSharp.Interpreter.Script • declared=MoonSharp.Interpreter.Script • DoString={DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue | ...}`
 
-### DoString resolver / dialog observer
-`src/bridge_lua_dostring_v1_1_11.inc`:
-- obtains actual LuaEnv runtime class;
-- also resolves the declared return class of `LuaSystemManager.get_LuaEnv`;
-- enumerates current non-static `DoString` overloads on class/parents;
-- tries direct lookup by arity as a second metadata route;
-- prefers `System.String` chunk overload;
-- supports `System.Byte[]` chunk overload with managed UTF-8 byte-array construction;
-- supports safe metadata-matched arity 3/2/1;
-- on failure logs `LUA_DOSTRING_V121 unresolved` with actual/declared class and discovered signatures;
-- on execution success runs the bounded current GameDialog/AutoFight_Main Selections probe and returns `LUA_DIALOG_V121` T/C/K.
+This proves:
+- current returned object is `MoonSharp.Interpreter.Script`;
+- live DoString shape is `String, Table, String -> DynValue`;
+- V121 found the method but rejected it because its accepted-shape logic expected parameter #2 to be String;
+- V121 never executed the Lua chunk.
 
-Targeted research note: official Tencent xLua source exposes both String and Byte[] DoString overloads. This guides the resolver but does not prove the exact game client build; live metadata decides what is callable.
+Therefore current Selections/Treatment ID/action/server result are still UNKNOWN.
+
+## Current implementation — v1.1.12
+### Returned Script resolver — protected from v1.1.10
+`src/bridge_lua_manager_v1_1_10.inc` remains the active prerequisite. Runtime evidence now identifies its returned object as MoonSharp Script. Do not redesign this layer merely because downstream invocation was wrong.
+
+### MoonSharp DoString / dialog observer
+`src/bridge_lua_moonsharp_v1_1_12.inc`:
+- obtains current returned object through V120 resolver;
+- enumerates/validates exact runtime method:
+  `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`;
+- calls `DoString(code, null, friendlyName)` in the verified parameter order;
+- captures managed exception class/text when possible;
+- resolves `DynValue.get_String()` and copies the returned diagnostic string;
+- runs existing bounded current GameDialog/AutoFight_Main Selections probe;
+- emits `LUA_MOONSHARP_V122` on method/invoke/result failures;
+- emits `LUA_DIALOG_V122` with T/C/K/raw sample after execution success.
+
+Official MoonSharp source matches the live signature: `Script.DoString(string code, Table globalContext = null, string codeFriendlyName = null)` returns `DynValue`; `DynValue.String` exposes a string value.
 
 ### GameDialog action
-`src/bridge_action_v1_1_11.inc`:
-- requires safe current managed game/thread prerequisite;
-- re-reads current V121 selections immediately before action;
+`src/bridge_action_v1_1_12.inc`:
+- requires safe action prerequisite;
+- re-runs current V122 probe immediately before action;
 - rejects absent/stale/guessed ID;
 - submits canonical `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentID>:-1`;
-- logs `ACTION_V121`;
+- logs `ACTION_V122`;
 - waits for fresh server/UI state.
 
 ### Confirmation
-If a live MessageBox exists, use semantic `ButtonOKClicked()`. Otherwise a current GameDialog `Xác nhận` selection uses its actual current ID.
+If a live MessageBox exists, use semantic `ButtonOKClicked()`. Otherwise current GameDialog `Xác nhận` uses its current selection ID.
 
 ## Canonical facts
 - `Selections[selectionID]=visibleText`.
 - no global Treatment ID.
 - built-in AutoFight dialog logic inspects current selections.
 - GameDialog request ID `100007`, payload `selectionID:SelectedItemID`.
-- canonical KB verifies LuaSystemManager `get_LuaEnv/set_LuaEnv`.
-- current exact DoString method availability must come from runtime metadata.
+- returned script object at current boundary is runtime-confirmed `MoonSharp.Interpreter.Script`.
+- exact current DoString metadata shape is runtime-confirmed String/Table/String -> DynValue.
+
+## Failed/superseded assumptions
+- UIRoot/UIButton observer: runtime failed.
+- named LuaSystemManager singleton: runtime failed.
+- xLua identity/parameter model for current returned object: disproven by v1.1.11 runtime. Keep only as investigation history.
 
 ## Artifact contract — v1.1.11+
-Every delivered ZIP must contain:
-- EXE/DLL;
-- `AI_PROJECT_HANDOFF_FULL.md`;
-- `AI_START_HERE.md`;
-- mandatory protocol/rules;
-- `PROJECT_KNOWLEDGE.md`;
-- `CHANGELOG.md`;
-- generated `BUILD_EVIDENCE.txt`.
+Every delivered ZIP contains EXE/DLL plus consolidated handoff/startup/protocol/rules/project knowledge/changelog/build evidence.
 
 ## Safety / isolation
-v1.1.11 does NOT:
+v1.1.12 does NOT:
 - return to UIRoot/button scanning;
 - add NPC reopen retries;
 - hardcode Treatment ID;
 - raw-scan heap/pointers;
-- change route/state machine semantics;
-- declare downstream packet/server failure before those stages are reached.
+- change route/state-machine semantics;
+- claim packet/server failure before action is reached.
 
 ## Build status
-v1.1.10 BUILD PASS; runtime reaches LuaEnv then fails at DoString resolver.
+v1.1.11 build/packaging PASS; runtime identifies MoonSharp but fails before invocation due V121 shape filter.
 
-v1.1.11 source/CI: **PENDING at source commit creation**. Runtime: **UNTESTED**.
+v1.1.12 source/CI: **PENDING at source commit creation**. Runtime: **UNTESTED**.
 
 ## Required next log
-After the single NPC open, capture one of:
-- `LUA_DOSTRING_V121 unresolved ...` — inspect actual class/signatures only;
-- `LUA_DIALOG_V121 • route=... • T=<id> ...` — Lua chunk executed.
-If `T>0`, then capture `MAINTHREAD_PROOF`, `ACTION_V121`, next GameDialog/MessageBox and HP/money/result state.
+After one NPC open, preserve:
+- `LUA_MOONSHARP_V122 ...` if exact invocation/result fails;
+- or `LUA_DIALOG_V122 • route=... • T=<id> ...` if MoonSharp probe executes.
+If `T>0`, then capture `MAINTHREAD_PROOF`, `ACTION_V122`, next GameDialog/MessageBox and HP/money/result state.
 
 ## Do not break
 - no guessed/cached ID;
@@ -114,6 +111,7 @@ If `T>0`, then capture `MAINTHREAD_PROOF`, `ACTION_V121`, next GameDialog/Messag
 - no WaitTreatment NPC reopen;
 - no fixed sleep success proof;
 - no broad reverse;
-- do not revert V120 LuaEnv resolver without contrary runtime evidence;
+- do not revert V120 returned-object resolver without contrary runtime evidence;
+- do not call current returned object xLua after MoonSharp runtime proof;
 - BUILD PASS is not Runtime PASS;
 - artifact handoff bundle is mandatory.

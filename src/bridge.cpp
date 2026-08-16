@@ -57,7 +57,7 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
     &ClickHealDialogChoiceLegacyV119;
 
 // Preserve v1.1.10 manager/LuaEnv resolver and action for lineage. Runtime v1.1.10
-// proves this layer reaches a non-null LuaEnv, then fails specifically at DoString lookup.
+// proved this layer reaches a non-null script object, then failed at the old DoString lookup.
 #define InspectHealDialog InspectHealDialogLegacyV120
 #include "bridge_lua_manager_v1_1_10.inc"
 #undef InspectHealDialog
@@ -70,7 +70,23 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
 [[maybe_unused]] bool (*const kLegacyHealChoiceV120)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
     &ClickHealDialogChoiceLegacyV120;
 
-// v1.1.11 active path: keep the runtime-proven V120 LuaEnv resolver, replace only
-// the failed DoString method resolution with overload-aware String/Byte[] metadata logic.
+// Preserve v1.1.11 overload-aware probe/action as lineage. Runtime v1.1.11 revealed
+// the exact engine/type contract: MoonSharp.Interpreter.Script with
+// DoString(String, MoonSharp.Interpreter.Table, String) -> DynValue.
+#define InspectHealDialog InspectHealDialogLegacyV121
 #include "bridge_lua_dostring_v1_1_11.inc"
+#undef InspectHealDialog
+[[maybe_unused]] bool (*const kLegacyInspectHealV121)(cleanroute::Snapshot&, wchar_t*, std::size_t) =
+    &InspectHealDialogLegacyV121;
+
+#define ClickHealDialogChoice ClickHealDialogChoiceLegacyV121
 #include "bridge_action_v1_1_11.inc"
+#undef ClickHealDialogChoice
+[[maybe_unused]] bool (*const kLegacyHealChoiceV121)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
+    &ClickHealDialogChoiceLegacyV121;
+
+// v1.1.12 active path: keep runtime-proven ResolveLuaEnvV120, call the exact live
+// MoonSharp Script.DoString(code, globalContext, codeFriendlyName) shape, then read
+// DynValue.String before parsing the current GameDialog Selections probe.
+#include "bridge_lua_moonsharp_v1_1_12.inc"
+#include "bridge_action_v1_1_12.inc"
