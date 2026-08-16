@@ -4,7 +4,7 @@
 v1.1.4 vẫn chỉ làm màn hình/dialog nháy. Người test nghi NPC Đỗ Thanh Đằng ở Lâu Lan có thể có vấn đề riêng và yêu cầu thêm Long Phá Thiên tại Lạc Dương; tọa độ vẫn do người dùng tự lấy.
 
 ## Mandatory Knowledge Protocol
-Đã đọc lại AI_PROJECT_KNOWLEDGE_PROTOCOL trước khi sửa, đọc `PROJECT_KNOWLEDGE.md` hiện tại và canonical client `AI_INDEX.md`/database trước khi tra NPC. Không broad reverse binary.
+Đã đọc project Knowledge Protocol, `PROJECT_KNOWLEDGE.md` và canonical client `AI_INDEX.md`/database trước khi tra NPC. Không broad reverse binary.
 
 ## Canonical Data Source
 `ngmthang-g/clinent-game-than-long-DATA-2222/database/npcs/NPCS_0401_0600.csv` xác nhận:
@@ -18,36 +18,23 @@ v1.1.4 vẫn chỉ làm màn hình/dialog nháy. Người test nghi NPC Đỗ Th
 
 ## Confidence
 - CONFIRMED STATIC: identity/map của 463 và 339.
-- HYPOTHESIS: Long Phá Thiên 463 có cùng dịch vụ `Trị liệu`. Canonical healer-family database không xếp 463 vào LangZhong/MingYi, nên chỉ runtime mới được phép promote mapping này.
+- UNKNOWN as a canonical healer classification: Long Phá Thiên 463 không thuộc LangZhong/MingYi family trong static healer candidate list; version này dùng 463 làm A/B runtime target theo yêu cầu người dùng.
 
 ## Code Change
 Không thay action layer v1.1.4. Chỉ thay cách chọn NPC test:
-
-- target do user bấm `TỰ LẤY TỌA ĐỘ NPC` vẫn lưu raw MapID/X/Y;
-- captured MapID `3` -> runtime `ClickNPC(463)` Long Phá Thiên;
-- captured MapID `5` -> runtime `ClickNPC(339)` Đỗ Thanh Đằng;
-- map khác -> fail-closed, không đoán NPC;
+- target do user bấm `TỰ LẤY TỌA ĐỘ NPC` lưu raw MapID/X/Y;
+- captured MapID `3` -> `ClickNPC(463)` Long Phá Thiên;
+- captured MapID `5` -> `ClickNPC(339)` Đỗ Thanh Đằng;
+- map khác -> fail-closed;
 - không hardcode X/Y.
-
-Một hotfix macro tạm trong `src/controller.cpp` đã bị loại bỏ. Mapping hiện nằm trực tiếp trong `src/controller_part04.inc` qua `HealNpcIdForCapturedMap()` / `HealNpcNameForCapturedMap()`.
 
 ## Test Design
 A/B test một biến:
+`same route + same semantic GameDialog action + different NPC/map`.
 
-`same route + same semantic GameDialog action + different NPC/map`
-
-- Nếu 463 works còn 339 fails -> có bằng chứng mạnh cần điều tra khác biệt NPC/server-dialog của Lâu Lan.
-- Nếu 463 vẫn nháy/fail giống 339 -> giả thuyết lỗi riêng NPC Lâu Lan yếu đi; quay lại targeted trace action/state chung, không đổi NPC liên tục.
-
-## Files Changed
-- `src/controller.cpp`
-- `src/controller_part04.inc`
-- `src/controller_part05.inc`
-- `build.cmd`
-- `.github/workflows/build.yml`
-- `PROJECT_KNOWLEDGE.md`
-- `CHANGELOG.md`
-- `VERSION_v1.1.5.md`
+Acceptance logic before test:
+- nếu 463 works còn 339 fails -> investigate NPC/server-dialog difference;
+- nếu 463 vẫn nháy/fail giống 339 -> hypothesis lỗi riêng NPC Lâu Lan bị mạnh mẽ bác bỏ/giảm độ tin cậy; quay lại common action bridge/state boundary.
 
 ## Build Status
 GitHub Actions run `31909204317` on clean source:
@@ -60,12 +47,20 @@ GitHub Actions run `31909204317` on clean source:
 - Artifact: `ThanLongTestAutoHeal-v1.1.5`.
 - Artifact SHA256: `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
 
-## Runtime Status
-NEEDS USER TEST.
+## Runtime Result — USER CONFIRMED
+**RUNTIME FAIL at Treatment.**
 
-## Test Procedure
-1. Tới Lạc Dương và đứng cạnh Long Phá Thiên.
-2. Bấm `TỰ LẤY TỌA ĐỘ NPC` để target lưu MapID 3 + raw X/Y.
-3. Bấm `AUTO TRỊ LIỆU`.
-4. Xác nhận log phải ghi `NPC 463 Long Phá Thiên` trước khi mở dialog.
-5. Gửi log từ `AUTO TRỊ LIỆU START` đến khi fail/complete.
+User report after testing Long Phá Thiên/Lạc Dương:
+- NPC/dialog opens;
+- tool action causes the Treatment screen/dialog to **flicker**;
+- no Treatment progression;
+- symptom is effectively the same as the previous Đỗ Thanh Đằng/Lâu Lan flow.
+
+## Evidence / Conclusion
+- CONFIRMED: changing from NPC 339/Map5 to NPC 463/Map3 while keeping the action layer unchanged did **not** change the failure symptom.
+- DISPROVEN/strongly weakened: “NPC 339 or Lâu Lan alone is the root cause.”
+- NOT PROVEN: exact common root cause.
+- Next correct investigation: shared action execution boundary / state lifecycle; do not continue rotating NPCs as the primary diagnostic.
+
+## Superseded By
+`v1.1.6-test` — MainThread queued UI action experiment with CTS bridge proof.
