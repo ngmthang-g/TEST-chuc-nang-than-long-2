@@ -29,18 +29,16 @@
 **Context:** inferred coordinate scale was wrong.  
 **Consequences:** Map 3 maps to test NPC 463; Map 5 maps to 339; unsupported maps fail closed.
 
-## DEC-004 — Do not accept direct hook mutation as authoritative UI action
+## DEC-004 — Keep mutable UI actions on MainThread queue once reached
 
-**Date / Version:** 2026-08-16 / v1.1.6  
+**Date / Version:** 2026-08-16 / v1.1.6, wording corrected v1.1.7  
 **Status:** ACTIVE  
-**Decision:** For the broken heal UI mutation, do not directly invoke the decisive UIButton/GameDialog mutation re-entrantly from the WH_GETMESSAGE request. Use a legitimate `System.Action` queued through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` and let Unity Update invoke it.  
-**Context:** v1.1.0–v1.1.5 produced the same flicker/no-progress across several action styles and two NPC/maps. Canonical MainThread contract explicitly separates producer hook from normal Update execution boundary.  
-**Alternatives:** add more delay; resend packet; test more NPCs; call `HandleClickEvent` directly again.  
-**Why Rejected:** those repeat failed layers or do not address the common execution boundary.  
-**Evidence:** EVID-001, EVID-002, EVID-003.  
-**Reason:** isolate one shared architectural variable using an already-VERIFIED game-owned dispatcher.  
-**Consequences:** v1.1.6 first runs a harmless CTS Action proof; Treatment UI event is blocked unless proof succeeds.  
-**Affected Features:** Auto Heal now; potential future mutation bridge if runtime-verified.
+**Decision:** Once a decisive live UI mutation is genuinely reached, execute it as a legitimate managed `System.Action` through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` rather than directly/re-entrantly mutating UI from the WH_GETMESSAGE request.  
+**Context:** canonical MainThread contract establishes the game-owned action boundary. v1.1.7 evidence correction means this mechanism is no longer asserted as the primary BUG-001 root cause; old runs may have failed earlier in observer/discovery.  
+**Alternatives:** direct hook mutation; arbitrary fixed delay.  
+**Why Rejected:** weaker execution/lifecycle guarantees.  
+**Evidence:** canonical MainThread docs / EVID-003.  
+**Consequences:** v1.1.7 retains the v1.1.6 queued action layer while changing only observer/discovery.
 
 ## DEC-005 — MainThread proof is asynchronous
 
@@ -48,4 +46,17 @@
 **Status:** ACTIVE  
 **Decision:** Begin/enqueue proof, return from hook, poll on later request. Never enqueue then synchronously wait within the same hook callback.  
 **Evidence:** canonical `MAINTHREAD_BRIDGE_V1`.  
-**Consequences:** first Treatment attempt may log `MAINTHREAD_PROOF PENDING`; a later timer tick polls/advances.
+**Consequences:** first Treatment action may report proof pending; later observation/poll advances it.
+
+## DEC-006 — Prove current GameDialog observation before redesigning Treatment action again
+
+**Date / Version:** 2026-08-16 / v1.1.7  
+**Status:** ACTIVE  
+**Decision:** If current Lua `GameDialog` is already present, do not reopen the NPC merely because the exact Treatment button was not resolved in that tick. First prove the dynamic UI hierarchy/text observation and log the current candidates. Do not change packet/callback semantics again until observer reachability is proven.  
+**Context:** original runtime log showed repeated `ClickNPC` while `CHỜ DIALOG TRỊ LIỆU`; old `WalkForButton` required matching text and click handler on the same object. That common observer dependency was shared by multiple historical action experiments.  
+**Alternatives:** add delays; rotate more NPCs; rewrite packet/action again; broad reverse UI internals.  
+**Why Rejected:** they change the wrong variable before proving that the action stage is reached and repeat already low-information experiments.  
+**Evidence:** EVID-004, EVID-005, EVID-006 + canonical GameDialog lifecycle docs.  
+**Reason:** isolate the earliest unproven stage in the chain.  
+**Consequences:** v1.1.7 adds descendant-label button discovery, semantic text normalization and `GameDialog`-presence anti-reopen guard. A future action redesign requires runtime logs showing `DIALOG_V117 MATCH`/action reachability or another exact observer result.  
+**Affected Features:** Auto Heal; principle may apply to other server-driven dynamic GameDialog automation.
