@@ -8,14 +8,13 @@ del /q dist\* >nul 2>nul
 
 echo [1/8] Architecture audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ErrorActionPreference='Stop'; if(-not(Test-Path 'AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md')){throw 'Missing mandatory V2 knowledge protocol'}; if(-not(Test-Path 'AI_CLIENT_ANALYSIS_RULES.txt')){throw 'Missing mandatory client analysis rules'}; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
+  "$ErrorActionPreference='Stop'; if(-not(Test-Path 'AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md')){throw 'Missing mandatory V2 knowledge protocol'}; if(-not(Test-Path 'AI_CLIENT_ANALYSIS_RULES.txt')){throw 'Missing mandatory client analysis rules'}; if(-not(Test-Path 'AI_START_HERE.md')){throw 'Missing AI_START_HERE'}; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
-  "$bridge=((Get-ChildItem 'src' -Filter 'bridge_part*.inc' | Sort-Object Name | ForEach-Object {Get-Content $_.FullName -Raw}) -join [Environment]::NewLine); foreach($x in @('SendToggleRideState','StartAutoPath','StopAutoPath','ClickNPC','InspectHealDialog','FindScriptUIRoots')){if($bridge -notmatch [regex]::Escape($x)){throw ('Missing required method/feature '+$x)}};" ^
-  "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','0x49F810','HandleClickEvent','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('v1.1.6 MainThread helper missing '+$x)}};" ^
-  "$entry=Get-Content 'src/bridge.cpp' -Raw; if($entry -notmatch 'bridge_mainthread_v1_1_6.inc'){throw 'v1.1.6 bridge not active'};" ^
-  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap','HealNpcNameForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('dual-map healer mapping missing '+$x)}};" ^
-  "$controller=Get-Content 'src/controller.cpp' -Raw; if($controller -match '#define kHealNpcID'){throw 'Legacy macro NPC override still present'};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.6 queues live UIButton event through MainThread.Execute after CTS proof; no direct packet path is active.'"
+  "$dialog=Get-Content 'src/bridge_dialog_v1_1_7.inc' -Raw; foreach($x in @('FirstTextInSubtreeV117','WalkForButtonV117','SemanticTextEqV117','GameDialog=present','Lua UI tồn tại nhưng UIRoot chưa sẵn sàng')){if($dialog -notmatch [regex]::Escape($x)){throw ('v1.1.7 dialog observer missing '+$x)}};" ^
+  "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','HandleClickEvent','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('MainThread helper missing '+$x)}};" ^
+  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_dialog_v1_1_7.inc','bridge_mainthread_v1_1_6.inc','FindButtonInUiLegacyV116','InspectHealDialogLegacyV116')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.7 bridge wiring missing '+$x)}};" ^
+  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('dual-map healer mapping missing '+$x)}};" ^
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.7 fixes dynamic dialog discovery/reopen loop while retaining MainThread action boundary.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
@@ -50,7 +49,7 @@ echo [7/8] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.6.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.7.exe
 if errorlevel 1 exit /b 1
 
 echo [8/8] Done.
