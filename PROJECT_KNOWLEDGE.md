@@ -2,173 +2,156 @@
 
 ## Project Identity
 - Repository: `ngmthang-g/TEST-chuc-nang-than-long-2`
-- Purpose: independent runtime test lab for Thần Long automation features; not the production tool.
+- Purpose: independent runtime test lab for Thần Long automation features; not production.
 - Development branch: `agent/auto-tri-lieu-v1.1.0`
-- Current version: `v1.1.6-test`
-- Last known-good full Auto trị liệu: **NONE / UNKNOWN** — no version has completed the full Treatment chain at runtime.
-- Runtime-known-good partial subsystem: user-captured target -> route -> dismount -> NPC interaction/open.
+- Current version: `v1.1.7-test`
+- Last known-good full Auto trị liệu: **NONE / UNKNOWN**.
+- Runtime-known-good partial subsystem: raw target capture -> route -> dismount -> NPC interaction/open.
 
 ## Mandatory Startup / Memory Contract
-Every version must read, in order:
+Before every analysis, code change, build or version, read in order:
 1. `AI_START_HERE.md`
 2. `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
 3. `AI_CLIENT_ANALYSIS_RULES.txt`
 4. this `PROJECT_KNOWLEDGE.md`
 5. `CHANGELOG.md`
-6. affected feature / bug / decision / evidence docs and current source/tests.
+6. affected feature / BUG / DEC / EVID / version docs
+7. current source/tests.
 
-When client internals are needed, use canonical repository `ngmthang-g/clinent-game-than-long-DATA-2222` and route narrowly:
+When client internals are needed use canonical repo `ngmthang-g/clinent-game-than-long-DATA-2222`:
 `AI_INDEX.md -> AI_BOOTSTRAP.md -> AUTO_TOOL_SCOPE.md -> AI_ROUTER.md -> one matching contexts/BUILD_*.md -> REQUIRED docs -> exact VERIFIED/database lookup`.
 
-No broad client reverse. Binary/native work is targeted-only when an exact fact required by the current task is absent from canonical VERIFIED/database/docs.
+No broad reverse. Binary/native work is targeted-only when an exact fact required by the task is absent from canonical VERIFIED/database/docs.
 
 ## Current State
 ### Runtime-confirmed working
-- raw MapID/X/Y capture and persistence;
-- CleanRoute movement to captured target;
-- StopPath / dismount behavior sufficient for NPC interaction;
-- `ClickNPC(339)` opens Đỗ Thanh Đằng's dialog in Lâu Lan;
-- v1.1.5 reaches/opens the Long Phá Thiên/Lạc Dương test flow sufficiently to reproduce the same Treatment symptom.
+- raw MapID/X/Y capture/persistence;
+- route/AutoPath to target;
+- StopPath/dismount sufficient for NPC interaction;
+- NPC interaction opens visible server-driven GameDialog;
+- NPC 339/Lâu Lan and NPC 463/Lạc Dương can reproduce the same overall Treatment symptom.
 
 ### Runtime-confirmed failing
-- v1.1.0–v1.1.2: direct `UIButton.HandleClickEvent()` in hook path -> visible flicker, no Treatment progression.
-- v1.1.3: `GameDialog.FunctionButtonClicked(liveButton)` through ExecuteUIObject -> same flicker/no progression.
-- v1.1.4: live selectionID + source-verified `CMD_SHOW_GAMEDIALOG=100007`, payload `selectionID:-1`, NPC 339/Lâu Lan -> same flicker/no progression.
-- v1.1.5: same v1.1.4 action layer, NPC 463 Long Phá Thiên/Lạc Dương -> user reports **same flicker/no Treatment progression**.
+- no version has completed full `Trị liệu -> follow-up -> completion proof`.
+- v1.1.5 reproduced flicker/no-progress on the second NPC/map.
 
-### v1.1.6 current implementation
-- Changes only the execution boundary for the broken Treatment UI action.
-- Constructs a legitimate `System.Action(target=live UIButton, callback=HandleClickEvent)` and enqueues it through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` so callback execution happens later in normal Unity `Update()`, not re-entrantly inside the Windows message hook.
-- Before real button mutation is allowed, runs a harmless `CancellationTokenSource.Cancel()` Action through the same queue and later polls `IsCancellationRequested false -> true`.
-- v1.1.6 code BUILD/CI: **PASS**.
-- Final source commit tested: `e54d537d8870c6e7e131816f3b7e78b60f10a62f`.
-- GitHub Actions run: `31924151093`.
-- Route FSM: **8/8 PASS**.
-- Heal FSM: **7/7 PASS**.
-- Bridge DLL compile/PE verify: PASS; PE characteristics `0x2022`.
-- Controller EXE: PASS.
-- Artifact: `ThanLongTestAutoHeal-v1.1.6`, ID `9257330034`.
-- Artifact ZIP SHA256: `452e0093090b4ce3b7c00f7e4fc815b384d880554ebdfc4ff6b01bbee20cbd34`.
-- v1.1.6 runtime: **RUNTIME UNTESTED**.
+### Current build experiments
+- v1.1.6: MainThread queued live UIButton action after CTS proof; CI/BUILD PASS, runtime artifact-version result not preserved as confirmed evidence.
+- v1.1.7: changes the shared dialog observer/discovery layer first; BUILD/CI in progress at snapshot update; RUNTIME UNTESTED.
 
-## Affected Feature
-Auto trị liệu NPC / dynamic GameDialog action execution.
+## Critical v1.1.7 Correction
+Earlier reasoning over-attributed BUG-001 to the action execution boundary.
+
+Source + old runtime log correlation shows a common observer problem was never isolated:
+- `InspectHealDialog()` used old `FindButtonInUi/WalkForButton`;
+- old matcher required the **same object** to expose matching `get_Text()` and `HandleClickEvent()`;
+- original user log showed repeated `ClickNPC` while status remained `CHỜ DIALOG TRỊ LIỆU` even though GameDialog was visibly open;
+- controller only retries NPC in WaitTreatment when no Treatment action is detected.
+
+Therefore the visible flicker can be generated by the tool repeatedly reopening/reconstructing the NPC dialog **before the Treatment action is ever reached**.
+
+Status:
+- repeated NPC retry while visible dialog exists: CONFIRMED evidence;
+- observer/discovery as root cause: LIKELY, pending v1.1.7 runtime;
+- any additional action-boundary problem after discovery fix: UNKNOWN.
 
 ## Architecture
-Read/decision side:
-`Controller -> per-PID shared memory -> WH_GETMESSAGE producer hook -> state read/inspect -> state machine`.
+Read/decision:
+`Controller -> per-PID shared memory -> WH_GETMESSAGE producer -> immutable observation -> state machine`.
 
-Canonical mutable-action boundary under test:
-`producer hook -> construct/root legitimate System.Action -> MainThread.Execute(Action) -> return hook -> Unity Update -> DoExecuteWorks -> Action.Invoke -> observer/state proof`.
+Mutable action boundary retained:
+`producer -> valid System.Action -> MainThread.Execute(Action) -> return -> Unity Update -> callback -> state proof`.
 
-The hook may be a valid managed producer context, but direct/re-entrant gameplay/UI mutation is not treated as authoritative merely because it runs on that thread.
+v1.1.7 observer path:
+`NPC interaction -> prove Lua GameDialog exists -> robust clickable/descendant-label scan -> current live action -> state proof`.
 
-## Confirmed Technical Facts
+## Confirmed Canonical Facts
 - Đỗ Thanh Đằng = NPC/ResID `339`, MapID `5` Lâu Lan.
-- Long Phá Thiên = NPC/ResID `463`, `ResName=PuTongXiaShi2`, MapID `3` Lạc Dương.
-- NPC X/Y must not be inferred/hardcoded in this test; use raw user-captured MapID/X/Y.
-- Dynamic `GameDialog`: `Selections[selectionID] = visibleText`; generated button stores selectionID in `Tag`.
-- Source-verified GameDialog function request: `CMD_SHOW_GAMEDIALOG=100007`, payload `selectionID:SelectedItemID`; ordinary no-award choice commonly uses `SelectedItemID=-1`.
-- Inbound GameDialog lifecycle may destroy/recreate the dialog, so **flicker is not success proof**.
-- `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)` enqueues; Unity `Update()` / `DoExecuteWorks()` invokes queued Actions.
-- Frozen client donor for legitimate `System.Action` constructor: `GameAssembly + 0x49F810`; build-specific locator, not universal identity.
-- Canonical MainThread rule: enqueue and return; never synchronously wait for queued callback in the same hook request.
-- BUILD/CI PASS does not establish runtime PASS.
+- Long Phá Thiên = NPC/ResID `463`, MapID `3` Lạc Dương; healer role is not canonical-static proven.
+- NPC X/Y in this lab are user-captured raw runtime values; never infer display scale.
+- `GameDialog.Selections[selectionID] = visibleText`.
+- generated dynamic button stores `selectionID` in Tag.
+- GameDialog selection semantics use `CMD_SHOW_GAMEDIALOG=100007`, payload `selectionID:SelectedItemID`.
+- inbound GameDialog lifecycle can destroy/recreate current dialog.
+- `MainThread.Execute(System.Action)` queues to Unity Update.
+- BUILD/CI PASS != RUNTIME PASS.
 
-## Root-Cause Assessment
-### DISPROVEN / strongly weakened
-**NPC 339/Lâu Lan as the sole root cause.**
-EVID-002: NPC 463/Lạc Dương reproduces the same Treatment flicker/no-progress.
+## Current v1.1.7 Implementation
+New file: `src/bridge_dialog_v1_1_7.inc`.
 
-### LIKELY, not CONFIRMED
-A shared external mutation/execution-boundary problem. v1.1.6 isolates this by moving the authentic live UIButton event across the game-owned MainThread Update queue. Runtime proof is still required before promoting this to confirmed root cause.
+Behavior:
+- normalizes whitespace/NBSP/simple markup;
+- finds clickable object by `HandleClickEvent()`;
+- searches descendant subtree for visible label text instead of requiring text on same object;
+- logs clickable candidate count and observed labels;
+- distinguishes Lua UI presence vs UIRoot readiness;
+- if GameDialog already exists during WaitTreatment, blocks the old semantic of “reopen NPC because exact button was not found this tick”;
+- keeps v1.1.6 MainThread action layer unchanged to isolate observer variable.
+
+Expected diagnostics:
+- `DIALOG_V117 MATCH`
+- `DIALOG_V117 NO MATCH`
+- `Lua UI tồn tại nhưng UIRoot chưa sẵn sàng`
+- `MAINTHREAD_PROOF`
+- `MAINTHREAD ENQUEUED`
 
 ## Important Files
-- `AI_START_HERE.md` — mandatory per-version startup pointer.
-- `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md` — engineering-lineage protocol.
-- `AI_CLIENT_ANALYSIS_RULES.txt` — canonical-client analysis rule.
-- `src/bridge_mainthread_v1_1_6.inc` — CTS proof + queued live UIButton event.
-- `src/bridge.cpp` — active v1.1.6 bridge wiring.
-- `src/bridge_part04.inc` — current shared UI discovery/state/NPC code plus historical v1.1.3 helper.
-- `src/bridge_heal_packet_v1_1_4.inc` — historical failed direct packet experiment; retained in source/history but not compiled into active v1.1.6 bridge.
-- `src/controller_part04.inc` / `src/controller_part05.inc` — heal FSM and captured MapID->NPC mapping.
-- `docs/features/AUTO_HEAL_NPC.md` — feature lineage.
-- `docs/bugs/BUG_REGISTRY.md` — BUG-001.
-- `docs/evidence/EVIDENCE_REGISTRY.md` — EVID records.
-- `docs/decisions/DECISIONS.md` — active decisions.
-- `docs/history/VERSION_v1.1.6.md` — full v1.1.6 lineage/build history.
-
-## Important IDs / APIs / Data Sources
-- `339` -> Đỗ Thanh Đằng -> Map 5.
-- `463` -> Long Phá Thiên -> Map 3.
-- `CMD_SHOW_GAMEDIALOG = 100007`.
-- `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)`.
-- CTS proof: `CancellationTokenSource.Cancel()` -> `IsCancellationRequested false -> true`.
-- Canonical client repo: `ngmthang-g/clinent-game-than-long-DATA-2222`.
-
-## Working Mechanisms
-- coordinate capture/persistence;
-- route / AutoPath;
-- StopPath / dismount;
-- semantic NPC opening;
-- live GameDialog/button discovery by text.
+- `AI_START_HERE.md`
+- `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
+- `AI_CLIENT_ANALYSIS_RULES.txt`
+- `src/bridge_dialog_v1_1_7.inc`
+- `src/bridge_mainthread_v1_1_6.inc`
+- `src/bridge_part03.inc`
+- `src/bridge_part04.inc` — historical/shared pre-v1.1.7 observer/action unit retained for lineage.
+- `src/bridge.cpp`
+- `src/controller_part04.inc` / `src/controller_part05.inc`
+- `docs/features/AUTO_HEAL_NPC.md`
+- `docs/bugs/BUG_REGISTRY.md`
+- `docs/evidence/EVIDENCE_REGISTRY.md`
+- `docs/history/VERSION_v1.1.7.md`
 
 ## Failed / Unsafe Mechanisms Summary
-- FAILED-001: inferred coordinate scaling.
-- FAILED-002: direct UIButton HandleClickEvent in hook path.
-- FAILED-003: resolver-only adjustment.
-- FAILED-004: ExecuteUIObject(GameDialog.FunctionButtonClicked).
-- FAILED-005: direct source-verified GameDialog packet on NPC 339.
-- FAILED-006: switching NPC/map to 463/Map3 with same action layer did not change symptom.
+- inferred coordinate scale — FAILED.
+- fixed Sleep as UI-ready proof — unsafe.
+- repeated `ClickNPC` while a current GameDialog is already present — likely BUG path; v1.1.7 blocks this observer failure mode.
+- treating visible flicker as proof Treatment action ran — DEPRECATED reasoning.
+- claiming an action layer itself failed without action-stage evidence — DEPRECATED reasoning.
 
-Detailed attempts are preserved in `docs/features/AUTO_HEAL_NPC.md`, BUG-001, `CHANGELOG.md`, and version history files.
+Historical v1.1.0–v1.1.6 experiments remain preserved in CHANGELOG/version docs; their full-chain runtime results are not erased.
 
-## Build History — v1.1.6
-- Initial run `31923691864` / commit `be99b7d...`: **BUILD FAILED** because historical `ClickHealDialogChoiceV114` became unused and `-Werror` rejected it.
-- Correction: v1.1.4 helper removed from active compilation while source/history retained; v1.1.3 historical helper kept with explicit `[[maybe_unused]]` reference because its compilation unit supplies shared current functions.
-- Final run `31924151093` / source commit `e54d537...`: **CI PASS / BUILD PASS**.
-
-## Hard Architectural Rules
-- read mandatory startup docs every version;
-- canonical client KB first, targeted binary only for exact missing fact;
+## Hard Rules
+- mandatory startup files every version;
+- canonical client KB first;
+- no broad binary reverse for solved facts;
 - no hardcoded/inferred NPC X/Y;
-- no guessed fixed Treatment selection ID;
-- no stale UI pointer across dialog transitions;
-- no fixed Sleep as readiness/success proof;
+- no guessed fixed Treatment selectionID;
+- no stale UI pointer across transition;
+- no fixed Sleep as success proof;
 - one mutable action in flight per PID;
-- queued Action must return from hook before later proof polling;
-- visual flicker is not success proof;
-- BUILD PASS != RUNTIME PASS.
+- do not reopen NPC when current GameDialog presence is already proven;
+- distinguish implementation/build/runtime evidence;
+- preserve failed attempts and corrections.
 
 ## Known Bugs
-### BUG-001 — Treatment GameDialog flickers but does not advance
-Status: OPEN.  
-Observed bad runtime: v1.1.0 through v1.1.5.  
-Current experiment: v1.1.6 MainThread queued live UIButton event after CTS proof.
-
-## Current Limitations
-- no full Auto Heal runtime PASS yet;
-- confirmation/`Ta biết rồi` after a genuine Treatment transition has not been reached in this test series;
-- v1.1.6 Action ctor uses frozen build locator after semantic checks and therefore requires live verification on this client build;
-- route/ClickNPC intentionally remain unchanged in v1.1.6 to isolate the broken UI action boundary.
+### BUG-001 — Treatment GameDialog flicker/no progression
+Status: OPEN.
+Current likely cause under test: observer/discovery misses visible dynamic button and triggers NPC reopen loop.
+Potential second cause after observer fix: UNKNOWN.
 
 ## Open Questions
-1. Does CTS MainThread proof pass repeatedly on live client without crash/GC corruption?
-2. After proof PASS, does queued `UIButton.HandleClickEvent` cause real Treatment progression?
-3. If proof PASS but same flicker remains, what exact GameDialog/request/state difference exists between one manual human click and tool queued event?
-4. What real confirmation UI/state follows an accepted Treatment?
+1. Does v1.1.7 enumerate the visible Treatment button/candidate labels correctly?
+2. Does flicker stop once GameDialog presence prevents repeated NPC reopen?
+3. After discovery succeeds, does MainThread queued action advance to next UI/state?
+4. If action is definitely reached but no transition occurs, what exact manual-vs-tool semantic difference remains?
+5. What real follow-up/HP/money/dialog proof completes Treatment?
 
-## Next Development Priorities
-1. User runtime-test v1.1.6 and preserve log from `MAINTHREAD_PROOF` through Treatment.
-2. If proof fails, fix only exact delegate/MainThread stage reported.
-3. If proof passes but Treatment still fails, do one targeted manual-vs-tool dialog/request/state trace.
-4. Do not rotate more NPCs or broad-reverse the client as the next step.
-5. Do not port to production before repeated full runtime PASS without crash/disconnect.
+## Next Development Priority
+Runtime-test v1.1.7 and preserve log from first NPC interaction through `DIALOG_V117` and `MAINTHREAD_*` lines. Do not rotate NPCs or broad-reverse before this evidence.
 
 ## Knowledge Index
 - `docs/features/AUTO_HEAL_NPC.md`
 - `docs/bugs/BUG_REGISTRY.md`
 - `docs/evidence/EVIDENCE_REGISTRY.md`
 - `docs/decisions/DECISIONS.md`
-- `docs/history/VERSION_v1.1.6.md`
-- older `VERSION_v1.1.x.md` and `docs/HANDOFF_*` files preserve previous detailed experiments.
+- `docs/history/VERSION_v1.1.7.md`
+- older `docs/history/VERSION_v1.1.x.md` / root `VERSION_v1.1.x.md` / HANDOFF docs preserve prior lineage.
