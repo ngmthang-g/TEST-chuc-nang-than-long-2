@@ -4,33 +4,38 @@
 
 ### Trigger / runtime evidence
 - User tested delivered v1.1.11 on Map 5 / NPC 339.
-- GameDialog opens; repeated V121 diagnostic reports:
-  `actual=MoonSharp.Interpreter.Script • declared=MoonSharp.Interpreter.Script`.
-- Runtime enumerates the real overload:
-  `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`.
-- Therefore v1.1.11 did reach the returned Script object and enumerate DoString, but rejected the real method because its scorer expected parameter #2 to be `System.String` rather than `MoonSharp.Interpreter.Table`.
+- Repeated V121 diagnostic reports `actual=MoonSharp.Interpreter.Script` and `declared=MoonSharp.Interpreter.Script`.
+- Runtime enumerates `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`.
+- v1.1.11 reached method enumeration but rejected the real method because its scorer expected parameter #2 to be `System.String` rather than `MoonSharp.Interpreter.Table`.
 - Lua probe execution / current Selections / live Treatment ID / action / server follow-up remain NOT REACHED / UNKNOWN.
 
 ### Correction of prior assumption
-- The active returned runtime type is **MoonSharp.Interpreter.Script**, not XLua.LuaEnv.
-- Earlier xLua research remains historical evidence explaining why v1.1.11 accepted the wrong parameter model, but xLua is DISPROVEN as the current returned Script type for this boundary.
-- Targeted official MoonSharp source matches runtime metadata: `Script.DoString(string code, Table globalContext = null, string codeFriendlyName = null)` returns `DynValue`; `DynValue.String` exposes a string result.
+- Current returned runtime type is **MoonSharp.Interpreter.Script**, not XLua.LuaEnv.
+- Earlier xLua research remains failed-investigation history, not current engine identity.
+- Official MoonSharp source matches runtime metadata: `Script.DoString(string code, Table globalContext = null, string codeFriendlyName = null)` returns `DynValue`; `DynValue.String` exposes string result.
 
 ### Added / changed
 - Added `src/bridge_lua_moonsharp_v1_1_12.inc`:
   - retains runtime-proven `ResolveLuaEnvV120()`;
-  - resolves only the runtime-proven MoonSharp signature `DoString(String,Table,String)->DynValue`;
-  - invokes with argument order `{code, null Table, friendlyName}`;
-  - captures managed exception text when possible;
-  - extracts the returned probe string through `DynValue.get_String()`;
+  - requires exact MoonSharp `DoString(String,Table,String)->DynValue` metadata shape;
+  - invokes `{code, null Table, friendlyName}`;
+  - captures managed exception diagnostics;
+  - extracts probe text through `DynValue.get_String()`;
   - emits `LUA_MOONSHARP_V122` failures and `LUA_DIALOG_V122` success diagnostics.
-- Added `src/bridge_action_v1_1_12.inc` using V122 current live selection IDs and `ACTION_V122` markers.
+- Added `src/bridge_action_v1_1_12.inc` using current V122 IDs and `ACTION_V122` markers.
 - Preserved v1.1.11 implementation under legacy names for lineage.
 - Protocol/title/startup log/artifact naming bumped to v1.1.12.
-- Self-contained artifact handoff contract from v1.1.11 remains mandatory and unchanged.
+- Self-contained 9-file artifact handoff contract remains mandatory.
 
-### Build
-- v1.1.12 source-bearing build: **PENDING** at commit creation.
+### Build / CI
+- Initial source commit `ad2f0403863251330b1aca80eb1eba9681b58c9a` -> run `31937607280`: **CI FAILED** before compilation. Architecture audit incorrectly required literal `MoonSharp.Interpreter.Script` inside the resolver source; artifact upload skipped.
+- Correction commit `33a3b56b44724d76ec6983bf7ec4dcff1edfa2b1` removes only that false-positive audit token.
+- Run `31937703988`: **CI/BUILD PASS** — architecture audit, Route FSM, Heal FSM, bridge DLL/PE, controller EXE, knowledge packaging and artifact upload all PASS.
+- Artifact `ThanLongTestAutoHeal-v1.1.12`, ID `9261162703`.
+- ZIP digest `sha256:d25f999934be62152cf02fd0251f533743f3e9eaa0d4178f74c2fa1007d85c19`.
+- Verified 9 artifact files.
+- EXE SHA-256 `32a3977469a26f5807be192a620630fba9ea3242e265706522fd7d93bb27c823`.
+- DLL SHA-256 `553c1d245c06c614561b9c2c1e6368daf30cb671b46602aec60b1938f326a037`.
 
 ### Runtime
 - v1.1.12: **RUNTIME UNTESTED**.
@@ -40,32 +45,20 @@
 `one NPC open -> LUA_MOONSHARP_V122 failure OR LUA_DIALOG_V122 T/C/K -> if T>0 then MAINTHREAD_PROOF/ACTION_V122 -> fresh GameDialog/MessageBox/HP/money result`.
 
 ## [v1.1.11-test] - 2026-08-16
-
-### Purpose
-- Created after v1.1.10 reached a returned Lua environment object but old `FindLuaDoStringV119` could not resolve DoString.
-- Added overload-aware diagnostics and mandatory self-contained AI handoff packaging.
-
-### Build
-- Source commit `95f285f929a32c9748342a3480748a5b79d1a4d0`, run `31935080947`: CI/BUILD PASS.
-- Final HEAD before v1.1.12: `4c9b0d5dceaa3828e3452aee339b3a03ceb0ef3b`, run `31935342682`: CI/BUILD PASS.
-- Final artifact `ThanLongTestAutoHeal-v1.1.11`, ID `9260507355`; ZIP contained EXE/DLL + handoff/startup/protocol/rules/knowledge/changelog/build evidence.
-
-### Runtime update
-- **RUNTIME FAIL at V121 DoString shape acceptance**, with major new discovery:
-  - actual/declared object = `MoonSharp.Interpreter.Script`;
-  - live overload = `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`;
-  - v1.1.11 incorrectly required parameter #2 String and never invoked the real method.
+- Added live DoString class/signature diagnostics and mandatory self-contained AI handoff packaging.
+- Source/final CI builds PASS.
+- Runtime FAIL at V121 accepted-shape resolution but produced decisive finding: actual/declared object `MoonSharp.Interpreter.Script`; live method `DoString(String,Table,String)->DynValue`; correct method was enumerated but rejected before invocation.
 - Superseded by v1.1.12 exact MoonSharp path.
 
 ## [v1.1.10-test] - 2026-08-16
-- Replaced singleton-name assumption with metadata-driven LuaEnv resolver.
+- Replaced manager singleton-name assumption with metadata-driven returned-object resolver.
 - BUILD PASS.
 - Runtime: manager -> returned Script object = PARTIAL PASS; then old DoString lookup failed.
 
 ## [v1.1.9-test] - 2026-08-16
-- Moved observer from empty UIRoot representation to intended Lua runtime data path.
+- Moved observer from empty UIRoot representation toward runtime script data.
 - BUILD PASS.
-- Runtime failed at `LuaSystemManager instance unresolved` before returned script object/DoString/Selections/action.
+- Runtime failed at `LuaSystemManager instance unresolved` before returned object/DoString/Selections/action.
 
 ## [v1.1.8-test] - 2026-08-16
 - Added all-descendant UIRoot scan, live Tag gate and removed WaitTreatment NPC reopen.
