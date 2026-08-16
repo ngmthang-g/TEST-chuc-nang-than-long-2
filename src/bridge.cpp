@@ -14,4 +14,7 @@ bool ClickHealDialogChoice(cleanroute::HealDialogChoice choice, wchar_t* detail,
 #undef ClickHealDialogChoice
 #include "bridge_part05.inc"
 #include "bridge_part06.inc"
+#define ClickHealDialogChoice ClickHealDialogChoiceV114
 #include "bridge_heal_packet_v1_1_4.inc"
+#undef ClickHealDialogChoice
+#include "bridge_mainthread_v1_1_6.inc"
