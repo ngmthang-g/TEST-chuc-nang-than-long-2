@@ -3,9 +3,6 @@
 
 namespace {
 bool ClickHealDialogChoice(cleanroute::HealDialogChoice choice, wchar_t* detail, std::size_t cap);
-bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap);
-bool FindButtonInUi(const Classes& c, const wchar_t* uiName, const wchar_t* buttonText,
-                    Il2CppObject*& button, wchar_t* detail, std::size_t cap);
 }
 
 #include "bridge_part01.inc"
