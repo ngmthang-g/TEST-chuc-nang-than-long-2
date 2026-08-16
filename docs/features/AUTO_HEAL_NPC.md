@@ -5,79 +5,92 @@
 Only port after repeated runtime PASS.
 
 ## Mandatory startup
-Read `AI_START_HERE.md`, V2 protocol, client-analysis TXT, project knowledge/changelog, this feature + BUG/DEC/EVID/history + current source. Use `clinent-game-than-long-DATA-2222/AI_INDEX.md` before any targeted reverse work.
+Read `AI_START_HERE.md`, V2 protocol, client-analysis TXT, project knowledge/changelog, this feature + BUG/DEC/EVID/history + current source. Use `clinent-game-than-long-DATA-2222/AI_INDEX.md` before targeted reverse work.
 
 ## Protected working path
 - raw user-captured MapID/X/Y;
 - mount / route / StopPath / dismount;
 - Map 5 -> NPC 339 Đỗ Thanh Đằng;
 - Map 3 -> NPC 463 alternate test candidate;
-- semantic NPC interaction/open.
+- semantic NPC interaction/open;
+- no WaitTreatment NPC reopen after successful initial open.
 
-## v1.1.8 runtime conclusion
-User test proves:
-- travel/open works;
-- exactly one NPC interaction occurs, so WaitTreatment anti-reopen works for that transaction;
-- GameDialog presence exists but UIRoot scanner returns `clickable=0`, `texts=0`, `labels=<none>` until 15-second fail-closed;
-- no Treatment selection ID/action is reached.
+## Runtime layer findings
+### v1.1.8
+GameDialog opens but UIRoot observer reports `clickable=0`, `texts=0`, `labels=<none>` until fail-closed. Therefore UIRoot/UIButton is not the active Treatment observer anymore.
 
-Therefore UIRoot/UIButton is no longer the active observer path. The stale `TEST v1.1.0` startup line in v1.1.8 was only an old UI literal; v1.1.9 corrects it.
+### v1.1.9
+User screenshot/live log shows GameDialog opens and then repeatedly:
 
-## Current implementation — v1.1.9
-### Observer
-`src/bridge_lua_dialog_v1_1_9.inc`:
-- resolve current Lua environment;
-- dynamically resolve `DoString`;
-- run bounded read-only Lua probe;
-- inspect `GUI.FindUI("GameDialog")` and `GUI.FindUI("AutoFight_Main")` runtime tables;
-- find `Selections` maps;
+`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`
+
+This is a narrower runtime failure: v1.1.9 does not reach LuaEnv/DoString/Selections/Treatment ID/action. The Lua selection model itself remains untested by this run.
+
+## Current implementation — v1.1.10
+### Resolver
+`src/bridge_lua_manager_v1_1_10.inc` fixes only the failing Lua manager/LuaEnv boundary.
+
+Order:
+1. resolve `LuaSystemManager` + `get_LuaEnv` semantically;
+2. if getter is static, invoke it directly without manager instance;
+3. otherwise try semantic `get_Instance` if exposed;
+4. enumerate bounded static reference fields using verified IL2CPP field APIs; validate actual runtime class before accepting a manager candidate;
+5. if class hierarchy proves a Unity object, try typed Unity object lookup;
+6. fail closed with `LUA_MANAGER_V120` diagnostics if unresolved.
+
+This avoids the v1.1.9 assumption that a named singleton path must exist.
+
+### Lua dialog observer
+Once LuaEnv resolves, v1.1.10 reuses the bounded runtime probe:
+- `GUI.FindUI("GameDialog")` / `GUI.FindUI("AutoFight_Main")`;
+- find current `Selections`;
 - match `Trị liệu`, `Xác nhận`, `Ta biết rồi`;
-- return current T/C/K IDs and paths/samples as `LUA_DIALOG_V119`.
+- return T/C/K and resolver route as `LUA_DIALOG_V120`.
 
 ### GameDialog action
-`src/bridge_action_v1_1_9.inc`:
-- require safe current managed game context and CTS/MainThread proof prerequisite;
-- re-read live selections immediately before action;
-- reject absent/stale/guessed ID;
-- submit canonical `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentID>:-1`;
-- emit `ACTION_V119`;
-- observe the next real state instead of assuming success.
+`src/bridge_action_v1_1_10.inc`:
+- requires safe current game/managed thread prerequisite;
+- re-reads current selections immediately before action;
+- rejects absent/stale/guessed ID;
+- submits canonical `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentID>:-1`;
+- logs `ACTION_V120`;
+- waits for a fresh server/UI state.
 
 ### Confirmation
-If a live `MessageBox` exists, use semantic `ButtonOKClicked()`. Otherwise a current GameDialog `Xác nhận` selection uses its live current ID.
-
-## Why v1.1.9 is a real new experiment
-v1.1.4 already knew the packet contract, but still depended on button discovery to obtain the ID. v1.1.8 runtime confirms this UI representation can be empty. v1.1.9 removes that common dependency by obtaining identity from runtime `Selections` itself.
+If a live MessageBox exists, use semantic `ButtonOKClicked()`. Otherwise a current GameDialog `Xác nhận` selection uses its actual current ID.
 
 ## Canonical facts
 - `Selections[selectionID]=visibleText`.
-- current selection ID is runtime/server state; no global Treatment ID.
+- no global Treatment ID.
 - built-in AutoFight dialog logic inspects current selections.
-- GameDialog request ID = `100007`, payload = `selectionID:SelectedItemID`.
-- ordinary function selection commonly uses `SelectedItemID=-1`.
-- MessageBox OK is callback-based.
-- `MainThread.Execute(System.Action)` remains preferred for live Unity/UI mutation architecture.
+- GameDialog request ID `100007`, payload `selectionID:SelectedItemID`.
+- canonical KB verifies LuaSystemManager `get_LuaEnv/set_LuaEnv`, but not a stable singleton getter/field name.
+- IL2CPP snapshot exposes metadata/static-field reflection used by the resolver.
 
-## Scope note
-The v1.1.9 direct semantic GameDialog request is a narrow test-lab proof after the current UIButton representation failed. It is not blanket permission to bypass the production MainThread architecture for arbitrary actions.
+## Safety / isolation
+v1.1.10 does NOT:
+- return to UIRoot/button scanning;
+- add NPC reopen retries;
+- hardcode Treatment ID;
+- raw-scan heap/pointers;
+- change route/state machine semantics;
+- declare downstream packet/server failure before those stages are reached.
 
 ## Build status
-- source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`.
-- run `31932086373`: **CI/BUILD PASS**.
-- artifact `ThanLongTestAutoHeal-v1.1.9`, ID `9259620117`.
-- ZIP SHA-256 `823f04f60fad78720f3742d7e93a7c31b6e382f504fe44982c41cf9a967d648a`.
-- EXE SHA-256 `3228bf03c493329af00c8014b47c9f486469a39b24b2c09add5df2061a450ad8`.
-- DLL SHA-256 `22019c4c9f4f4aaf29db3c4c328d9a948d285f41186698c981335cc039df7ea9`.
-- runtime v1.1.9: **UNTESTED**.
+Source-bearing v1.1.10 commit `d35517385266d4fa75011374966816a0e8d5ada1`, Actions run `31933118883`: **CI/BUILD PASS**. Artifact `ThanLongTestAutoHeal-v1.1.10`, ID `9259895908`, ZIP SHA-256 `4b43c205bedd4177288b562ed7df20b08adb5f295b6b1601a11699e0bb80ef60`.
+
+Runtime v1.1.10: **UNTESTED**.
 
 ## Required next log
-`one ClickNPC -> LUA_DIALOG_V119 -> T=<live id> -> MAINTHREAD_PROOF -> ACTION_V119 -> next GameDialog/MessageBox/result -> HP/money proof`.
+After the single NPC open, capture one of:
+- `LUA_DIALOG_V120 • route=... • T=<id> ...` — LuaEnv/DoString reached;
+- or exact `LUA_MANAGER_V120 ...` — resolver still unresolved.
+If `T>0`, then capture `MAINTHREAD_PROOF`, `ACTION_V120`, next GameDialog/MessageBox and HP/money/result state.
 
 ## Do not break
-- no guessed ID;
-- no UIRoot depth/label tuning for this confirmed empty-representation failure;
-- no stale ID;
+- no guessed/cached ID;
+- no UIRoot tuning;
 - no WaitTreatment NPC reopen;
-- no fixed sleep as success proof;
+- no fixed sleep success proof;
 - no broad reverse;
 - BUILD PASS is not Runtime PASS.
