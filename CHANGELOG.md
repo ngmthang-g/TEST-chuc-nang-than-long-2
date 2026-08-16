@@ -28,13 +28,17 @@
 
 ### Build
 - Inherited v1.1.7 final run `31925922772`: **CI FAILED** (`kTitle` compile error).
-- v1.1.8 source commit CI: PENDING at this entry; must be updated after Actions completes.
-- BUILD/CI status must not be promoted to runtime status.
+- v1.1.8 source commit: `1da643b8384dfa64a2523938dffb4ddd9885b181`.
+- GitHub Actions run `31926671467`: **CI PASS / BUILD PASS**.
+- Architecture audit, Route FSM tests, Heal FSM tests, bridge DLL/PE verification, controller EXE build and artifact upload all PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.8`, artifact ID `9258076757`.
+- Artifact digest: `sha256:390ae27248eebee99db7b1a6a463e291a797150a23de770aeed6d29aed8cd9d5`.
+- BUILD/CI PASS is not promoted to runtime status.
 
 ### Runtime
 - v1.1.8: **RUNTIME UNTESTED**.
 - Latest user observation before v1.1.8: Treatment dialog still flickers when NPC is opened; tested artifact/version UNKNOWN.
-- Awaiting: one-NPC-open proof, `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, next dialog/result state.
+- Awaiting: one-transaction proof, `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, next dialog/result state.
 
 ### Related Bugs / Evidence
 - BUG-001 remains OPEN.
