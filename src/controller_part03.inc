@@ -7,7 +7,7 @@
         addFont(Make(L"BUTTON", L"DỪNG", BS_PUSHBUTTON, 528, 272, 137, 42, IDC_STOP));
         status_ = Make(L"STATIC", L"TRẠNG THÁI: ĐÃ DỪNG", SS_CENTER | SS_CENTERIMAGE | WS_BORDER,
                        18, 326, 647, 48, IDC_STATUS); addFont(status_);
-        log_ = Make(L"EDIT", L"TEST v1.1.9: Auto trị liệu đọc GameDialogData.Selections runtime; không quét UIButton.\r\n",
+        log_ = Make(L"EDIT", L"TEST v1.1.10: sửa LuaSystemManager/LuaEnv resolver; giữ live GameDialogData.Selections.\r\n",
                     WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL,
                     18, 388, 647, 132, IDC_LOG); addFont(log_);
         SetTimer(hwnd_, kTimer, 500, nullptr);
