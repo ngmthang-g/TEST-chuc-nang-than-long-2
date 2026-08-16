@@ -1,69 +1,55 @@
 # DECISION REGISTRY
 
 ## DEC-001 — Mandatory per-version startup knowledge
-
-**Date / Version:** 2026-08-16 / v1.1.6  
 **Status:** ACTIVE  
-**Decision:** Every version must start from `AI_START_HERE.md`, the V2 protocol, client-analysis TXT, project knowledge/changelog, then affected docs/source.  
-**Context:** user requires the MD/TXT to become persistent project memory rather than chat-only instructions.  
-**Alternatives:** rely on chat memory; mention rules only in README.  
-**Why Rejected:** not durable across sessions/AI handoff.  
-**Evidence:** user requirement + V2 protocol.  
-**Consequences:** build audit checks mandatory root protocol/rules files; future handoff must preserve them.
+Every version starts from `AI_START_HERE.md`, V2 protocol, client-analysis TXT, project knowledge/changelog, affected docs/source. Build audit preserves the two user-supplied mandatory files.
 
 ## DEC-002 — Canonical client KB before reverse
-
-**Date / Version:** 2026-08-16  
 **Status:** ACTIVE  
-**Decision:** For client analysis, route through `clinent-game-than-long-DATA-2222` index/bootstrap/router/context pack and exact VERIFIED/database records. Binary/native analysis is only for exact missing facts.  
-**Context:** canonical client is intentionally a large AI-native KB; repeated broad reverse wastes time and risks conflicting conclusions.  
-**Alternatives:** re-scan GameAssembly/client each bug.  
-**Why Rejected:** exact action/UI/packet/MainThread facts already exist.  
-**Consequences:** every new client-facing investigation must name the relevant context pack/evidence source first.
+Use `clinent-game-than-long-DATA-2222/AI_INDEX.md` routing and exact VERIFIED/database facts before any targeted binary work. No repeated broad reverse.
 
 ## DEC-003 — Runtime coordinates are user-captured in this test lab
-
-**Date / Version:** v1.1.1  
-**Status:** ACTIVE for current test UX  
-**Decision:** do not infer/hardcode NPC X/Y; persist raw MapID/X/Y captured by user.  
-**Context:** inferred coordinate scale was wrong.  
-**Consequences:** Map 3 maps to test NPC 463; Map 5 maps to 339; unsupported maps fail closed.
-
-## DEC-004 — Keep mutable UI actions on MainThread queue once reached
-
-**Date / Version:** 2026-08-16 / v1.1.6, wording corrected v1.1.7  
 **Status:** ACTIVE  
-**Decision:** Once a decisive live UI mutation is genuinely reached, execute it as a legitimate managed `System.Action` through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` rather than directly/re-entrantly mutating UI from the WH_GETMESSAGE request.  
-**Context:** canonical MainThread contract establishes the game-owned action boundary.  
-**Evidence:** EVID-003.  
-**Consequences:** v1.1.8 retains the dispatcher/proof layer and changes observer/semantic gating around it.
+Do not infer/hardcode NPC X/Y. Current map mapping: Map 3 -> NPC 463 test candidate; Map 5 -> NPC 339 Đỗ Thanh Đằng.
+
+## DEC-004 — MainThread remains the preferred production mutation boundary
+**Status:** ACTIVE  
+For live Unity/UI mutations, prefer legitimate managed `System.Action -> MainThread.Execute -> Unity Update`. v1.1.9 does not revoke this architecture.
 
 ## DEC-005 — MainThread proof is asynchronous
-
-**Date / Version:** 2026-08-16 / v1.1.6  
 **Status:** ACTIVE  
-**Decision:** Begin/enqueue proof, return from hook, poll on later request. Never enqueue then synchronously wait within the same hook callback.  
-**Evidence:** canonical `MAINTHREAD_BRIDGE_V1`.  
-**Consequences:** first Treatment action may report proof pending; later observation/poll advances it.
+Never enqueue and synchronously wait inside the same hook request. CTS proof begins, returns, and is observed later.
 
-## DEC-006 — Prove current GameDialog observation before redesigning Treatment action again
+## DEC-006 — Never reopen NPC from WaitTreatment because dialog observation is unresolved
+**Status:** ACTIVE / RUNTIME SUPPORTED  
+The old retry loop polluted evidence and could reconstruct GameDialog. v1.1.8 removed it; user runtime log showed only one `ClickNPC` for the tested transaction.
 
-**Date / Version:** 2026-08-16 / v1.1.7, strengthened v1.1.8  
+## DEC-007 — Dynamic GameDialog selection identity must come from current runtime state
+**Status:** ACTIVE, wording superseded by DEC-008  
+Never hardcode Treatment ID. v1.1.8 tried to derive identity through live button Tag. Runtime proved the active UIRoot representation had zero button/text nodes, so the identity rule remains but its source moves to `Selections` directly.
+
+## DEC-008 — Abandon UIRoot/UIButton as active observer for this dynamic GameDialog
+
+**Date / Version:** 2026-08-16 / v1.1.9  
 **Status:** ACTIVE  
-**Decision:** A Treatment transaction must not reopen the NPC from `WaitTreatment` because current GameDialog discovery is temporarily absent/unresolved. Observe the server-driven dialog until timeout and fail closed.  
-**Context:** repeated `ClickNPC` was visible in old runtime logs, and v1.1.7 still retained a transient-absence retry path. Canonical GameDialog lifecycle destroys/recreates UI during server transitions.  
-**Alternatives:** fixed delays, repeated NPC open, rotating NPCs.  
-**Why Rejected:** each can create/recreate the very dialog being observed and destroys causal evidence.  
-**Evidence:** EVID-004, EVID-005, EVID-008.  
-**Consequences:** v1.1.8 removes the `WaitTreatment` reopen loop. Runtime must prove whether flicker stops.
+**Decision:** Do not continue tuning tree depth, text normalization or UIButton matching against `FindUI("GameDialog") -> UIRoot/CoreChildren` for Treatment. Use server/runtime Lua dialog data instead.  
+**Evidence:** v1.1.8 user log: GameDialog present, one NPC open, then repeated `clickable=0 • texts=0 • labels=<none>` for 15 seconds.  
+**Canonical support:** `GameDialog.Selections[selectionID]=visibleText`; built-in AutoFight dialog flows inspect current selections.  
+**Why:** the representation being scanned is empty for the relevant dynamic content in the tested runtime; another matcher on the same empty tree cannot recover information that is not there.  
+**Consequences:** v1.1.8 UIRoot observer remains compiled/preserved only for lineage; v1.1.9 active observer reads Lua runtime data.
 
-## DEC-007 — Require live semantic selection identity before GameDialog mutation
+## DEC-009 — v1.1.9 uses live Lua Selections + exact semantic GameDialog request as a narrow proof
 
-**Date / Version:** 2026-08-16 / v1.1.8  
+**Date / Version:** 2026-08-16 / v1.1.9  
+**Status:** ACTIVE FOR TEST LAB ONLY  
+**Decision:** At observation time, recover current `Selections` through Lua runtime. At action time, re-read them, match the requested semantic text, and send the canonical request `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentSelectionID>:-1`.  
+**Guards:** no cached ID, no guessed ID, SafeForAction, current game hook thread, IL2CPP-attached thread, CTS/MainThread proof prerequisite, max one controller action in flight.  
+**Why direct network for this proof:** v1.1.8 cannot obtain a current UIButton instance from the active representation, while the exact packet/payload construction is already source-verified. This isolates observer + semantic request from unavailable UI object plumbing.  
+**Important limitation:** this is not a blanket production permission to bypass `MainThread.Execute`. It is a narrow diagnostic/business-action proof. If successful, production integration should still prefer the cleanest game-owned semantic boundary available for the final architecture.  
+**Expected evidence:** `LUA_DIALOG_V119` with actual IDs followed by `ACTION_V119 SENT ... selectionID=<same live id> • payload=<id>:-1`, then a concrete server/UI/result transition.
+
+## DEC-010 — MessageBox confirmation is not a GameDialog selection unless runtime says so
+
+**Date / Version:** 2026-08-16 / v1.1.9  
 **Status:** ACTIVE  
-**Decision:** For dynamic GameDialog choices, a visible-text match alone is insufficient. The freshly resolved current button must also yield a valid live `Tag`/`selectionID > 0` before the action is queued.  
-**Context:** canonical client source defines `Selections[selectionID] = visibleText` and clones buttons with `Tag = selectionID`; IDs are server/runtime data and must not be guessed.  
-**Alternatives:** hardcode Treatment ID; enqueue a label-matched button without proving its current semantic identity; immediately re-enable direct packet dispatch.  
-**Why Rejected:** hardcoded IDs violate runtime state; label-only action is weaker evidence; changing packet and observer simultaneously would again mix variables.  
-**Evidence:** canonical Auto Heal/GameDialog docs + EVID-008 source audit.  
-**Consequences:** v1.1.8 emits live selectionID diagnostics and fail-closes when Tag cannot be resolved. Direct packet dispatch remains historical/not active until runtime evidence justifies a narrower next experiment.
+If a live `MessageBox` exists, execute its semantic `ButtonOKClicked()` callback. If no MessageBox exists and current `Selections` contains `Xác nhận`, treat that as a dynamic GameDialog selection. Never force one model onto the other.

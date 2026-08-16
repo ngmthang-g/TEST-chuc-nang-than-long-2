@@ -1,153 +1,83 @@
 # FEATURE: AUTO HEAL NPC / TRỊ LIỆU
 
-## Purpose
-Build a reliable internal flow:
-`route -> NPC interaction -> observe current server GameDialog -> resolve current Treatment selection -> one action -> real follow-up -> state proof`.
+## Goal
+`route -> one NPC open -> observe current server GameDialog data -> current Treatment selection -> one semantic action -> fresh follow-up -> result proof`.
 Only port after repeated runtime PASS.
 
-## Mandatory Startup
-Before every version read:
-1. `AI_START_HERE.md`
-2. `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
-3. `AI_CLIENT_ANALYSIS_RULES.txt`
-4. `PROJECT_KNOWLEDGE.md`
-5. `CHANGELOG.md`
-6. this feature + BUG/DEC/EVID docs + current source.
+## Mandatory startup
+Read `AI_START_HERE.md`, V2 protocol, client-analysis TXT, project knowledge/changelog, this feature + BUG/DEC/EVID/history + current source. Use `clinent-game-than-long-DATA-2222/AI_INDEX.md` before any targeted reverse work.
 
-Canonical client research route starts from `clinent-game-than-long-DATA-2222/AI_INDEX.md`; do not broad reverse when exact facts exist in VERIFIED/database.
-
-## Current Implementation — v1.1.8
-Protected working path:
-- user captures raw MapID/X/Y;
-- route / stop path / dismount;
+## Protected working path
+- raw user-captured MapID/X/Y;
+- mount / route / StopPath / dismount;
 - Map 5 -> NPC 339 Đỗ Thanh Đằng;
-- Map 3 -> NPC 463 Long Phá Thiên;
+- Map 3 -> NPC 463 alternate test candidate;
 - semantic NPC interaction/open.
 
-Current dialog/action path:
+## v1.1.8 runtime conclusion
+User test proves:
+- travel/open works;
+- exactly one NPC interaction occurs, so WaitTreatment anti-reopen works for that transaction;
+- GameDialog presence exists but UIRoot scanner returns `clickable=0`, `texts=0`, `labels=<none>` until 15-second fail-closed;
+- no Treatment selection ID/action is reached.
 
-`initial ClickNPC -> wait current GameDialog -> all-descendant semantic scan -> read live button.Tag selectionID -> MainThread queued live action -> wait next real state`.
+Therefore UIRoot/UIButton is no longer the active observer path. The stale `TEST v1.1.0` startup line in v1.1.8 was only an old UI literal; v1.1.9 corrects it.
 
-### v1.1.8 observer correction
-v1.1.7 said it searched the clickable subtree, but `FirstTextInSubtreeV117` actually returned after the first non-empty text. v1.1.8 replaces that with `SubtreeHasSemanticTextV118`, so later sibling/descendant labels can match.
+## Current implementation — v1.1.9
+### Observer
+`src/bridge_lua_dialog_v1_1_9.inc`:
+- resolve current Lua environment;
+- dynamically resolve `DoString`;
+- run bounded read-only Lua probe;
+- inspect `GUI.FindUI("GameDialog")` and `GUI.FindUI("AutoFight_Main")` runtime tables;
+- find `Selections` maps;
+- match `Trị liệu`, `Xác nhận`, `Ta biết rồi`;
+- return current T/C/K IDs and paths/samples as `LUA_DIALOG_V119`.
 
-For a matched GameDialog choice v1.1.8 also reads current `Tag` and records the dynamic `selectionID`. This is a semantic gate, not a hardcoded ID.
+### GameDialog action
+`src/bridge_action_v1_1_9.inc`:
+- require safe current managed game context and CTS/MainThread proof prerequisite;
+- re-read live selections immediately before action;
+- reject absent/stale/guessed ID;
+- submit canonical `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentID>:-1`;
+- emit `ACTION_V119`;
+- observe the next real state instead of assuming success.
 
-### v1.1.8 anti-reopen rule
-`WaitTreatment` no longer retries `ClickNPC` after a timing interval. After the initial NPC interaction returns success, absence/unresolved GameDialog is treated as a state to observe until timeout; timeout fails closed instead of reopening the NPC.
+### Confirmation
+If a live `MessageBox` exists, use semantic `ButtonOKClicked()`. Otherwise a current GameDialog `Xác nhận` selection uses its live current ID.
 
-This is specifically intended to remove controller-driven dialog reconstruction as a source of visible flicker.
+## Why v1.1.9 is a real new experiment
+v1.1.4 already knew the packet contract, but still depended on button discovery to obtain the ID. v1.1.8 runtime confirms this UI representation can be empty. v1.1.9 removes that common dependency by obtaining identity from runtime `Selections` itself.
 
-### v1.1.8 action gate
-- retains v1.1.6 CTS/MainThread proof;
-- freshly resolves the live button after proof;
-- requires live `selectionID > 0` for GameDialog Treatment/Know/GameDialog-confirm choices;
-- queues `UIButton.HandleClickEvent` through `MainThread.Execute(System.Action)` on that same fresh object;
-- never caches the button across server/UI transitions;
-- MessageBox confirm remains a live MessageBox button action and is not assigned a GameDialog selectionID.
+## Canonical facts
+- `Selections[selectionID]=visibleText`.
+- current selection ID is runtime/server state; no global Treatment ID.
+- built-in AutoFight dialog logic inspects current selections.
+- GameDialog request ID = `100007`, payload = `selectionID:SelectedItemID`.
+- ordinary function selection commonly uses `SelectedItemID=-1`.
+- MessageBox OK is callback-based.
+- `MainThread.Execute(System.Action)` remains preferred for live Unity/UI mutation architecture.
 
-Direct packet dispatch is NOT re-enabled in v1.1.8. The first goal is to prove exact current selection identity and action reachability without changing the proven dispatcher boundary again.
+## Scope note
+The v1.1.9 direct semantic GameDialog request is a narrow test-lab proof after the current UIButton representation failed. It is not blanket permission to bypass the production MainThread architecture for arbitrary actions.
 
-## Current Runtime / Build Status
-- Route/NPC open: RUNTIME PARTIAL PASS.
-- Full Treatment: no known-good version.
-- v1.1.5: RUNTIME FAIL overall at Treatment/flicker on second NPC/map.
-- v1.1.6: CI/BUILD PASS; runtime artifact-version result remains unconfirmed in preserved logs.
-- v1.1.7: final CI `31925922772` FAILED at controller compile; not a valid build handoff.
-- latest user report before v1.1.8: flicker still occurs; exact tested artifact/version UNKNOWN.
-- v1.1.8 source commit `1da643b8384dfa64a2523938dffb4ddd9885b181`: **CI/BUILD PASS** in run `31926671467`.
-- v1.1.8 artifact: `ThanLongTestAutoHeal-v1.1.8` (artifact ID `9258076757`).
-- v1.1.8: **RUNTIME UNTESTED**.
+## Build status
+- source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`.
+- run `31932086373`: **CI/BUILD PASS**.
+- artifact `ThanLongTestAutoHeal-v1.1.9`, ID `9259620117`.
+- ZIP SHA-256 `823f04f60fad78720f3742d7e93a7c31b6e382f504fe44982c41cf9a967d648a`.
+- EXE SHA-256 `3228bf03c493329af00c8014b47c9f486469a39b24b2c09add5df2061a450ad8`.
+- DLL SHA-256 `22019c4c9f4f4aaf29db3c4c328d9a948d285f41186698c981335cc039df7ea9`.
+- runtime v1.1.9: **UNTESTED**.
 
-## Critical Evidence Correction
-Confirmed:
-- visible server dialog opens;
-- full Treatment chain has not passed;
-- original logs showed repeated `ClickNPC` while waiting for Treatment;
-- v1.1.7 source retained a transient-absence reopen loop and first-text-only descendant selection.
+## Required next log
+`one ClickNPC -> LUA_DIALOG_V119 -> T=<live id> -> MAINTHREAD_PROOF -> ACTION_V119 -> next GameDialog/MessageBox/result -> HP/money proof`.
 
-Not proven:
-- that every historical Treatment callback/packet experiment was actually reached;
-- that removing the reopen loop alone fixes the complete Treatment flow;
-- exact live follow-up sequence after Treatment.
-
-## Canonical Client Facts
-- Dynamic `GameDialog` is server/runtime-driven.
-- `Selections[selectionID] = visibleText`.
-- generated current button `Tag = selectionID`.
-- selection action contract is `CMD_SHOW_GAMEDIALOG = 100007`, payload `selectionID:SelectedItemID`.
-- inbound GameDialog lifecycle may destroy/recreate existing UI.
-- canonical Auto Heal flow is wait/observe current dialog -> current semantic choice -> state proof.
-- visual flicker is not success proof.
-
-## Current Known-Good
-No full Auto Heal known-good.
-Protected partial behavior:
-- coordinate capture;
-- route;
-- StopPath/dismount;
-- NPC interaction/open.
-
-## Version Timeline
-### v1.1.0
-Initial route + NPC + dialog experiment. Full Treatment runtime FAIL.
-
-### v1.1.1
-Removed inferred X/Y; added runtime capture.
-
-### v1.1.2
-Changed UI root discovery order. NPC opening confirmed; Treatment still not progressed.
-
-### v1.1.3
-Tried `GameDialog.FunctionButtonClicked(liveButton)` through ExecuteUIObject. Overall runtime still failed; shared discovery remained.
-
-### v1.1.4
-Tried runtime Tag/selectionID + source-verified GameDialog packet. Overall runtime failed on NPC 339; shared discovery remained.
-
-### v1.1.5
-A/B NPC/map test using 463/Lạc Dương. Same overall symptom; NPC-339-only theory weakened.
-
-### v1.1.6
-Introduced CTS proof + `MainThread.Execute(System.Action)` queued UIButton action. CI/BUILD PASS. Runtime proof not preserved as confirmed in current evidence.
-
-### v1.1.7
-Added descendant-label discovery and GameDialog-present guard. Later source audit found first-text-only matching and a remaining WaitTreatment ClickNPC retry when Lua UI presence was transiently absent. Final CI also failed at `kTitle` controller compile.
-
-### v1.1.8
-Adds all-descendant semantic matching, live selectionID gate, preserves MainThread boundary, and removes WaitTreatment NPC reopen. CI/BUILD PASS in run `31926671467`; runtime untested.
-
-## Failed / Unsafe Mechanisms
-- inferred/hardcoded coordinate scaling — FAILED.
-- treating fixed delay as UI readiness — unsafe.
-- repeated `ClickNPC` from WaitTreatment — removed in v1.1.8.
-- claiming an action mechanism failed without proof that the action stage was reached — DEPRECATED reasoning.
-- v1.1.7 first-text-only subtree matcher — superseded.
-
-## Important APIs / Constants
-- `LuaSystemAPI_Game.ClickNPC(Int32)`.
-- `GameDialog.Selections[selectionID] = visibleText`.
-- generated GameDialog button `Tag = selectionID`.
-- `CMD_SHOW_GAMEDIALOG = 100007`.
-- `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)`.
-- v1.1.8 diagnostics: `DIALOG_V118`, `selectionID=`, `MAINTHREAD_PROOF`, `ACTION_V118`.
-
-## Do-Not-Break Rules
-- mandatory startup files every version;
-- canonical KB first; targeted binary only for an exact remaining gap;
-- no guessed fixed Treatment selection ID;
-- no hardcoded/inferred NPC X/Y;
-- no stale UI pointer across transition;
-- no fixed Sleep as success proof;
-- one mutable action at a time;
-- do not reopen NPC from WaitTreatment on temporary dialog absence;
-- BUILD/CI PASS != RUNTIME PASS.
-
-## Open Questions
-1. Does v1.1.8 emit exactly one successful NPC-open call per transaction after the initial open?
-2. What exact live selectionID accompanies visible `Trị liệu`?
-3. Does `ACTION_V118` advance to a new GameDialog, MessageBox or immediate result?
-4. If an action is definitely enqueued and no state transition follows, what exact manual-vs-tool business callback/request differs?
-5. What HP/money/dialog evidence establishes successful Treatment?
-
-## Next Diagnostic Step
-Run the build-valid v1.1.8 artifact and preserve logs from first NPC call through `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, and the next UI/result. Do not rotate NPCs or broad reverse before this evidence.
+## Do not break
+- no guessed ID;
+- no UIRoot depth/label tuning for this confirmed empty-representation failure;
+- no stale ID;
+- no WaitTreatment NPC reopen;
+- no fixed sleep as success proof;
+- no broad reverse;
+- BUILD PASS is not Runtime PASS.
