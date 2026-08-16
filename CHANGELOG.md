@@ -3,113 +3,89 @@
 ## [v1.1.13-test] - 2026-08-16
 
 ### Trigger / runtime evidence
-- User tested delivered v1.1.12 final-head on Map 5 / NPC 339.
-- After one semantic `ClickNPC npcID=339`, V122 repeatedly returned:
-  `LUA_DIALOG_V122 ... GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}`.
-- This is the first runtime proof that the exact MoonSharp invocation path actually executes the probe and returns its String result.
+Delivered v1.1.12 repeatedly returned after one NPC open:
+`LUA_DIALOG_V122 ... GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}`.
 
-### Runtime classification
-Confirmed PASS for this transaction:
-- `ResolveLuaEnvV120()` -> current MoonSharp Script object;
-- exact `Script.DoString(String,Table,String)` invocation;
-- `DynValue.String` extraction;
-- GameDialog Lua object presence (`GD=table` + bridge UI presence);
-- AutoFight_Main Lua object presence (`AF=table`).
-
-Not reached / unresolved:
-- current Treatment selectionID;
-- mutable GameDialog request;
-- follow-up MessageBox/GameDialog;
-- HP/money completion proof.
+Confirmed runtime PASS: current MoonSharp Script resolution, exact `DoString(String,Table,String)` invocation, `DynValue.String` extraction, GameDialog/AutoFight_Main Lua-table presence. Current Treatment ID/action/server follow-up remain not reached.
 
 ### Important correction
-- V122 field `N` is the variable `nodes`, incremented per traversed table.
-- `N=4` means four table nodes scanned, **not four selections**.
-- Previous conversational interpretation that N=4 meant four choices is corrected and must not be propagated.
+V122 `N` is the `nodes` table-traversal counter, not a selection count. `N=4` does not mean four choices.
 
-### Source analysis / root-cause hypothesis
-- V122 uses `rawget(t,"Selections")` plus rawget for priority semantic fields.
-- `rawget` bypasses Lua `__index` / metatable lookup.
-- Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText` and built-in automation uses current Selections.
-- Therefore the next targeted hypothesis is a representation/access mismatch in the read-only observer, not a MoonSharp invocation failure and not packet/server failure.
-- Hypothesis status before V123 runtime: **LIKELY, not CONFIRMED**.
+### Investigation
+V122 reuses a probe that reads `Selections`/priority fields via `rawget`, bypassing `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`. Current representation/access mismatch is LIKELY, not confirmed before V123 runtime.
 
 ### Added / changed
-- Added `src/bridge_lua_dialog_v1_1_13.inc`:
-  - reuses runtime-proven `RunLuaChunkV122()`;
-  - replaces raw-only semantic access with `safeget(t,key)` using normal indexing in `pcall`;
-  - checks `Selections`, `GameDialogData`, `CurrentGameDialogData`, `DialogData` and case variants;
-  - boundedly traverses table children;
-  - boundedly inspects metatable + table-valued `__index`;
-  - checks canonical global GameDialogData names if exposed;
-  - emits `NODE`, `ST`, `SV`, `MT`, `KS`, `S` diagnostics;
-  - marker `LUA_DIALOG_V123`.
-- Added `src/bridge_action_v1_1_13.inc`:
-  - re-reads V123 immediately before action;
-  - requires current positive semantic ID;
-  - submits canonical `CMD_SHOW_GAMEDIALOG=100007` payload `<currentID>:-1` only after current match;
-  - marker `ACTION_V123`.
-- Preserved V122 exact MoonSharp implementation under legacy `InspectHealDialog` / action names and reuse its execution primitive.
-- Protocol/title/startup log/artifact naming bumped to v1.1.13.
-- Artifact handoff contract remains exactly 9 files.
+- `src/bridge_lua_dialog_v1_1_13.inc`: reuse proven V122 MoonSharp execution; normal indexing under `pcall`; bounded child + metatable/table-`__index` scan; semantic field variants; diagnostics `NODE/ST/SV/MT/KS/S`; marker `LUA_DIALOG_V123`.
+- `src/bridge_action_v1_1_13.inc`: re-read current V123 ID; fail closed on T=0; canonical `<currentID>:-1`; marker `ACTION_V123`; MessageBox callback preserved.
+- V122 exact MoonSharp implementation preserved under legacy observer/action names and reused as the execution primitive.
+- Protocol/title/log/artifact bumped to v1.1.13.
+- 9-file self-contained artifact contract preserved.
+- Knowledge/history corrects the earlier conversational misread of `N=4`.
 
 ### Build / CI
-- v1.1.13 source-bearing CI: **PENDING at source commit creation**.
-- Runtime: **UNTESTED**.
-- BUG-001 remains OPEN.
+Source-bearing commit `79235f61ded9d393694be807c996128b082f67b4`.  
+Run `31939000139`: **CI/BUILD PASS**.
+- architecture audit PASS;
+- Route FSM PASS;
+- Heal FSM PASS;
+- bridge DLL compile + PE verification PASS;
+- controller EXE compile PASS;
+- knowledge packaging PASS;
+- artifact upload PASS.
+
+Artifact `ThanLongTestAutoHeal-v1.1.13`, ID `9261527342`.  
+ZIP SHA-256 `1cb886860b998b955efe68164bf5379642a2c2bde739acb425c7a9a650ecee5f`.  
+EXE SHA-256 `764fc10e98afd0fcd608bd9dd50c9fa86e51b467524cab4aebbe5001646d037a`.  
+DLL SHA-256 `8d8b9e3feeecf0be509610ad990bbe3852761fb750d1862aee09d5f51eadb7f7`.  
+Exactly 9 required files verified. `BUILD_EVIDENCE.txt` records source HEAD `79235f61...`, run `31939000139`, BUILD PASS and `RUNTIME=UNTESTED_FOR_V1.1.13`.
+
+### Runtime
+v1.1.13: **RUNTIME UNTESTED**. BUG-001 OPEN. Full known-good NONE.
 
 ### Next evidence
-`one NPC open -> LUA_DIALOG_V123`:
-- `T>0` -> inspect `ACTION_V123` and fresh result;
-- `T=0, ST>0, SV>0` -> inspect `S=` only;
-- `T=0, ST=0` -> inspect `MT`/`KS` only;
+- `LUA_DIALOG_V123 T>0` -> evaluate `ACTION_V123` and fresh follow-up;
+- `T=0,ST>0,SV>0` -> inspect `S` only;
+- `T=0,ST=0` -> inspect `MT`/`KS`;
 - no packet/server conclusion before a live ID is sent.
 
 ## [v1.1.12-test] - 2026-08-16
-- Triggered by v1.1.11 runtime proving current returned object is `MoonSharp.Interpreter.Script` and exact method is `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`.
-- Added exact MoonSharp invocation + `DynValue.String` extraction and V122 action.
-- Initial source commit `ad2f0403863251330b1aca80eb1eba9681b58c9a`, run `31937607280`: CI failed before compiler due architecture-audit false-positive; no artifact.
-- Correction commit `33a3b56b44724d76ec6983bf7ec4dcff1edfa2b1`, run `31937703988`: CI/BUILD PASS; artifact ID `9261162703`; source ZIP SHA `d25f999934be62152cf02fd0251f533743f3e9eaa0d4178f74c2fa1007d85c19`; EXE SHA `32a3977469a26f5807be192a620630fba9ea3242e265706522fd7d93bb27c823`; DLL SHA `553c1d245c06c614561b9c2c1e6368daf30cb671b46602aec60b1938f326a037`.
-- Final HEAD `03b33595e122217baa4c006a0fe8998af3395d44`, run `31938051044`: CI/BUILD PASS; final artifact ID `9261253049`.
-- Runtime update: exact MoonSharp execution + DynValue.String PASS; V122 rawget-only observer returns T/C/K=0; N=4 is table-node count, not selection count. Superseded by v1.1.13 observer experiment.
+- Exact MoonSharp `DoString(String,Table,String)->DynValue` + `DynValue.String` implementation.
+- Initial run `31937607280` failed before compiler due audit false-positive; corrected source run `31937703988` PASS; final HEAD `03b33595e122217baa4c006a0fe8998af3395d44`, run `31938051044` PASS.
+- Runtime update: MoonSharp execution/result PASS; V122 rawget-only observer T/C/K=0. Superseded by V123 observer experiment.
 
 ## [v1.1.11-test] - 2026-08-16
-- Added live DoString class/signature diagnostics and mandatory self-contained AI handoff packaging.
-- Build PASS.
-- Runtime identified MoonSharp exact method but V121 shape scorer rejected it before invocation.
+- Added live DoString metadata diagnostics and self-contained handoff artifact.
+- Runtime identified MoonSharp exact method but V121 shape scorer rejected it before invoke.
 
 ## [v1.1.10-test] - 2026-08-16
-- Replaced manager singleton-name assumption with metadata-driven returned-object resolver.
-- Build PASS; runtime progressed to returned Script object, then old DoString lookup failed.
+- Metadata-driven returned-object resolver progressed beyond manager singleton failure.
 
 ## [v1.1.9-test] - 2026-08-16
-- Moved observer away from empty UIRoot representation toward runtime script data.
-- Build PASS; runtime failed at `LuaSystemManager instance unresolved`.
+- Runtime failed at LuaSystemManager instance resolution.
 
 ## [v1.1.8-test] - 2026-08-16
-- Added all-descendant UIRoot scan, live Tag gate and removed WaitTreatment NPC reopen.
-- Build PASS; runtime route/open + anti-reopen PASS, UIRoot representation FAIL.
+- Route/open + tested anti-reopen PASS; UIRoot representation FAIL.
 
 ## [v1.1.7-test] - 2026-08-16
-- Observer redesign; final CI failed and source retained gaps.
+- Final CI failed; source retained observer/retry gaps.
 
 ## [v1.1.6-test] - 2026-08-16
-- Added mandatory project-memory files/startup pointer and CTS/MainThread proof experiment. CI/BUILD PASS.
+- CTS/MainThread proof + mandatory startup knowledge; CI/BUILD PASS.
 
 ## [v1.1.5-test] - 2026-08-16
-- Alternate NPC 463 / Lạc Dương reproduced overall symptom.
+- Alternate NPC/map reproduced symptom.
 
 ## [v1.1.4-test] - 2026-08-16
-- Tried live Tag/selectionID + exact GameDialog request; shared button discovery still gated reachability.
+- live Tag/exact packet experiment remained gated by shared discovery.
 
 ## [v1.1.3-test] - 2026-08-16
-- Tried `GameDialog.FunctionButtonClicked(liveButton)` through ExecuteUIObject; shared discovery remained.
+- GameDialog callback experiment remained discovery-gated.
 
 ## [v1.1.2-test] - 2026-08-16
-- Changed UI-root discovery order; route/NPC open partial PASS, Treatment failed.
+- UI-root discovery change; full Treatment failed.
 
 ## [v1.1.1-test] - 2026-08-16
-- Removed inferred X/Y; added runtime coordinate capture.
+- Runtime NPC coordinate capture.
 
 ## [v1.1.0-test] - 2026-08-16
-- Initial Auto Heal route/state-machine test.
+- Initial Auto Heal runtime lab.

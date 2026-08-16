@@ -3,106 +3,100 @@
 ## A. Identity / lineage
 - Version: v1.1.13-test
 - Date: 2026-08-16
-- Based on: v1.1.12-test final HEAD `03b33595e122217baa4c006a0fe8998af3395d44`
+- Based on v1.1.12 final HEAD `03b33595e122217baa4c006a0fe8998af3395d44`
 - Related BUG: BUG-001
 - Related decision: DEC-015
 - Complete Auto Heal known-good: NONE.
 
 ## B. User runtime trigger
-Delivered v1.1.12 reached the intended NPC and after one `ClickNPC npcID=339` repeatedly returned:
-
+Delivered v1.1.12 after one `ClickNPC npcID=339` repeatedly returned:
 ```text
 LUA_DIALOG_V122 • route=static LuaSystemManager.get_LuaEnv -> MoonSharp.Script.DoString(String,Table,String) • GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}
 ```
 
-This is decisive progress because the probe string itself returned intact from MoonSharp.
-
-## C. Runtime facts before modification
-Confirmed PASS in the v1.1.12 transaction:
-- current returned MoonSharp Script resolution;
+## C. Facts established before modification
+Runtime PASS in V122 transaction:
+- current MoonSharp Script resolution;
 - exact `DoString(String,Table,String)` invocation;
-- `DynValue.String` extraction;
-- GameDialog present and exposed as table;
-- AutoFight_Main exposed as table.
+- DynValue.String extraction;
+- GameDialog/AutoFight_Main Lua-table presence.
 
-Not reached:
-- current Treatment ID;
-- GameDialog mutation;
-- server follow-up/completion proof.
+Not reached: live Treatment ID, GameDialog mutation, follow-up/result.
 
-## D. Correction of diagnostic interpretation
-V122 `N` is the local variable `nodes` from the Lua scan, incremented once per traversed table. Therefore `N=4` means four table nodes were traversed. It does not mean four selections or four GameDialog buttons.
+## D. Critical correction
+V122 `N` is `nodes`, incremented once per traversed table. `N=4` is four table nodes, not four selections.
 
 ## E. Source investigation
-The V122 observer reuses `kGameDialogProbeLuaV119`. It looks for semantic fields with:
-- `rawget(t,"Selections")`;
-- `rawget(t,key)` for priority child fields.
+V122 reuses a probe that calls `rawget(t,"Selections")` and rawget priority fields. `rawget` bypasses `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`.
 
-Lua `rawget` intentionally bypasses metatable `__index` processing. This is a concrete limitation now that execution itself is runtime-proven.
+Hypothesis: the current service/UI tables expose needed state through normal indexing/metatable/nested representation not visible to raw-only V122. Status: LIKELY, not confirmed before V123 runtime.
 
-Canonical client knowledge still verifies:
-`GameDialogData.Selections[selectionID]=visibleText`.
-
-Therefore v1.1.13 tests a narrow hypothesis: the current UI/service tables may expose the needed semantic state through normal indexing / metatable / nested data not visible to V122 raw-only access.
-
-Hypothesis confidence before V123 runtime: LIKELY, not CONFIRMED.
-
-## F. Changes made
+## F. Changes
 ### `src/bridge_lua_dialog_v1_1_13.inc`
-New read-only observer:
-- reuses `RunLuaChunkV122()`;
-- `safeget(t,key)` uses normal `t[key]` inside `pcall`;
-- checks semantic keys `Selections`, `GameDialogData`, `CurrentGameDialogData`, `DialogData` and variants;
-- boundedly scans child tables;
-- boundedly scans metatables and table-valued `__index`;
-- checks canonical global GameDialogData names if exposed;
-- matches current numeric selection key to normalized semantic text;
-- keeps fallback table-value text probing diagnostic-only;
-- returns `LUA_DIALOG_V123` with `NODE/ST/SV/MT/KS/S`.
+- reuses proven `RunLuaChunkV122()`;
+- normal `t[key]` access inside `pcall`;
+- checks `Selections`, `GameDialogData`, `CurrentGameDialogData`, `DialogData` variants;
+- bounded child-table traversal;
+- bounded metatable/table-`__index` traversal;
+- checks canonical global names if exposed;
+- current numeric key -> normalized visible text matching;
+- diagnostics `NODE/ST/SV/MT/KS/S`;
+- marker `LUA_DIALOG_V123`.
 
 ### `src/bridge_action_v1_1_13.inc`
-- consumes only V123 current IDs;
-- re-runs V123 at action time;
-- refuses absent/cached/guessed ID;
-- sends `<actualCurrentID>:-1` only after current semantic match;
+- re-runs V123 immediately before mutation;
+- requires current positive semantic ID;
+- sends canonical `<currentID>:-1` only after current match;
 - marker `ACTION_V123`;
-- MessageBox callback path preserved.
+- MessageBox callback preserved.
 
-### `src/bridge.cpp`
-- V122 exact MoonSharp implementation preserved under legacy observer/action names;
-- V123 observer/action become active;
-- V123 reuses the runtime-proven V122 chunk execution primitive.
+### Wiring/versioning
+- V122 MoonSharp implementation preserved under legacy observer/action names and reused as execution primitive;
+- protocol `0x00010113u`;
+- controller title/log and artifact naming v1.1.13;
+- 9-file handoff contract preserved.
 
-### Version/build surfaces
-- protocol version -> `0x00010113u`;
-- title/startup log -> v1.1.13;
-- build audit verifies V122 primitive retention + V123 observer/action wiring;
-- artifact/EXE naming -> v1.1.13;
-- 9-file handoff packaging retained.
+## G. Source-bearing build
+Commit `79235f61ded9d393694be807c996128b082f67b4`.  
+Run `31939000139`: **CI/BUILD PASS**.
 
-## G. Protected behavior
-v1.1.13 intentionally does NOT:
-- change route/NPC mapping;
-- add WaitTreatment reopen;
-- alter proven MoonSharp method signature/argument order/result getter;
-- return to UIRoot/UIButton;
-- hardcode Treatment ID;
-- claim packet/server failure.
+Passed:
+- architecture audit;
+- Route FSM self-test;
+- Heal FSM self-test;
+- bridge DLL compile + PE verification;
+- controller EXE compile;
+- knowledge packaging;
+- artifact upload.
 
-## H. Build state at source creation
-**PENDING CI**. Do not promote to build PASS until GitHub Actions completes architecture audit, tests, bridge/controller compile and artifact upload.
+Artifact `ThanLongTestAutoHeal-v1.1.13`, ID `9261527342`.  
+ZIP SHA-256 `1cb886860b998b955efe68164bf5379642a2c2bde739acb425c7a9a650ecee5f`.  
+EXE SHA-256 `764fc10e98afd0fcd608bd9dd50c9fa86e51b467524cab4aebbe5001646d037a`.  
+DLL SHA-256 `8d8b9e3feeecf0be509610ad990bbe3852761fb750d1862aee09d5f51eadb7f7`.  
+Exactly 9 required files verified.
 
-## I. Runtime state
-**UNTESTED** for v1.1.13.
+`BUILD_EVIDENCE.txt`:
+- `SOURCE_HEAD_SHA=79235f61ded9d393694be807c996128b082f67b4`
+- `CHECKOUT_SHA=f4f3bdedc5b7df5b0e11f82ebf783298e215b01b`
+- `GITHUB_RUN_ID=31939000139`
+- `GITHUB_RUN_NUMBER=266`
+- `BUILD=PASS`
+- `RUNTIME=UNTESTED_FOR_V1.1.13`
+
+## H. Runtime state
+v1.1.13: **UNTESTED**. BUG-001 remains OPEN.
+
+## I. Protected behavior
+Do not change route/NPC flow, add WaitTreatment reopen, alter proven MoonSharp signature/order/result extraction, return to UIRoot, hardcode Treatment ID or blame packet/server before a live ID is sent.
 
 ## J. Next runtime classification
 From first `LUA_DIALOG_V123`:
-- `T>0` -> current Treatment found; inspect action/follow-up;
-- `T=0,ST>0,SV>0` -> current Selections reached; inspect `S` matching/value shape;
-- `T=0,ST>0,SV=0` -> Selections reached but empty at sample;
-- `T=0,ST=0` -> inspect `MT` and `KS` representation evidence;
-- `ACTION_V123 SENT` -> only then investigate packet/server/follow-up/result.
+- `T>0` -> current Treatment observed; inspect `ACTION_V123` and fresh follow-up;
+- `T=0,ST>0,SV>0` -> Selections reached; inspect `S`;
+- `T=0,ST>0,SV=0` -> Selections reached but empty/unexpected;
+- `T=0,ST=0` -> inspect `MT` and `KS`;
+- no server diagnosis before `ACTION_V123 SENT`.
 
 ## K. Handoff principle
-Do not restart from NPC coordinates, mouse clicking, UIRoot or MoonSharp method resolution. Continue from:
+Continue from:
 `MoonSharp execution PASS -> current Lua representation/access -> Selections -> live ID -> semantic action -> result proof`.

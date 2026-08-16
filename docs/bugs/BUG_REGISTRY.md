@@ -3,108 +3,60 @@
 ## BUG-001 — GameDialog Trị liệu mở được nhưng chưa tiến sang service/result
 
 **Status:** OPEN  
-**Severity:** HIGH for Auto Heal feature  
-**First Observed:** v1.1.0-test  
-**Last Runtime Tested:** v1.1.12-test delivered artifact, 2026-08-16  
-**Last Known-Good:** NONE for complete Treatment flow  
-**Related Feature:** Auto trị liệu NPC
+**Severity:** HIGH  
+**Last Runtime Tested:** v1.1.12 delivered artifact, 2026-08-16  
+**Last Known-Good complete flow:** NONE
 
-### Runtime-confirmed working
-- raw NPC coordinate capture;
+## Runtime-confirmed working
+- runtime NPC coordinate capture;
 - route/mount/AutoPath/dismount;
-- `ClickNPC(339)` opens intended server-driven GameDialog;
-- tested v1.1.8 transaction has no WaitTreatment NPC reopen;
-- current returned script object resolves as `MoonSharp.Interpreter.Script`;
-- v1.1.12 exact MoonSharp `DoString(String,Table,String)` invocation executes;
-- v1.1.12 `DynValue.String` extraction returns the full Lua probe string;
-- current `GameDialog` and `AutoFight_Main` are reachable as Lua tables during the open dialog.
+- `ClickNPC(339)` opens intended GameDialog;
+- tested anti-reopen behavior;
+- returned object is MoonSharp Script;
+- v1.1.12 exact `DoString(String,Table,String)` invocation executes;
+- v1.1.12 DynValue.String returns full probe;
+- GameDialog and AutoFight_Main are reachable as Lua tables.
 
-### Runtime-confirmed failures / boundaries
-#### v1.1.8 — UIRoot representation
-GameDialog existed but UIRoot/CoreChildren walker saw no relevant buttons/text. Abandoned.
+## Failed / unresolved layers
+- v1.1.8 UIRoot representation: runtime FAIL;
+- v1.1.9 manager singleton assumption: runtime FAIL;
+- v1.1.11 accepted DoString shape: runtime FAIL before invoke;
+- v1.1.12 raw-only Selections observation: T/C/K=0, S empty.
 
-#### v1.1.9 — manager singleton assumption
-Failed before returned object/DoString/Selections.
-
-#### v1.1.11 — accepted DoString shape
-Runtime exposed the real MoonSharp overload, but V121 rejected it before invocation because it expected parameter #2 String instead of MoonSharp Table.
-
-#### v1.1.12 — raw-only current Selections observation
-Exact repeated runtime line after one NPC open:
-
+Exact v1.1.12 line:
 ```text
 LUA_DIALOG_V122 • route=static LuaSystemManager.get_LuaEnv -> MoonSharp.Script.DoString(String,Table,String) • GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}
 ```
 
-This proves the execution/result boundary passed and isolates the next unresolved layer to current Lua dialog representation/access.
+**Correction:** V122 `N` is traversed table-node count, not number of selections.
 
-### Important correction
-V122 `N` is the number of table nodes traversed, not a selection count. `N=4` must never be cited as evidence of four dialog choices.
+## Current source correlation
+V122 reads `Selections` and priority fields via `rawget`, bypassing normal `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`.
 
-### Source correlation
-V122 uses `rawget(t,"Selections")` and rawget for priority semantic fields. Lua rawget bypasses `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`.
+Current root-cause hypothesis: V122 representation/access path is too raw/narrow. **LIKELY, not CONFIRMED** until V123 runtime.
 
-**Current root-cause hypothesis:** V122 is observing the correct live script objects through a representation/access path that is too raw/narrow. Confidence: LIKELY, not CONFIRMED until V123 runtime.
+## v1.1.13 strategy
+Preserve runtime-proven MoonSharp execution. Replace only the read-only observer with normal indexing under `pcall`, bounded child traversal, bounded metatable/table-`__index` traversal and diagnostics `NODE/ST/SV/MT/KS/S`. Mutation remains fail-closed until current positive T is re-read immediately before action.
 
-### Canonical semantic source of truth
-- `GameDialogData.Selections[selectionID]=visibleText`;
-- no universal Treatment selectionID;
-- `CMD_SHOW_GAMEDIALOG=100007` payload `selectionID:SelectedItemID`;
-- ordinary no-item selection commonly uses `-1` item;
-- current ID must be re-read immediately before action.
+## Build evidence
+Source commit `79235f61ded9d393694be807c996128b082f67b4`, run `31939000139`: **CI/BUILD PASS**. Artifact ID `9261527342`, ZIP SHA-256 `1cb886860b998b955efe68164bf5379642a2c2bde739acb425c7a9a650ecee5f`; EXE `764fc10e98afd0fcd608bd9dd50c9fa86e51b467524cab4aebbe5001646d037a`; DLL `8d8b9e3feeecf0be509610ad990bbe3852761fb750d1862aee09d5f51eadb7f7`; 9 required files verified.
 
-### Attempts / lineage
-1. v1.1.0–v1.1.2: initial UIRoot/button experiments.
-2. v1.1.3: GameDialog callback experiment; shared discovery dependency remained.
-3. v1.1.4: live Tag + exact packet experiment; shared button discovery still gated reachability.
-4. v1.1.5: alternate NPC/map reproduced symptom.
-5. v1.1.6: CTS/MainThread experiment.
-6. v1.1.7: final CI failed; source retained gaps.
-7. v1.1.8: anti-reopen runtime PASS, UIRoot representation runtime FAIL.
-8. v1.1.9: manager singleton assumption runtime FAIL.
-9. v1.1.10: returned-object resolver progressed.
-10. v1.1.11: MoonSharp identity/signature discovered; real method rejected before invoke.
-11. v1.1.12: exact MoonSharp call/result implemented; runtime PASS through DynValue.String, observer returns T/C/K=0.
-12. v1.1.13: metatable-aware/normal-indexing observer + bounded representation diagnostics; runtime pending.
+v1.1.13 runtime: **UNTESTED**.
 
-### v1.1.13 strategy
-- preserve V120/V122 execution boundary;
-- replace only V122 raw-only semantic field access;
-- normal indexing under `pcall`;
-- bounded child-table scan;
-- bounded `getmetatable` + table-valued `__index` scan;
-- diagnostics distinguish `NODE`, `ST`, `SV`, `MT`, `KS`, `S`;
-- only act when live T is positive and re-read immediately before send.
+## Root-cause status
+- anti-reopen: resolved component / runtime supported;
+- UIRoot: confirmed failed representation;
+- MoonSharp identity/signature: confirmed;
+- MoonSharp invocation/result: runtime PASS in v1.1.12;
+- V122 raw-only observer result: confirmed no T/C/K exposed;
+- metatable/normal-index representation hypothesis: likely, awaiting V123;
+- live Treatment ID/action/follow-up/result: UNKNOWN.
 
-### Root-cause status
-**CONFIRMED resolved component:** WaitTreatment NPC reopen removed in tested v1.1.8 transaction.  
-**CONFIRMED failed component:** v1.1.8 UIRoot representation.  
-**CONFIRMED failed component:** v1.1.9 singleton assumption.  
-**CONFIRMED runtime identity:** MoonSharp Script + exact DoString signature.  
-**CONFIRMED runtime PASS:** v1.1.12 exact DoString invocation + DynValue.String extraction.  
-**CONFIRMED observation result:** V122 returns T/C/K=0 and no selection samples via raw-only probe.  
-**LIKELY current cause:** semantic fields hidden behind normal indexing/metatable/nested representation not reached by V122 rawget.  
-**UNKNOWN:** live Treatment ID, mutable action result, follow-up sequence, completion proof.
+## Next diagnostic
+- `LUA_DIALOG_V123 T>0` -> action stage;
+- `T=0,ST>0,SV>0` -> inspect `S`;
+- `T=0,ST=0` -> inspect `MT`/`KS`;
+- no packet/server blame before `ACTION_V123 SENT`.
 
-### Current workaround
-None. Do not port Auto Heal to production.
-
-### Fixed in
-UNKNOWN until complete runtime PASS.
-
-### Next diagnostic step
-Run v1.1.13 and inspect first `LUA_DIALOG_V123`:
-- `T>0` -> action stage reached;
-- `T=0, ST>0, SV>0` -> Selections reached, inspect value/text samples;
-- `T=0, ST=0` -> inspect `MT` and `KS` representation diagnostics;
-- no packet/server diagnosis before `ACTION_V123 SENT`.
-
-### Do-not-do
-- no broad reverse;
-- no UIRoot depth/label tuning;
-- no hardcoded Treatment ID;
-- no WaitTreatment ClickNPC retry;
-- no fixed Sleep as success proof;
-- do not alter proven MoonSharp invocation while diagnosing table representation;
-- do not call V122 N a selection count;
-- no packet/server blame before a current live ID is sent.
+## Do-not-do
+No broad reverse, no UIRoot tuning, no hardcoded ID, no WaitTreatment reopen, no fixed Sleep proof, no change to proven MoonSharp execution while diagnosing representation, and no interpretation of V122 N as selection count.

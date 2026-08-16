@@ -3,128 +3,99 @@
 ## Identity / mandatory startup
 - Repo: `ngmthang-g/TEST-chuc-nang-than-long-2`; branch `agent/auto-tri-lieu-v1.1.0`.
 - Current version: `v1.1.13-test`; full Auto trị liệu known-good: **NONE**.
-- Every version: `AI_START_HERE.md` -> V2 protocol -> client-analysis TXT -> `AI_PROJECT_HANDOFF_FULL.md` -> this file -> `CHANGELOG.md` -> affected feature/BUG/DEC/EVID/history/investigation -> source/tests.
-- Canonical client facts start at `ngmthang-g/clinent-game-than-long-DATA-2222/AI_INDEX.md`; do not broad reverse solved facts.
+- Read every version: `AI_START_HERE.md` -> V2 protocol -> client-analysis TXT -> `AI_PROJECT_HANDOFF_FULL.md` -> this file -> `CHANGELOG.md` -> affected feature/BUG/DEC/EVID/history/investigation -> source/tests.
+- Client facts start at `ngmthang-g/clinent-game-than-long-DATA-2222/AI_INDEX.md`; no broad reverse for solved facts.
 - BUILD/CI PASS != RUNTIME PASS.
 
-## Artifact handoff contract
-Every v1.1.11+ delivered CI artifact contains exactly 9 files: versioned EXE, bridge DLL, consolidated handoff, startup pointer, V2 protocol, client-analysis rules, project knowledge, changelog and generated `BUILD_EVIDENCE.txt`.
+## Artifact contract
+Every v1.1.11+ delivered artifact contains exactly 9 files: versioned EXE, bridge DLL, consolidated handoff, startup pointer, V2 protocol, client-analysis rules, project knowledge, changelog and `BUILD_EVIDENCE.txt`.
 
 ## Runtime-protected path
-- raw MapID/X/Y capture;
+- runtime MapID/X/Y capture;
 - mount / AutoPath / stop / dismount;
 - Map 5 NPC 339 Đỗ Thanh Đằng;
 - semantic NPC interaction opens intended GameDialog;
-- WaitTreatment does not reopen NPC after successful initial open in tested v1.1.8 transaction.
+- no WaitTreatment NPC reopen after successful initial open in tested v1.1.8 transaction.
 
 ## Layer history
-### v1.1.8
-UIRoot/CoreChildren/UIButton representation failed despite GameDialog presence. Do not return to tree-depth/text tuning.
+- v1.1.8: UIRoot representation runtime FAIL; anti-reopen PASS for tested transaction.
+- v1.1.9: LuaSystemManager singleton assumption failed.
+- v1.1.10: metadata-driven returned-object resolver progressed.
+- v1.1.11: runtime identifies `MoonSharp.Interpreter.Script` and exact `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`; V121 rejects real method before invoke.
+- v1.1.12: exact MoonSharp invocation/result implemented and runtime-tested.
 
-### v1.1.9
-LuaSystemManager singleton assumption failed before returned object/DoString/Selections.
-
-### v1.1.10
-Metadata-driven returned-object resolver progressed beyond manager lookup and reached the object returned by `get_LuaEnv`.
-
-### v1.1.11
-Runtime identified that object as `MoonSharp.Interpreter.Script` and enumerated `DoString(System.String,MoonSharp.Interpreter.Table,System.String)->MoonSharp.Interpreter.DynValue`. V121 rejected the correct method because its accepted-shape model expected parameter #2 String.
-
-### v1.1.12 — latest runtime, 2026-08-16
-Exact user log after one NPC open repeatedly reports:
+## v1.1.12 runtime — current proof
+After one `ClickNPC npcID=339`, repeated:
 
 ```text
 LUA_DIALOG_V122 • route=static LuaSystemManager.get_LuaEnv -> MoonSharp.Script.DoString(String,Table,String) • GD=present • MB=absent • T=0 • C=0 • K=0 • raw={T=0;C=0;K=0;GD=table;AF=table;N=4;WT=;WC=;WK=;S=}
 ```
 
-This establishes:
-- current Script resolver PASS for the transaction;
-- exact MoonSharp DoString invocation PASS;
-- DynValue.String extraction PASS;
-- GameDialog table present;
-- AutoFight_Main table present;
-- MessageBox absent;
-- V122 observer did not find semantic choices.
+Confirmed runtime PASS:
+- current Script resolution;
+- exact MoonSharp DoString invocation;
+- DynValue.String extraction;
+- GameDialog and AutoFight_Main Lua-table presence.
 
-### Critical correction: `N=4`
-V122 source defines `N` as `nodes`, the number of table nodes visited by `scan()`. **It is not a selection count.** Never state that the runtime exposed four selections from this log.
+V122 did not expose current T/C/K. Live Treatment ID/action/follow-up were not reached.
 
-### Earliest unresolved layer after v1.1.12
-V122 accesses semantic fields with `rawget(t,"Selections")` and rawget priority keys. `rawget` bypasses normal `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`; therefore the active hypothesis is a **Lua representation/access mismatch**. It is LIKELY but not yet CONFIRMED until V123 runtime.
+**Correction:** V122 `N` equals `nodes`, the number of traversed table nodes. `N=4` is not a selection count.
 
-## Canonical GameDialog contract
-- `GameDialogData.Selections[selectionID] = visibleText`;
-- IDs are live server/runtime state; never hardcode Treatment ID;
-- `CMD_SHOW_GAMEDIALOG = 100007`;
-- payload `selectionID:SelectedItemID`, ordinary no-item choice commonly `<currentID>:-1`;
-- built-in AutoFight/FuBen flows inspect current Selections;
-- MessageBox OK follows semantic callback.
+V122 uses `rawget(t,"Selections")` and rawget priority fields, bypassing `__index`/metatable lookup. Canonical client knowledge still verifies `GameDialogData.Selections[selectionID]=visibleText`. Earliest unresolved layer is current Lua representation/access.
 
-## v1.1.13 active design
-Protected execution primitive:
-- `src/bridge_lua_manager_v1_1_10.inc`;
-- `src/bridge_lua_moonsharp_v1_1_12.inc` under legacy `InspectHealDialog` naming but with reusable `RunLuaChunkV122()`.
+## v1.1.13 design
+Execution primitive remains protected:
+- V120 returned-object resolver;
+- V122 exact MoonSharp DoString + DynValue.String path.
 
-Active observer/action:
-- `src/bridge_lua_dialog_v1_1_13.inc`;
-- `src/bridge_action_v1_1_13.inc`.
+Active V123 observer:
+- normal indexing in `pcall` via `safeget`;
+- checks `Selections`, `GameDialogData`, `CurrentGameDialogData`, `DialogData` variants;
+- bounded child-table scan;
+- bounded metatable/table-`__index` scan;
+- checks canonical globals if exposed;
+- diagnostics `NODE/ST/SV/MT/KS/S`;
+- marker `LUA_DIALOG_V123`.
 
-Observer changes only:
-1. `safeget(t,key)` uses normal indexing inside `pcall`;
-2. searches current `Selections`, `GameDialogData`, `CurrentGameDialogData`, `DialogData` and case variants;
-3. bounded recursive table scan;
-4. bounded `getmetatable` + table-valued `__index` scan;
-5. canonical global `GameDialogData` names checked if exposed;
-6. `Selections` numeric/current keys matched against normalized visible text;
-7. bounded diagnostics distinguish:
-   - `NODE` table nodes;
-   - `ST` Selections tables;
-   - `SV` values in Selections;
-   - `MT` metatables;
-   - `KS` key/type samples;
-   - `S` selection samples.
-
-Action remains fail-closed:
-- re-read V123 immediately before action;
+Action:
+- re-read V123 immediately before mutation;
 - require positive current semantic ID;
-- send `CMD_SHOW_GAMEDIALOG=100007` only with `<currentID>:-1`;
+- exact `CMD_SHOW_GAMEDIALOG=100007` with `<currentID>:-1`;
 - marker `ACTION_V123`;
 - no guessed/cached ID.
 
-## Build state
-- v1.1.12 final HEAD `03b33595e122217baa4c006a0fe8998af3395d44` CI/BUILD PASS, runtime now updated by the user as above.
-- v1.1.13 source/CI: **PENDING at source commit creation**.
-- v1.1.13 runtime: **UNTESTED**.
+Hypothesis that V122 missed state because of raw-only representation/access is LIKELY, not confirmed before V123 runtime.
+
+## v1.1.13 build evidence
+Source-bearing commit `79235f61ded9d393694be807c996128b082f67b4`.  
+Run `31939000139`: **CI/BUILD PASS** — architecture audit, Route FSM, Heal FSM, bridge DLL/PE, controller EXE, knowledge packaging and upload all PASS.  
+Artifact `ThanLongTestAutoHeal-v1.1.13`, ID `9261527342`, ZIP SHA-256 `1cb886860b998b955efe68164bf5379642a2c2bde739acb425c7a9a650ecee5f`.  
+EXE SHA-256 `764fc10e98afd0fcd608bd9dd50c9fa86e51b467524cab4aebbe5001646d037a`.  
+DLL SHA-256 `8d8b9e3feeecf0be509610ad990bbe3852761fb750d1862aee09d5f51eadb7f7`.  
+Exactly 9 artifact members verified. `BUILD_EVIDENCE.txt`: `SOURCE_HEAD_SHA=79235f61...`, `CHECKOUT_SHA=f4f3bded...`, `GITHUB_RUN_ID=31939000139`, BUILD PASS, RUNTIME UNTESTED.
 
 ## Hard rules
-- no hardcoded Treatment ID;
+- no hardcoded/cached Treatment ID;
 - no inferred NPC X/Y as universal truth;
 - no WaitTreatment NPC reopen;
 - no UIRoot tuning;
-- no fixed sleep as completion proof;
+- no fixed-sleep completion proof;
 - one mutable action per PID;
-- do not modify the MoonSharp execution boundary while diagnosing table representation unless contrary runtime evidence appears;
-- do not interpret `N` from V122 as selection count;
-- do not blame packet/server until a current live ID is actually sent;
+- do not modify runtime-proven MoonSharp execution while diagnosing representation unless contrary evidence appears;
+- never treat V122 `N` as selection count;
+- no packet/server blame before current live ID is sent;
 - preserve failed attempts and BUILD/RUNTIME distinction.
 
 ## BUG-001 status
 OPEN.
-- anti-reopen component: runtime PASS for tested v1.1.8 transaction;
-- UIRoot representation: runtime FAIL;
-- v1.1.9 singleton assumption: runtime FAIL;
-- v1.1.10 returned-object resolver: progressed;
-- v1.1.11 engine/signature identification: runtime CONFIRMED MoonSharp;
-- v1.1.12 MoonSharp invoke/result: runtime PASS;
-- v1.1.12 rawget-only current Selections observation: failed to expose T/C/K;
-- v1.1.13 metatable-aware observer: current experiment;
-- live Treatment ID / action / server follow-up: UNKNOWN.
+- MoonSharp execution/result: runtime PASS in v1.1.12;
+- V122 rawget-only observer: failed to expose T/C/K;
+- V123 observer: BUILD PASS, RUNTIME UNTESTED;
+- live Treatment ID/action/follow-up: UNKNOWN.
 
-## Next runtime evidence
-Read the first `LUA_DIALOG_V123` after one NPC open:
-- `T>0` -> evaluate `ACTION_V123` and next server/UI state;
-- `T=0, ST>0, SV>0` -> observer reached Selections; inspect `S` only;
-- `T=0, ST=0` -> inspect `MT` and `KS` to locate exact current field representation;
-- no packet/server diagnosis before `ACTION_V123 SENT`.
-
-See `AI_PROJECT_HANDOFF_FULL.md`, `docs/history/VERSION_v1.1.13.md`, `docs/investigations/V122_SELECTIONS_RUNTIME_FINDING.md`, feature/BUG/EVID/DEC registries.
+## Next evidence
+First `LUA_DIALOG_V123`:
+- `T>0` -> evaluate `ACTION_V123` + fresh result;
+- `T=0,ST>0,SV>0` -> inspect `S`;
+- `T=0,ST=0` -> inspect `MT`/`KS`;
+- no server diagnosis before `ACTION_V123 SENT`.
