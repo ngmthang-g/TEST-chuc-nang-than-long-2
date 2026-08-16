@@ -6,7 +6,7 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-constexpr std::uint32_t kProtocolVersion = 0x00010107u;
+constexpr std::uint32_t kProtocolVersion = 0x00010109u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 

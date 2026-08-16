@@ -24,16 +24,27 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
 #include "bridge_part05.inc"
 #include "bridge_part06.inc"
 
-// v1.1.8 active observer: all descendant labels are considered and the current
-// dynamic GameDialog selectionID is read from the matched live button Tag.
+// Preserve v1.1.8 UIRoot/button observer only as lineage/support for the old
+// MainThread UIButton experiment. Runtime v1.1.8 proved this representation has
+// zero clickable/text nodes for the live dynamic GameDialog.
+#define FindButtonInUi FindButtonInUiLegacyV118
+#define InspectHealDialog InspectHealDialogLegacyV118
 #include "bridge_dialog_v1_1_8.inc"
+#undef InspectHealDialog
+#undef FindButtonInUi
+[[maybe_unused]] bool (*const kLegacyInspectHealV118)(cleanroute::Snapshot&, wchar_t*, std::size_t) =
+    &InspectHealDialogLegacyV118;
 
-// Keep the v1.1.6 dispatcher/proof implementation, but preserve its old gameplay
-// wrapper as history. v1.1.8 adds a stricter semantic gate after this include.
+// Retain the harmless CTS/MainThread proof. Its old gameplay wrapper remains
+// compiled only for lineage and is wired to the legacy v1.1.8 button resolver.
+#define FindButtonInUi FindButtonInUiLegacyV118
 #define ClickHealDialogChoice ClickHealDialogChoiceV116
 #include "bridge_mainthread_v1_1_6.inc"
 #undef ClickHealDialogChoice
+#undef FindButtonInUi
 [[maybe_unused]] bool (*const kLegacyHealChoiceV116)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
     &ClickHealDialogChoiceV116;
 
-#include "bridge_action_v1_1_8.inc"
+// v1.1.9 active path: inspect live Lua GameDialogData.Selections rather than UIRoot.
+#include "bridge_lua_dialog_v1_1_9.inc"
+#include "bridge_action_v1_1_9.inc"
