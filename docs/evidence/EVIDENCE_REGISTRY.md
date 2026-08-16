@@ -79,3 +79,13 @@
 **Supports:** v1.1.7 had not actually closed the full observer/reopen loop and was not a deliverable build.  
 **Does NOT Prove:** that these two source gaps are the only runtime cause of BUG-001.  
 **Confidence:** CONFIRMED implementation/CI facts; runtime root-cause completeness LIKELY/UNKNOWN.
+
+## EVID-009 — v1.1.8 source builds and packages successfully
+
+**Type:** CI / BUILD ARTIFACT  
+**Date / Version:** 2026-08-16 / v1.1.8-test  
+**Source:** source commit `1da643b8384dfa64a2523938dffb4ddd9885b181`, GitHub Actions run `31926671467`  
+**Observation:** architecture audit PASS; Route FSM self-test PASS; Heal FSM self-test PASS; bridge DLL build and PE verification PASS; controller EXE build PASS; artifact upload PASS. Artifact `ThanLongTestAutoHeal-v1.1.8`, ID `9258076757`, digest `sha256:390ae27248eebee99db7b1a6a463e291a797150a23de770aeed6d29aed8cd9d5`.  
+**Supports:** v1.1.8 source is build-valid and packaged for runtime testing.  
+**Does NOT Prove:** that flicker is fixed, Treatment is clicked successfully, server accepts the selection, follow-up completes, or HP/money changes correctly.  
+**Confidence:** CONFIRMED CI/BUILD evidence; **RUNTIME UNTESTED**.
