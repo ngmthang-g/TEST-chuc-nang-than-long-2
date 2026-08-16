@@ -55,7 +55,9 @@ Direct packet dispatch is NOT re-enabled in v1.1.8. The first goal is to prove e
 - v1.1.6: CI/BUILD PASS; runtime artifact-version result remains unconfirmed in preserved logs.
 - v1.1.7: final CI `31925922772` FAILED at controller compile; not a valid build handoff.
 - latest user report before v1.1.8: flicker still occurs; exact tested artifact/version UNKNOWN.
-- v1.1.8: CI/runtime pending at source creation.
+- v1.1.8 source commit `1da643b8384dfa64a2523938dffb4ddd9885b181`: **CI/BUILD PASS** in run `31926671467`.
+- v1.1.8 artifact: `ThanLongTestAutoHeal-v1.1.8` (artifact ID `9258076757`).
+- v1.1.8: **RUNTIME UNTESTED**.
 
 ## Critical Evidence Correction
 Confirmed:
@@ -112,7 +114,7 @@ Introduced CTS proof + `MainThread.Execute(System.Action)` queued UIButton actio
 Added descendant-label discovery and GameDialog-present guard. Later source audit found first-text-only matching and a remaining WaitTreatment ClickNPC retry when Lua UI presence was transiently absent. Final CI also failed at `kTitle` controller compile.
 
 ### v1.1.8
-Adds all-descendant semantic matching, live selectionID gate, preserves MainThread boundary, and removes WaitTreatment NPC reopen. Runtime untested until CI artifact is built.
+Adds all-descendant semantic matching, live selectionID gate, preserves MainThread boundary, and removes WaitTreatment NPC reopen. CI/BUILD PASS in run `31926671467`; runtime untested.
 
 ## Failed / Unsafe Mechanisms
 - inferred/hardcoded coordinate scaling — FAILED.
@@ -141,11 +143,11 @@ Adds all-descendant semantic matching, live selectionID gate, preserves MainThre
 - BUILD/CI PASS != RUNTIME PASS.
 
 ## Open Questions
-1. Does v1.1.8 emit exactly one successful NPC-open call per transaction?
+1. Does v1.1.8 emit exactly one successful NPC-open call per transaction after the initial open?
 2. What exact live selectionID accompanies visible `Trị liệu`?
 3. Does `ACTION_V118` advance to a new GameDialog, MessageBox or immediate result?
 4. If an action is definitely enqueued and no state transition follows, what exact manual-vs-tool business callback/request differs?
 5. What HP/money/dialog evidence establishes successful Treatment?
 
 ## Next Diagnostic Step
-After CI PASS, run one v1.1.8 transaction and preserve logs from first NPC call through `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, and the next UI/result. Do not rotate NPCs or broad reverse before this evidence.
+Run the build-valid v1.1.8 artifact and preserve logs from first NPC call through `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, and the next UI/result. Do not rotate NPCs or broad reverse before this evidence.
