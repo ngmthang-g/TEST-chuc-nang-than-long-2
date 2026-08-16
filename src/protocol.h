@@ -6,7 +6,7 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-constexpr std::uint32_t kProtocolVersion = 0x00010100u;
+constexpr std::uint32_t kProtocolVersion = 0x00010107u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 
@@ -33,10 +33,11 @@ enum SnapshotValid : std::uint32_t {
 };
 
 enum HealDialogMask : std::uint32_t {
-    HealDialogNone      = 0,
-    HealDialogTreatment = 1u << 0,
-    HealDialogConfirm   = 1u << 1,
-    HealDialogKnow      = 1u << 2,
+    HealDialogNone       = 0,
+    HealDialogTreatment  = 1u << 0,
+    HealDialogConfirm    = 1u << 1,
+    HealDialogKnow       = 1u << 2,
+    HealDialogPresent    = 1u << 3,
 };
 
 enum class HealDialogChoice : std::int32_t {
