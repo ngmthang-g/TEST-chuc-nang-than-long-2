@@ -15,11 +15,13 @@ Current MapID->NPC test mapping:
 - Map 5 -> NPC 339 Đỗ Thanh Đằng.
 - Map 3 -> NPC 463 Long Phá Thiên.
 
-## Current Runtime Status
+## Current Runtime / Build Status
 - Route/NPC open: RUNTIME PARTIAL PASS.
 - Full Treatment: no known-good version.
 - v1.1.0–v1.1.5: RUNTIME FAIL at Treatment.
-- v1.1.6: RUNTIME UNTESTED until CI artifact is tested.
+- v1.1.6 code: **BUILD PASS / CI PASS** in run `31924151093`, source commit `e54d537d8870c6e7e131816f3b7e78b60f10a62f`.
+- v1.1.6 artifact: `ThanLongTestAutoHeal-v1.1.6`, SHA256 `452e0093090b4ce3b7c00f7e4fc815b384d880554ebdfc4ff6b01bbee20cbd34`.
+- v1.1.6: **RUNTIME UNTESTED**.
 
 ## Current Known-Good
 No full Auto Heal known-good.
@@ -70,7 +72,10 @@ Do not rewrite these while debugging the Treatment boundary unless new evidence 
 - inherited problem: common symptom survives two NPCs and multiple semantic action styles.
 - investigation: canonical MainThread contract says message hook is a producer context; mutable callbacks should execute later through `MainThread.Execute(Action)` / Unity Update.
 - change: CTS proof + queued live UIButton event.
-- build/runtime: pending at document creation.
+- initial build: FAILED because historical v1.1.4 helper became unused under `-Werror`.
+- correction: remove v1.1.4 helper from active compilation; retain source/history; keep v1.1.3 shared unit with explicit maybe-unused reference.
+- final build: PASS run `31924151093`; Route 8/8, Heal 7/7, DLL/PE/EXE/artifact PASS.
+- runtime: UNTESTED.
 
 ## Failed / Reverted Approaches
 - inferred coordinate scaling — FAILED.
@@ -95,7 +100,8 @@ Do not rewrite these while debugging the Treatment boundary unless new evidence 
 - no fixed sleep as success proof;
 - no synchronous waiting for an enqueued Action in the same WH_GETMESSAGE callback;
 - one mutable action at a time;
-- visual flicker is not success proof.
+- visual flicker is not success proof;
+- BUILD PASS is not runtime success.
 
 ## Open Questions
 1. Does the CTS proof pass on the live client repeatedly?
