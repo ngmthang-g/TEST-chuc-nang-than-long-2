@@ -1,0 +1,32 @@
+name: Build Windows test artifact
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+      - name: Build and self-test
+        shell: cmd
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: build.cmd
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThanLongTestAutoHeal-v1.1.13
+          path: |
+            dist/ThanLongTestAutoHeal_v1.1.13.exe
+            dist/ThanLongCleanRouteBridge.dll
+            dist/AI_PROJECT_HANDOFF_FULL.md
+            dist/AI_START_HERE.md
+            dist/AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md
+            dist/AI_CLIENT_ANALYSIS_RULES.txt
+            dist/PROJECT_KNOWLEDGE.md
+            dist/CHANGELOG.md
+            dist/BUILD_EVIDENCE.txt
