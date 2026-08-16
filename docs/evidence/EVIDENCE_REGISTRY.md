@@ -52,10 +52,10 @@ Source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`, run `31932086373`: arc
 ## EVID-013 — v1.1.9 runtime fails specifically at LuaSystemManager instance resolution
 **Type:** USER_RUNTIME + SCREENSHOT/EXACT LOG + SOURCE CORRELATION  
 **Date / Version:** 2026-08-16 / delivered v1.1.9  
-**Context:** PID 4324, Map 5, NPC 339 Đỗ Thanh Đằng. Log shows one `ClickNPC npcID=339` followed by repeated:
+Log shows one `ClickNPC npcID=339` followed by repeated:
 `LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`.
 
-**Supports:** failure is before LuaEnv/DoString/Selections/action. Source audit confirms v1.1.9 forced manager-instance resolution first.  
+**Supports:** failure is before LuaEnv/DoString/Selections/action.  
 **Does NOT Prove:** DoString failure, missing Treatment text/ID, packet rejection, MessageBox behavior or server refusal.  
 **Confidence:** CONFIRMED runtime boundary + source implementation fact.
 
@@ -65,12 +65,12 @@ Source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`, run `31932086373`: arc
 
 ## EVID-015 — v1.1.10 source/final builds pass
 **Type:** CI / BUILD ARTIFACT  
-Source-bearing/final v1.1.10 builds pass architecture audit, FSM tests, bridge/controller compile and artifact upload. BUILD evidence does not establish runtime success.
+v1.1.10 builds pass architecture audit, FSM tests, bridge/controller compile and artifact upload. BUILD evidence does not establish runtime success.
 
 ## EVID-016 — v1.1.10 runtime reaches LuaEnv then fails at old DoString resolver
 **Type:** USER_RUNTIME + EXACT LOG + SOURCE CORRELATION  
 **Date / Version:** 2026-08-16 / delivered v1.1.10  
-**Context:** Map 5, NPC 339. Exact user log begins:
+Exact user log:
 ```text
 Đã gửi AutoPath tới map=5 x=9454 y=5477
 Đã gửi lệnh xuống ngựa
@@ -79,15 +79,33 @@ LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIAL
 ```
 The failure repeats.
 
-**Supports:** current `RunLuaChunkV120` first calls `ResolveLuaEnvV120`; only after receiving LuaEnv does it attempt `FindLuaDoStringV119`. Thus LuaSystemManager/LuaEnv resolution is RUNTIME PARTIAL PASS and the old DoString resolver is the first confirmed failing stage.  
-**Does NOT Prove:** that Lua chunk execution works; current Selections/Treatment ID is still unseen; no `ACTION_V120`/packet/server result is established.  
+**Supports:** `RunLuaChunkV120` calls `ResolveLuaEnvV120` before DoString lookup; therefore manager/LuaEnv resolution is RUNTIME PARTIAL PASS and old DoString resolver is the first confirmed failing stage.  
+**Does NOT Prove:** Lua chunk execution, current Selections/Treatment ID, `ACTION_V120`, packet/server result.  
 **Confidence:** CONFIRMED runtime boundary + source control-flow correlation.
 
 ## EVID-017 — Upstream xLua exposes both String and Byte[] DoString overloads
 **Type:** EXTERNAL PRIMARY SOURCE / TARGETED RESEARCH  
 **Date / Used by:** 2026-08-16 / v1.1.11 investigation  
-Official Tencent xLua `LuaEnv.cs` contains both `DoString(byte[] chunk, string chunkName, LuaTable env)` and `DoString(string chunk, string chunkName, LuaTable env)`, with the String overload UTF-8 encoding into the byte[] overload.
+Official Tencent xLua `LuaEnv.cs` contains both `DoString(byte[] chunk, string chunkName, LuaTable env)` and `DoString(string chunk, string chunkName, LuaTable env)`.
 
-**Supports:** a robust resolver should not assume only one String-first overload and should inspect the live runtime method metadata.  
-**Does NOT Prove:** that this game client ships exactly the same xLua version or that either overload survived IL2CPP stripping. Live client metadata/runtime remains authoritative.  
-**Confidence:** CONFIRMED upstream source fact; applicability to exact client = guidance only.
+**Supports:** a robust resolver should inspect live runtime metadata rather than assume only one String-first overload.  
+**Does NOT Prove:** that this game client ships exactly the same xLua version or that either overload survived IL2CPP stripping.  
+**Confidence:** CONFIRMED upstream source fact; exact-client applicability = guidance only.
+
+## EVID-018 — v1.1.11 source-bearing build and artifact handoff package pass
+**Type:** CI / BUILD ARTIFACT + ARTIFACT INSPECTION  
+**Date / Version:** 2026-08-16 / v1.1.11-test  
+**Source branch commit:** `95f285f929a32c9748342a3480748a5b79d1a4d0`  
+**PR Actions run:** `31935080947`  
+**Result:** architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL/PE PASS; controller PASS; handoff/knowledge packaging PASS; artifact upload PASS.  
+**Artifact:** `ThanLongTestAutoHeal-v1.1.11`, ID `9260424284`, ZIP digest `sha256:2e085f606c5df0fed5933c3eff13cec0b544d923ea18e94b1892e392cc2cb8ae`.  
+**EXE SHA-256:** `ee7ff5aeb66c6e9715d7f73522834ced6d56484dc4933259b441af6d19959764`.  
+**DLL SHA-256:** `d30b30757442b9671606f83301509c539eb22ad8da6e9b93638cf24f2a9eff5f`.
+
+Artifact inspection found exactly the intended nine handoff members: EXE, bridge DLL, `AI_PROJECT_HANDOFF_FULL.md`, `AI_START_HERE.md`, V2 protocol, client rules TXT, `PROJECT_KNOWLEDGE.md`, `CHANGELOG.md`, `BUILD_EVIDENCE.txt`.
+
+A packaging-evidence correction is applied before final handoff because PR-event `GITHUB_SHA` identifies the checkout/merge commit. Final `BUILD_EVIDENCE.txt` records branch `SOURCE_HEAD_SHA` separately from `CHECKOUT_SHA`.
+
+**Supports:** v1.1.11 source compiles and the previously missing artifact knowledge bundle is actually present.  
+**Does NOT Prove:** any v1.1.11 runtime behavior in the game.  
+**Confidence:** CONFIRMED BUILD/PACKAGING; RUNTIME UNTESTED.

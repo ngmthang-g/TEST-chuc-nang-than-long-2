@@ -13,6 +13,8 @@ jobs:
         uses: mlugg/setup-zig@v2
       - name: Build and self-test
         shell: cmd
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: build.cmd
       - name: Upload test artifact
         uses: actions/upload-artifact@v4

@@ -39,7 +39,7 @@ LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIAL
 ```
 
 Artifact gap:
-workflow uploaded only EXE/DLL, so the requested consolidated knowledge file was absent from ZIP.
+workflow uploaded only EXE/DLL, so the requested consolidated knowledge file was absent from v1.1.10 ZIP.
 
 ## D. Investigation / Root Cause
 ### DoString
@@ -49,7 +49,7 @@ Current source showed v1.1.10 still called old `FindLuaDoStringV119`, which:
 - had no Byte[] overload support;
 - did not report the actual returned LuaEnv runtime class and current DoString signatures.
 
-Canonical client KB did not already contain exact client DoString overload metadata. Targeted research of official Tencent xLua source found both `DoString(byte[], string, LuaTable)` and `DoString(string, string, LuaTable)`. This does not prove the game uses the same exact version, but it disproves the safety of assuming a single upstream method shape.
+Canonical client KB did not already contain exact client DoString overload metadata. Targeted research of official Tencent xLua source found both `DoString(byte[], string, LuaTable)` and `DoString(string, string, LuaTable)`. This does not prove the game uses the same exact version, but it disproves the safety of assuming one upstream method shape.
 
 Root cause of v1.1.10 DoString failure: **CONFIRMED old resolver is insufficient for the live client; exact reason (stripping/type-name/iterator/overload difference) remains UNKNOWN until V121 diagnostics/runtime**.
 
@@ -68,7 +68,7 @@ Root cause: **CONFIRMED workflow uploaded only two binary paths**.
 - supports first parameter `System.Byte[]`;
 - requires second parameter String when present and third parameter reference type when present;
 - allocates managed `System.Byte[]` and encodes Lua chunk UTF-8 when byte overload is chosen;
-- executes the existing bounded GameDialog/AutoFight_Main Selections probe only after a verified DoString method is found;
+- executes existing bounded GameDialog/AutoFight_Main Selections probe only after verified DoString method resolution;
 - emits `LUA_DOSTRING_V121` diagnostics or successful `LUA_DIALOG_V121` T/C/K data.
 
 ### `src/bridge_action_v1_1_11.inc`
@@ -81,8 +81,9 @@ Root cause: **CONFIRMED workflow uploaded only two binary paths**.
 - added root `AI_PROJECT_HANDOFF_FULL.md`;
 - build audit requires handoff + mandatory current knowledge files;
 - successful build copies handoff/startup/protocol/rules/project knowledge/changelog to `dist`;
-- successful build generates `dist/BUILD_EVIDENCE.txt` using GitHub source SHA/run environment when available;
-- workflow artifact uploads all of those beside EXE/DLL.
+- successful build generates `dist/BUILD_EVIDENCE.txt`;
+- workflow artifact uploads all of those beside EXE/DLL;
+- after inspecting the source-bearing PR artifact, packaging was corrected so `BUILD_EVIDENCE.txt` records branch `SOURCE_HEAD_SHA` separately from PR merge/check-out `CHECKOUT_SHA`.
 
 ## F. Important Implementation Details
 No method RVA or raw function pointer is guessed. V121 only invokes a DoString method whose current IL2CPP metadata matches an accepted shape.
@@ -113,18 +114,30 @@ Modified:
 - README.
 
 ## H. Build / CI History
-At source commit creation:
-- initial build: PENDING;
-- final build: PENDING;
-- CI: PENDING;
-- runtime: UNTESTED.
+### Source-bearing build
+- Commit: `95f285f929a32c9748342a3480748a5b79d1a4d0`
+- PR Actions run: `31935080947`
+- Result: **CI/BUILD PASS**
+- Architecture audit PASS
+- Route FSM PASS
+- Heal FSM PASS
+- Bridge DLL compile + PE verification PASS
+- Controller EXE compile PASS
+- Knowledge packaging PASS
+- Artifact upload PASS
+- Artifact: `ThanLongTestAutoHeal-v1.1.11`, ID `9260424284`
+- ZIP digest: `sha256:2e085f606c5df0fed5933c3eff13cec0b544d923ea18e94b1892e392cc2cb8ae`
+- EXE SHA-256: `ee7ff5aeb66c6e9715d7f73522834ced6d56484dc4933259b441af6d19959764`
+- DLL SHA-256: `d30b30757442b9671606f83301509c539eb22ad8da6e9b93638cf24f2a9eff5f`
+- Verified artifact members: 9 files including consolidated handoff and mandatory knowledge bundle.
 
-A successful CI artifact must contain `BUILD_EVIDENCE.txt` with the exact source commit/run used to produce it.
+### Build-evidence correction before final handoff
+Inspection showed `GITHUB_SHA` inside a pull_request checkout is the merge/check-out SHA, not the branch HEAD. Final packaging therefore emits both `SOURCE_HEAD_SHA` and `CHECKOUT_SHA`. This is a packaging/evidence correction, not gameplay logic change. Final HEAD is rebuilt before delivery.
 
 ## I. Runtime Result
 `RUNTIME UNTESTED` for v1.1.11.
 
-Confirmed inherited working behavior is not promoted to full v1.1.11 PASS until user runs this build.
+Confirmed inherited working behavior is not promoted to full v1.1.11 PASS until user runs the delivered build.
 
 ## J. Regression / Revert / Failed Attempts
 Protected failed history:
@@ -142,7 +155,7 @@ BUG-001 OPEN.
 
 New knowledge:
 - v1.1.10 manager/LuaEnv resolution is partial runtime PASS;
-- DoString lookup is now the earliest failing layer;
+- DoString lookup is the earliest confirmed failing layer before v1.1.11;
 - artifact knowledge must be shipped with binaries.
 
 ## M. Handoff / Next Test

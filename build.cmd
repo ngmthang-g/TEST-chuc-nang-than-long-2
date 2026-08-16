@@ -64,15 +64,19 @@ copy /y AI_CLIENT_ANALYSIS_RULES.txt dist\AI_CLIENT_ANALYSIS_RULES.txt >nul
 copy /y PROJECT_KNOWLEDGE.md dist\PROJECT_KNOWLEDGE.md >nul
 copy /y CHANGELOG.md dist\CHANGELOG.md >nul
 if errorlevel 1 exit /b 1
-set "SRC_SHA=%GITHUB_SHA%"
+set "SRC_SHA=%SOURCE_HEAD_SHA%"
+if not defined SRC_SHA set "SRC_SHA=%GITHUB_SHA%"
 if not defined SRC_SHA set "SRC_SHA=LOCAL"
+set "CHECKOUT_SHA=%GITHUB_SHA%"
+if not defined CHECKOUT_SHA set "CHECKOUT_SHA=LOCAL"
 set "RUN_ID=%GITHUB_RUN_ID%"
 if not defined RUN_ID set "RUN_ID=LOCAL"
 set "RUN_NUMBER=%GITHUB_RUN_NUMBER%"
 if not defined RUN_NUMBER set "RUN_NUMBER=LOCAL"
 > dist\BUILD_EVIDENCE.txt echo PROJECT=ThanLongTestAutoHeal
 >> dist\BUILD_EVIDENCE.txt echo VERSION=v1.1.11-test
->> dist\BUILD_EVIDENCE.txt echo SOURCE_SHA=%SRC_SHA%
+>> dist\BUILD_EVIDENCE.txt echo SOURCE_HEAD_SHA=%SRC_SHA%
+>> dist\BUILD_EVIDENCE.txt echo CHECKOUT_SHA=%CHECKOUT_SHA%
 >> dist\BUILD_EVIDENCE.txt echo GITHUB_RUN_ID=%RUN_ID%
 >> dist\BUILD_EVIDENCE.txt echo GITHUB_RUN_NUMBER=%RUN_NUMBER%
 >> dist\BUILD_EVIDENCE.txt echo ARTIFACT=ThanLongTestAutoHeal-v1.1.11

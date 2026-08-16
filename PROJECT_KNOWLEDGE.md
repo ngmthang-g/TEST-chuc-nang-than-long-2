@@ -16,7 +16,7 @@ From v1.1.11 onward every delivered CI artifact must contain EXE/DLL plus:
 - `AI_CLIENT_ANALYSIS_RULES.txt`;
 - `PROJECT_KNOWLEDGE.md`;
 - `CHANGELOG.md`;
-- generated `BUILD_EVIDENCE.txt` with source SHA/run/build/runtime state.
+- generated `BUILD_EVIDENCE.txt` with branch-head SHA, checkout SHA, run/build/runtime state.
 
 This was added after the user correctly reported that the v1.1.10 ZIP exposed only EXE/DLL and did not contain the requested consolidated project file.
 
@@ -89,9 +89,15 @@ Expected diagnostics:
 - `LUA_DIALOG_V121 • route=... • T=... • C=... • K=...` on probe success;
 - `ACTION_V121 ...` only after current semantic selection is re-read.
 
-## Build state
-- v1.1.10 final build PASS, but runtime now PARTIAL/FAIL at DoString as described.
-- v1.1.11 source/CI: **NOT YET ESTABLISHED at time of this source commit**. `BUILD_EVIDENCE.txt` will be generated only by a successful build and included in the artifact.
+## Build evidence
+- v1.1.10 BUILD PASS; runtime reaches LuaEnv then fails at DoString as described.
+- v1.1.11 source-bearing commit: `95f285f929a32c9748342a3480748a5b79d1a4d0`.
+- source-bearing PR Actions run `31935080947`: architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL/PE PASS; controller PASS; knowledge packaging PASS; artifact upload PASS.
+- source-bearing artifact: `ThanLongTestAutoHeal-v1.1.11`, ID `9260424284`, ZIP digest `sha256:2e085f606c5df0fed5933c3eff13cec0b544d923ea18e94b1892e392cc2cb8ae`.
+- verified source-bearing artifact content: 9 files including EXE/DLL, `AI_PROJECT_HANDOFF_FULL.md`, startup/protocol/rules/current knowledge/changelog and `BUILD_EVIDENCE.txt`.
+- source-bearing EXE SHA-256: `ee7ff5aeb66c6e9715d7f73522834ced6d56484dc4933259b441af6d19959764`.
+- source-bearing DLL SHA-256: `d30b30757442b9671606f83301509c539eb22ad8da6e9b93638cf24f2a9eff5f`.
+- correction before final handoff: PR-event `GITHUB_SHA` is a merge/checkout SHA, so final packaging records both `SOURCE_HEAD_SHA` and `CHECKOUT_SHA` separately.
 - v1.1.11 runtime: **UNTESTED**.
 
 ## Hard rules

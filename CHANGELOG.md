@@ -4,7 +4,7 @@
 
 ### Trigger / runtime evidence
 - User tested delivered v1.1.10 on Map 5 / NPC 339.
-- Route reaches the saved healer area, dismount succeeds, and exactly one `ClickNPC npcID=339` opens the dialog path.
+- Route reaches the saved healer area, dismount succeeds, and one `ClickNPC npcID=339` opens the dialog path.
 - Repeated exact failure after the dialog opens:
   `LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)`.
 - Because `RunLuaChunkV120()` calls `ResolveLuaEnvV120()` before `FindLuaDoStringV119()`, this establishes **RUNTIME PARTIAL PASS for LuaSystemManager -> LuaEnv** and **RUNTIME FAIL specifically at the old DoString resolver**.
@@ -32,13 +32,20 @@
 - Added `src/bridge_action_v1_1_11.inc` using V121 live selection IDs and `ACTION_V121` markers.
 - Preserved v1.1.10 observer/action under legacy names for lineage.
 - Protocol/title/startup log/artifact naming bumped to v1.1.11.
-- Added root `AI_PROJECT_HANDOFF_FULL.md` as the one-file artifact handoff.
-- `build.cmd` now enforces handoff presence, copies knowledge files into `dist`, and generates `BUILD_EVIDENCE.txt` after successful compilation.
-- CI artifact now uploads EXE/DLL plus the handoff/knowledge bundle.
+- Added root `AI_PROJECT_HANDOFF_FULL.md` as one-file artifact handoff.
+- `build.cmd` enforces handoff presence, copies knowledge files into `dist`, and generates `BUILD_EVIDENCE.txt` after successful compilation.
+- CI artifact uploads EXE/DLL plus the handoff/knowledge bundle.
+- Final packaging correction records branch `SOURCE_HEAD_SHA` separately from PR merge/check-out `CHECKOUT_SHA`.
 
 ### Build
-- Source/knowledge commit build state: **PENDING CI at commit creation**.
-- Successful CI will generate exact source SHA/run metadata inside artifact `BUILD_EVIDENCE.txt`.
+- Source-bearing commit `95f285f929a32c9748342a3480748a5b79d1a4d0`.
+- PR Actions run `31935080947`: **CI/BUILD PASS**.
+- Architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL + PE verification PASS; controller compile PASS; knowledge packaging PASS; artifact upload PASS.
+- Source-bearing artifact `ThanLongTestAutoHeal-v1.1.11`, ID `9260424284`, ZIP digest `sha256:2e085f606c5df0fed5933c3eff13cec0b544d923ea18e94b1892e392cc2cb8ae`.
+- Verified artifact contains 9 files: EXE, DLL, consolidated handoff, startup, protocol, rules, project knowledge, changelog and build evidence.
+- EXE SHA-256 `ee7ff5aeb66c6e9715d7f73522834ced6d56484dc4933259b441af6d19959764`.
+- DLL SHA-256 `d30b30757442b9671606f83301509c539eb22ad8da6e9b93638cf24f2a9eff5f`.
+- Final docs/packaging HEAD is rebuilt after the `SOURCE_HEAD_SHA` evidence correction before handoff.
 
 ### Runtime
 - v1.1.11: **RUNTIME UNTESTED**.
@@ -48,17 +55,10 @@
 `one NPC open -> LUA_DOSTRING_V121 failure diagnostics OR LUA_DIALOG_V121 T/C/K -> if T>0 then MAINTHREAD_PROOF/ACTION_V121 -> fresh GameDialog/MessageBox/HP/money result`.
 
 ## [v1.1.10-test] - 2026-08-16
-
-### Trigger / previous runtime
-- Created after v1.1.9 repeatedly failed at `LuaSystemManager instance unresolved` before LuaEnv/DoString.
-- Replaced the singleton-name assumption with static get_LuaEnv first, metadata-driven static reference scanning and typed Unity fallback when applicable.
-- Source/final CI builds PASS.
-
-### Runtime update — user test
-- **RUNTIME PARTIAL PASS:** LuaSystemManager/LuaEnv boundary advances far enough to return a LuaEnv object.
-- **RUNTIME FAIL:** old `FindLuaDoStringV119` cannot resolve `LuaEnv.DoString` and repeatedly logs:
-  `LUA_DIALOG_V120 PROBE FAIL • LUA_DIALOG_V120: DoString unresolved • LUA_DIALOG_V119: không resolve LuaEnv.DoString(string,...)`.
-- Selections/Treatment ID/action/server remain NOT REACHED.
+- Created after v1.1.9 failed at `LuaSystemManager instance unresolved` before LuaEnv/DoString.
+- Replaced singleton-name assumption with static get_LuaEnv first, metadata-driven static reference scanning and typed Unity fallback when applicable.
+- BUILD PASS.
+- Runtime update: **LuaSystemManager/LuaEnv RUNTIME PARTIAL PASS**, then old `FindLuaDoStringV119` **RUNTIME FAIL** with repeated `DoString unresolved`; Selections/action/server NOT REACHED.
 - Superseded by v1.1.11 DoString-resolution experiment.
 
 ## [v1.1.9-test] - 2026-08-16
