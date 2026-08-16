@@ -39,7 +39,7 @@ Also, final v1.1.7 CI run `31925922772` failed at controller compilation (`kTitl
 5. v1.1.5: different NPC/map; same overall symptom.
 6. v1.1.6: MainThread queued UIButton action after CTS proof; CI/BUILD PASS, runtime artifact-version assignment not preserved.
 7. v1.1.7: descendant observer/presence guard; final CI FAILED and source still retained first-text-only + transient-absence reopen gaps.
-8. v1.1.8: all-descendant observer + live selectionID gate + removal of WaitTreatment NPC reopen; CI/runtime pending at source creation.
+8. v1.1.8: all-descendant observer + live selectionID gate + removal of WaitTreatment NPC reopen; source commit `1da643b8384dfa64a2523938dffb4ddd9885b181`, **CI/BUILD PASS** in run `31926671467`, artifact ID `9258076757`; RUNTIME UNTESTED.
 
 ### v1.1.8 Fix Strategy
 - search every reachable text descendant under each live clickable candidate;
