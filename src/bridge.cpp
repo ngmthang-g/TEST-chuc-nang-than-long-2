@@ -24,11 +24,16 @@ bool InspectHealDialog(cleanroute::Snapshot& s, wchar_t* detail, std::size_t cap
 #include "bridge_part05.inc"
 #include "bridge_part06.inc"
 
-// v1.1.7 active observer is defined after the legacy split body. ProcessRequest
-// sees its forward declaration above; the later MainThread action helper sees
-// the v1.1.7 FindButtonInUi implementation directly.
-#include "bridge_dialog_v1_1_7.inc"
+// v1.1.8 active observer: all descendant labels are considered and the current
+// dynamic GameDialog selectionID is read from the matched live button Tag.
+#include "bridge_dialog_v1_1_8.inc"
 
-// Historical v1.1.4 packet helper remains preserved in source/history but is not active.
-// v1.1.7 keeps the v1.1.6 MainThread action boundary and changes the shared dialog discovery layer.
+// Keep the v1.1.6 dispatcher/proof implementation, but preserve its old gameplay
+// wrapper as history. v1.1.8 adds a stricter semantic gate after this include.
+#define ClickHealDialogChoice ClickHealDialogChoiceV116
 #include "bridge_mainthread_v1_1_6.inc"
+#undef ClickHealDialogChoice
+[[maybe_unused]] bool (*const kLegacyHealChoiceV116)(cleanroute::HealDialogChoice, wchar_t*, std::size_t) =
+    &ClickHealDialogChoiceV116;
+
+#include "bridge_action_v1_1_8.inc"

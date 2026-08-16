@@ -10,11 +10,13 @@ echo [1/8] Architecture audit...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; if(-not(Test-Path 'AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md')){throw 'Missing mandatory V2 knowledge protocol'}; if(-not(Test-Path 'AI_CLIENT_ANALYSIS_RULES.txt')){throw 'Missing mandatory client analysis rules'}; if(-not(Test-Path 'AI_START_HERE.md')){throw 'Missing AI_START_HERE'}; $files=(Get-ChildItem 'src' -File | Where-Object {$_.Extension -in '.cpp','.h','.inc'} | ForEach-Object {$_.FullName}); $s=($files|%%{Get-Content $_ -Raw}) -join [Environment]::NewLine;" ^
   "$forbidden=@('CreateRemoteThread','WriteProcessMemory','remote_worker','RemoteExecutor'); foreach($x in $forbidden){if($s -match [regex]::Escape($x)){throw ('Forbidden legacy token: '+$x)}};" ^
-  "$dialog=Get-Content 'src/bridge_dialog_v1_1_7.inc' -Raw; foreach($x in @('FirstTextInSubtreeV117','WalkForButtonV117','SemanticTextEqV117','DIALOG_V117','gameDialogExists')){if($dialog -notmatch [regex]::Escape($x)){throw ('v1.1.7 dialog observer missing '+$x)}};" ^
-  "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','HandleClickEvent','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('MainThread helper missing '+$x)}};" ^
-  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_dialog_v1_1_7.inc','bridge_mainthread_v1_1_6.inc','FindButtonInUiLegacyV116','InspectHealDialogLegacyV116')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.7 bridge wiring missing '+$x)}};" ^
-  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('dual-map healer mapping missing '+$x)}};" ^
-  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.7 fixes dynamic dialog discovery/reopen loop while retaining MainThread action boundary.'"
+  "$dialog=Get-Content 'src/bridge_dialog_v1_1_8.inc' -Raw; foreach($x in @('SubtreeHasSemanticTextV118','WalkForButtonV118','ReadButtonSelectionIdV118','DIALOG_V118','HealDialogPresent')){if($dialog -notmatch [regex]::Escape($x)){throw ('v1.1.8 dialog observer missing '+$x)}};" ^
+  "$action=Get-Content 'src/bridge_action_v1_1_8.inc' -Raw; foreach($x in @('QueueVerifiedGameDialogChoiceV118','QueueButtonObjectV118','ACTION_V118','selectionID','MainThread.Execute(Action)')){if($action -notmatch [regex]::Escape($x)){throw ('v1.1.8 action gate missing '+$x)}};" ^
+  "$mt=Get-Content 'src/bridge_mainthread_v1_1_6.inc' -Raw; foreach($x in @('CancellationTokenSource','MainThread','Execute','System.Action','MAINTHREAD_PROOF PASS')){if($mt -notmatch [regex]::Escape($x)){throw ('MainThread helper missing '+$x)}};" ^
+  "$entry=Get-Content 'src/bridge.cpp' -Raw; foreach($x in @('bridge_dialog_v1_1_8.inc','bridge_mainthread_v1_1_6.inc','bridge_action_v1_1_8.inc','ClickHealDialogChoiceV116')){if($entry -notmatch [regex]::Escape($x)){throw ('v1.1.8 bridge wiring missing '+$x)}};" ^
+  "$heal=Get-Content 'src/controller_part04.inc' -Raw; foreach($x in @('mapID == 3','return 463','mapID == 5','return 339','HealNpcIdForCapturedMap')){if($heal -notmatch [regex]::Escape($x)){throw ('v1.1.8 controller guard missing '+$x)}}; if($heal -match 'healNpcRetries_\s*<'){throw 'WaitTreatment ClickNPC retry loop still active'};" ^
+  "$controller=Get-Content 'src/controller.cpp' -Raw; if($controller -match '#define kTitle'){throw 'legacy kTitle macro wiring still active'};" ^
+  "Write-Host 'ARCHITECTURE AUDIT PASS: v1.1.8 live selection gate + no WaitTreatment NPC reopen + MainThread boundary.'"
 if errorlevel 1 exit /b 1
 
 echo [2/8] Route FSM self-test...
@@ -49,7 +51,7 @@ echo [7/8] Build controller EXE...
 zig c++ -target x86_64-windows-gnu -O2 -std=c++17 -Wall -Wextra -Werror -municode -static -s ^
   src\controller.cpp dist\app.res -Wl,--subsystem,windows ^
   -lcomctl32 -luser32 -lkernel32 -lgdi32 ^
-  -o dist\ThanLongTestAutoHeal_v1.1.7.exe
+  -o dist\ThanLongTestAutoHeal_v1.1.8.exe
 if errorlevel 1 exit /b 1
 
 echo [8/8] Done.

@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## [v1.1.8-test] - 2026-08-16
+
+### Requested
+- Continue Auto trị liệu instead of stopping at unfinished v1.1.7.
+- Keep `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md` and `AI_CLIENT_ANALYSIS_RULES.txt` as mandatory per-version startup memory.
+- Use `ngmthang-g/clinent-game-than-long-DATA-2222/AI_INDEX.md` and canonical KB first; no broad reverse.
+- Investigate current user report that opening the NPC still causes Treatment-dialog flicker.
+
+### Investigation / Correction
+- v1.1.7 final CI run `31925922772` was not pending: it completed **FAIL** at controller compilation because the `kTitle` macro/scope wiring created an unused global and left `controller_part02.inc` unable to see `kTitle`.
+- v1.1.7 descendant observer did not actually search all labels: `FirstTextInSubtreeV117` stopped at the first non-empty descendant text.
+- v1.1.7 still retained a `WaitTreatment` retry that called `ClickNPC` after 4 seconds whenever Lua GameDialog presence was temporarily absent. A server-driven destroy/recreate interval could therefore still reopen the NPC and recreate visible flicker.
+- Canonical client data confirms stronger semantic identity: current `Selections[selectionID] = visibleText`; generated current button stores the same selectionID in `Tag`.
+- New user flicker report is recorded as current runtime evidence, but exact tested artifact/version was not stated and is therefore not falsely assigned to v1.1.7.
+
+### Added / Changed / Fixed
+- Added `src/bridge_dialog_v1_1_8.inc`.
+- Added all-descendant semantic label matching (`SubtreeHasSemanticTextV118`).
+- Added live GameDialog `Tag`/selectionID extraction and explicit diagnostics.
+- Added `src/bridge_action_v1_1_8.inc` semantic gate: GameDialog choices fail closed unless freshly matched current button yields `selectionID > 0`.
+- Retained v1.1.6 CTS/MainThread proof and `MainThread.Execute(System.Action)` as mutation boundary.
+- Removed `WaitTreatment` NPC reopen loop. After initial NPC interaction the transaction waits for current dialog state and times out fail-closed instead of calling `ClickNPC` again.
+- Removed broken `kTitle` macro override; canonical title now lives in `controller_part01.inc` as v1.1.8.
+- Updated artifact names to v1.1.8.
+- Architecture audit uses encoding-safe symbol checks for v1.1.8 logic.
+
+### Build
+- Inherited v1.1.7 final run `31925922772`: **CI FAILED** (`kTitle` compile error).
+- v1.1.8 source commit CI: PENDING at this entry; must be updated after Actions completes.
+- BUILD/CI status must not be promoted to runtime status.
+
+### Runtime
+- v1.1.8: **RUNTIME UNTESTED**.
+- Latest user observation before v1.1.8: Treatment dialog still flickers when NPC is opened; tested artifact/version UNKNOWN.
+- Awaiting: one-NPC-open proof, `DIALOG_V118`, live `selectionID`, `MAINTHREAD_PROOF`, `ACTION_V118`, next dialog/result state.
+
+### Related Bugs / Evidence
+- BUG-001 remains OPEN.
+- EVID-007: latest user flicker report, artifact version unknown.
+- EVID-008: source audit proves v1.1.7 first-text-only matcher + residual WaitTreatment ClickNPC retry.
+
+### Next Version Notes
+- Do not change packet or rotate NPC again before one v1.1.8 runtime trace proves which stage is reached.
+- If live selectionID is resolved and `ACTION_V118` is enqueued but no state changes, only then compare the exact business callback/request against manual behavior.
+
 ## [v1.1.7-test] - 2026-08-16
 
 ### Requested
@@ -40,22 +85,16 @@
 ### Build
 - Initial v1.1.7 CI run `31925301297`: **CI FAILED before compiler** because architecture audit searched for a Vietnamese UTF-8 literal and PowerShell runner text decoding did not match it.
 - Correction: audit changed to encoding-safe ASCII symbols (`FirstTextInSubtreeV117`, `WalkForButtonV117`, `DIALOG_V117`, `gameDialogExists`).
-- Final build result: pending at this changelog write; must be updated before handoff.
+- Final v1.1.7 run `31925922772`: **CI FAILED** at controller compile (`kTitle` scope/wiring). This correction was discovered during v1.1.8 work.
 
 ### Runtime
-- Status: **RUNTIME UNTESTED**.
+- Status: **RUNTIME UNTESTED as a verified v1.1.7 artifact**.
 - Confirmed working inherited: target capture, route, dismount, NPC opening.
-- Awaiting proof: exact `DIALOG_V117` discovery branch and whether flicker stops before action.
 
 ### Related Bugs / Evidence
 - BUG-001 remains OPEN.
 - EVID-005: original repeated ClickNPC while visible dialog exists.
 - EVID-006: shared old matcher required same object Text + HandleClickEvent.
-
-### Next Version Notes
-- If `DIALOG_V117 MATCH` appears and MainThread action is definitely enqueued but no state transition follows, then do the narrow manual-vs-tool action/request trace.
-- If `NO MATCH` reports useful labels or Lua UI/Root mismatch, fix that exact observer layer only.
-- Do not rotate NPCs or broad-reverse before this evidence.
 
 ## [v1.1.6-test] - 2026-08-16
 

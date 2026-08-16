@@ -98,28 +98,24 @@
         const DWORD elapsed = now - healPhaseTick_;
         if (healPhase_ == Phase::WaitTreatment) {
             if ((ui.healDialogMask & HealDialogPresent) != 0) {
-                SetText(status_, L"AUTO TRỊ LIỆU: DIALOG ĐÃ MỞ • CHỜ NHẬN DIỆN TRỊ LIỆU");
+                SetText(status_, L"AUTO TRỊ LIỆU: DIALOG ĐÃ MỞ • CHỜ LIVE SELECTION TRỊ LIỆU");
                 if (ui.healDialogDetail[0]) Log(ui.healDialogDetail);
                 if (elapsed >= 15000) {
-                    HealFail(L"GameDialog đã mở nhưng 15 giây vẫn không resolve được lựa chọn Trị liệu; không mở lại NPC");
+                    HealFail(L"GameDialog đã mở nhưng 15 giây vẫn không resolve được Trị liệu/selectionID; tuyệt đối không ClickNPC lại");
                 }
                 return;
             }
-            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ DIALOG TRỊ LIỆU");
-            if (elapsed >= 4000 && healNpcRetries_ < 2) {
-                ++healNpcRetries_;
-                const int npcID = HealNpcIdForCapturedMap();
-                if (npcID == 0) { HealFail(L"Mất mapping NPC theo map target"); return; }
-                if (SendHealBridge(Command::ClickNpc, npcID, L"AUTO TRỊ LIỆU: THỬ MỞ LẠI NPC"))
-                    healPhaseTick_ = now;
+            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ GAMEDIALOG • KHÔNG RETRY CLICKNPC");
+            if (elapsed >= 15000) {
+                HealFail(L"Một lần ClickNPC đã được phát nhưng 15 giây không thấy GameDialog; fail-closed, không mở lại NPC trong transaction này");
                 return;
             }
-            if (elapsed >= 15000) { HealFail(L"Quá hạn chờ GameDialog Trị liệu xuất hiện"); return; }
         } else if (healPhase_ == Phase::WaitConfirm) {
-            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ XÁC NHẬN");
-            if (elapsed >= 15000) { HealFail(L"Quá hạn chờ Xác nhận"); return; }
+            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ STATE SAU TRỊ LIỆU / XÁC NHẬN");
+            if (ui.healDialogDetail[0]) Log(ui.healDialogDetail);
+            if (elapsed >= 15000) { HealFail(L"Quá hạn chờ state sau Trị liệu/Xác nhận"); return; }
         } else if (healPhase_ == Phase::WaitKnow) {
-            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ TA BIẾT RỒI");
+            SetText(status_, L"AUTO TRỊ LIỆU: CHỜ STATE SAU XÁC NHẬN / TA BIẾT RỒI");
             if (elapsed >= 15000) { HealFail(L"Quá hạn chờ Ta biết rồi"); return; }
         }
     }
