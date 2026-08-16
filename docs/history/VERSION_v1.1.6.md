@@ -3,16 +3,16 @@
 ## A. Identity / Lineage
 - Version: `v1.1.6-test`
 - Based On: `v1.1.5-test`
-- Reason Created: v1.1.5 reproduced the same Treatment flicker/no-progress on Long Phá Thiên/Lạc Dương as the previous Đỗ Thanh Đằng/Lâu Lan flow, so the investigation moved from NPC-specific theory to the common external action execution boundary.
+- Reason Created: v1.1.5 reproduced the same Treatment flicker/no-progress on Long Phá Thiên/Lạc Dương as Đỗ Thanh Đằng/Lâu Lan, shifting investigation from NPC-specific theory to the common external action execution boundary.
 - Previous Runtime State: route/NPC opening partial working; Treatment RUNTIME FAIL.
 - Last Known-Good: no full Auto Heal known-good; route/NPC-open partial known-good only.
-- Regression From: none; this is continuing an unresolved bug.
+- Regression From: none; continuing unresolved BUG-001.
 - Supersedes: v1.1.5 as current test version.
 - Related BUG: BUG-001.
 - Related Feature: `docs/features/AUTO_HEAL_NPC.md`.
 
 ## B. User Requests
-1. Add the uploaded V2 project-knowledge MD and client-analysis TXT to persistent files that every version must read.
+1. Add the uploaded V2 project-knowledge MD and client-analysis TXT to persistent files every version must read.
 2. Tool still only flickers the Treatment screen after opening NPC; re-study operation/action mechanism and find another solution.
 
 ## C. State Before Modification
@@ -47,17 +47,17 @@ Inherited failed approaches:
 
 ### Technical finding
 Canonical client knowledge verifies:
-- current-style WH_GETMESSAGE hook can be a valid managed Unity-main-thread **producer context**;
-- nevertheless gameplay/UI mutations should be queued through `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)` and execute later during normal Unity Update;
-- enqueue then synchronously waiting in the same hook is forbidden because it blocks the Update that drains the queue;
-- legitimate `System.Action` construction with a managed target + callback MethodInfo is solved for this frozen client;
-- an isolated `CancellationTokenSource.Cancel()` Action is the canonical first live proof.
+- current-style WH_GETMESSAGE hook can be a valid managed Unity-main-thread producer context;
+- gameplay/UI mutations should still be queued through `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)` and execute later during normal Unity Update;
+- enqueue then synchronously wait in the same hook is forbidden because that blocks the future Update which drains the queue;
+- legitimate `System.Action` construction with managed target + callback MethodInfo is solved for this frozen client;
+- isolated `CancellationTokenSource.Cancel()` is the canonical first live proof.
 
 ### Root Cause
-**LIKELY, not CONFIRMED:** earlier Treatment actions were executed through a common re-entrant/external invocation boundary rather than normal game-owned Unity Update dispatch. The identical symptom across two NPC/maps supports a common bridge issue, but only runtime evidence can confirm causality.
+**LIKELY, not CONFIRMED:** earlier Treatment actions used a common re-entrant/external invocation boundary rather than normal game-owned Unity Update dispatch. Identical symptoms across two NPC/maps support a common bridge issue, but only runtime evidence can confirm causality.
 
 ### Disproven/Weakened Theory
-“NPC 339/Lâu Lan alone is broken” is not a sufficient explanation after v1.1.5 reproduces the same symptom at NPC 463/Lạc Dương.
+“NPC 339/Lâu Lan alone is broken” is not a sufficient explanation after v1.1.5 reproduced the same symptom at NPC 463/Lạc Dương.
 
 ## E. Changes Made
 ### Mandatory memory files
@@ -72,28 +72,19 @@ Added:
 Added `src/bridge_mainthread_v1_1_6.inc`.
 
 Implementation:
-1. Resolve `il2cpp_object_new`, strong GC handle APIs and `il2cpp_thread_current` by export name.
+1. Resolve `il2cpp_object_new`, strong GC-handle APIs and `il2cpp_thread_current` by export name.
 2. Resolve corlib `System.Action`, `CancellationTokenSource`, and `FGStudio.Engine.Utilities.MainThread` semantically.
-3. Use the frozen Action constructor locator `GameAssembly + 0x49F810` only as build-specific donor after semantic class/method cross-checks.
-4. Begin harmless proof:
-   - allocate/init CTS;
-   - verify `IsCancellationRequested == false`;
-   - root CTS;
-   - construct/root `Action(target=CTS, callback=Cancel)`;
-   - call `MainThread.Execute(Action)`;
-   - return from hook immediately.
+3. Use frozen Action constructor locator `GameAssembly + 0x49F810` only as build-specific donor after semantic class/method cross-checks.
+4. Begin harmless proof: allocate/init CTS -> verify false -> root CTS -> construct/root `Action(target=CTS, callback=Cancel)` -> `MainThread.Execute(Action)` -> return from hook.
 5. Later request polls CTS. PASS only when false -> true is observed; timeout after 5000 ms fails closed.
-6. Only after proof PASS:
-   - resolve the current live button by UI/text;
-   - resolve zero-arg instance `HandleClickEvent()`;
-   - construct `Action(target=button, callback=HandleClickEvent)`;
-   - enqueue through `MainThread.Execute`;
-   - return and wait for normal state machine observation.
+6. Only after proof PASS: resolve current live button -> resolve zero-arg instance `HandleClickEvent()` -> construct `Action(target=button, callback=HandleClickEvent)` -> enqueue through `MainThread.Execute` -> return and let observer/state machine detect the next real state.
 
 Treatment uses `GameDialog / Trị liệu`; acknowledgement uses `GameDialog / Ta biết rồi`; confirmation prefers `MessageBox / Xác nhận`, then GameDialog fallback.
 
 ### Active implementation wiring
-`src/bridge.cpp` retains historical v1.1.3/v1.1.4 helpers under renamed symbols but makes the v1.1.6 `ClickHealDialogChoice` the active dispatcher implementation.
+- `src/bridge.cpp` retains the v1.1.3 helper only as a historical/reference implementation while still compiling shared UI discovery/ReadState/ClickNPC code from `bridge_part04.inc`.
+- The v1.1.4 direct packet helper file remains in source/history but is intentionally **not compiled** into the active v1.1.6 bridge after runtime failure in v1.1.4/v1.1.5.
+- v1.1.6 `ClickHealDialogChoice` is the active dispatcher implementation.
 
 ### Build/CI
 `build.cmd` now:
@@ -106,10 +97,10 @@ Obsolete duplicate `build_v1_1_5.yml` workflow removed.
 
 ## F. Important Implementation Details
 - Proof is asynchronous across hook requests/timer ticks.
-- A first attempt may return/log `MAINTHREAD_PROOF PENDING`; this is not failure and the heal phase must remain at the same step.
+- A first attempt may return/log `MAINTHREAD_PROOF PENDING`; this is not runtime success and does not advance the heal phase.
 - Do not enqueue another proof while one is pending.
 - External roots protect CTS/Action through proof; queued Action has a managed queue reference after `Execute()`.
-- This version intentionally does **not** migrate route/ClickNPC because those are already runtime-working; it isolates the broken Treatment mutation boundary.
+- This version intentionally does **not** migrate route/ClickNPC because they are runtime-working; it isolates the broken Treatment mutation boundary.
 - UI flicker remains only an observation, never success proof.
 
 ## G. Files / Components Changed
@@ -131,20 +122,39 @@ Obsolete duplicate `build_v1_1_5.yml` workflow removed.
 - `.github/workflows/build.yml`
 - `PROJECT_KNOWLEDGE.md`
 - `CHANGELOG.md`
+- `README.md`
 
 ### Removed
 - `.github/workflows/build_v1_1_5.yml` obsolete duplicate workflow.
 
 ## H. Build / CI History
-- Initial Build: PENDING at document creation.
-- Final Build: PENDING.
-- CI: PENDING.
-- Run: PENDING.
-- Commit: evolving branch; final artifact commit to be recorded after CI.
-- Artifact target: `ThanLongTestAutoHeal-v1.1.6`.
+### Initial Build
+- Commit: `be99b7d56be0dbbcf3acac4b1d7c2d597ff166ae`
+- Run: `31923691864`
+- Result: **BUILD FAILED / CI FAILED** at bridge compile.
+- Cause: historical v1.1.4 helper `ClickHealDialogChoiceV114` remained compiled but became unused after v1.1.6 replaced the active action path; `-Werror,-Wunused-function` blocked the build.
+
+### Correction
+- Removed v1.1.4 helper from active compilation while preserving its source/history file.
+- Added an explicit `[[maybe_unused]]` reference for the retained v1.1.3 historical helper because `bridge_part04.inc` still supplies shared UI/state/NPC functions used by current code.
+
+### Final Build
+- Source commit: `e54d537d8870c6e7e131816f3b7e78b60f10a62f`
+- GitHub Actions run: `31924151093`
+- Architecture audit: PASS.
+- Route FSM: **8/8 PASS**.
+- Heal FSM: **7/7 PASS**.
+- Bridge DLL compile: PASS.
+- Bridge PE verification: PASS (`characteristics=0x2022`).
+- Controller EXE compile: PASS.
+- Artifact upload: PASS.
+- Artifact: `ThanLongTestAutoHeal-v1.1.6`.
+- Artifact ID: `9257330034`.
+- Artifact ZIP SHA256: `452e0093090b4ce3b7c00f7e4fc815b384d880554ebdfc4ff6b01bbee20cbd34`.
+- Final CI state for code: **CI PASS / BUILD PASS**.
 
 ## I. Runtime Result
-- RUNTIME: UNTESTED.
+- RUNTIME: **UNTESTED** for v1.1.6.
 - Confirmed Working inherited: route/NPC-open partial subsystem.
 - Still Failing in last tested version: Treatment progression.
 - Awaiting Test:
@@ -161,11 +171,11 @@ Obsolete duplicate `build_v1_1_5.yml` workflow removed.
 - Root Cause Status: NPC-specific sole cause DISPROVEN/strongly weakened.
 - Evidence: EVID-002.
 
-### Why v1.1.6 is not simply retrying FAILED-002
-v1.1.0–v1.1.2 called `UIButton.HandleClickEvent()` directly within the hook request path. v1.1.6 uses the same authentic event only as a managed Action callback executed later by the game-owned MainThread Update queue. The execution boundary is materially different and is the variable under test.
+### Why v1.1.6 is not retrying FAILED-002
+v1.1.0–v1.1.2 called `UIButton.HandleClickEvent()` directly within the hook request path. v1.1.6 uses that authentic event only as a managed Action callback executed later by the game-owned MainThread Update queue. The execution boundary is materially different and is the variable under test.
 
 ## K. Known-Good Established
-None for full Auto Heal in this version before user runtime test.
+None for full Auto Heal. BUILD PASS is not runtime evidence.
 
 ## L. Remaining Bugs / New Knowledge / Decisions
 - BUG-001 OPEN.
@@ -191,7 +201,7 @@ None for full Auto Heal in this version before user runtime test.
 Runtime log beginning when Treatment is visible, especially:
 - `MAINTHREAD_PROOF PENDING`
 - `MAINTHREAD_PROOF PASS` or exact proof failure stage
-- `MAINTHREAD ENQUEUED UIButton.HandleClickEvent ... label=Trị liệu`
+- `MAINTHREAD ENQUEUED UIButton.HandleClickEvent • UI=GameDialog • label=Trị liệu`
 - resulting UI/state.
 
 If proof PASS + enqueued click still reproduces the same flicker, the next investigation is a targeted comparison of one manual human Treatment action versus the queued tool action at current GameDialog data/outbound request/inbound lifecycle. No broad reverse is justified.
