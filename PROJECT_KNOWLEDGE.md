@@ -1,225 +1,225 @@
-# CURRENT PROJECT KNOWLEDGE
+# PROJECT KNOWLEDGE
 
-## Project Purpose
-Repo test độc lập cho các cơ chế Thần Long Mobile. Chức năng chỉ được mang sang tool chính sau khi runtime test ổn định. Mỗi version phải kế thừa cả source lẫn tri thức kỹ thuật.
+## Project Identity
+- Repository: `ngmthang-g/TEST-chuc-nang-than-long-2`
+- Purpose: runtime test lab for Thần Long automation features; not the production tool.
+- Development branch: `agent/auto-tri-lieu-v1.1.0`
+- Current version: `v1.1.6-test`
+- Last known-good full Auto trị liệu: **NONE / UNKNOWN** — no version has completed the full treatment chain at runtime.
+- Runtime-known-good subsystem: route to captured target + dismount + NPC open on the tested healer flow.
 
-## Current Version
-v1.1.5-test — dual-map healer NPC isolation test. BUILD PASS; RUNTIME NEEDS USER TEST.
+## Mandatory Startup / Memory Contract
+Every version must read, in order:
+1. `AI_START_HERE.md`
+2. `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md`
+3. `AI_CLIENT_ANALYSIS_RULES.txt`
+4. this `PROJECT_KNOWLEDGE.md`
+5. `CHANGELOG.md`
+6. affected feature/bug/decision/evidence docs and current source/tests.
 
-## Current Status
-- BUILD PASS: clean-source GitHub Actions run `31909204317`.
-- Artifact: `ThanLongTestAutoHeal-v1.1.5`, SHA256 `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`.
-- RUNTIME PARTIAL PASS: runtime coordinate capture + AutoPath + xuống ngựa + `ClickNPC(339)` mở đúng Đỗ Thanh Đằng/GameDialog ở Lâu Lan.
-- RUNTIME FAIL: v1.1.0–v1.1.2 `UIButton.HandleClickEvent()` không qua `Trị liệu`; UI nháy.
-- RUNTIME FAIL: v1.1.3 `ExecuteUIObject(GameDialog.FunctionButtonClicked)` vẫn nháy, không qua Treatment.
-- RUNTIME FAIL: v1.1.4 semantic `selectionID` + `CMD_SHOW_GAMEDIALOG=100007` trên NPC 339/Lâu Lan theo user report vẫn chỉ nháy, chưa qua Treatment.
-- v1.1.5 giữ nguyên action layer v1.1.4 và đổi biến test NPC/map: captured Map 3 -> Long Phá Thiên 463; captured Map 5 -> Đỗ Thanh Đằng 339.
+When client internals are needed, use canonical repository `ngmthang-g/clinent-game-than-long-DATA-2222` and route narrowly:
+`AI_INDEX.md -> AI_BOOTSTRAP.md -> AUTO_TOOL_SCOPE.md -> AI_ROUTER.md -> one matching contexts/BUILD_*.md -> REQUIRED docs -> exact VERIFIED/database lookup`.
+No broad client reverse. Binary/native work is targeted-only when an exact required fact is absent from canonical VERIFIED/database/docs.
 
-## Canonical Knowledge Source
-Bắt buộc đọc `ngmthang-g/clinent-game-than-long-DATA-2222/AI_INDEX.md`, `research/VERIFIED.md` và database/feature đúng task trước khi nghiên cứu. Với UI/auto flow ưu tiên:
-`Lua source -> Config/Layout semantic data -> exact handler/payload -> targeted native reverse only if exact fact still missing`.
-Không broad reverse lại client.
+## Current State
+### Runtime-confirmed working
+- User-captured raw MapID/X/Y persistence.
+- CleanRoute movement to the captured position.
+- Stop path / dismount behavior sufficient to interact with NPC.
+- `ClickNPC(339)` opens Đỗ Thanh Đằng's GameDialog at Lâu Lan.
+- v1.1.5 also reached/opened the Long Phá Thiên test flow sufficiently for the user to observe the same Treatment-dialog flicker after the tool action.
+
+### Runtime-confirmed failing
+- `v1.1.0–v1.1.2`: direct `UIButton.HandleClickEvent()` inside the current hook action path -> visible UI flicker, no Treatment progression.
+- `v1.1.3`: `GameDialog.FunctionButtonClicked(liveButton)` via `MonoBehaviourExecutor.ExecuteUIObject` -> same flicker, no progression.
+- `v1.1.4`: live `selectionID` + source-verified `CMD_SHOW_GAMEDIALOG=100007` payload `selectionID:-1` on NPC 339/Lâu Lan -> same flicker, no progression.
+- `v1.1.5`: same v1.1.4 action layer on NPC 463/Long Phá Thiên/Lạc Dương -> user reports the **same flicker and no Treatment progression**.
+
+### Built / under verification
+- `v1.1.6-test`: changes only the execution boundary for the Treatment UI action. It constructs a legitimate `System.Action(target=live UIButton, callback=HandleClickEvent)` and enqueues it through `FGStudio.Engine.Utilities.MainThread.Execute(Action)` so the actual callback executes later from Unity `Update()`, not re-entrantly inside the Windows message hook.
+- Before a real button action is allowed, v1.1.6 runs a harmless `CancellationTokenSource.Cancel()` Action proof through the same queue and requires later false->true observation.
+- v1.1.6 BUILD/CI status: **PENDING at this snapshot**.
+- v1.1.6 runtime status: **RUNTIME UNTESTED**.
+
+## Affected Feature
+Auto trị liệu NPC / dynamic GameDialog action execution.
 
 ## Architecture
-`Controller -> shared command -> WH_GETMESSAGE callback đúng target game thread -> metadata-driven IL2CPP bridge -> semantic game action -> observer/state machine`.
+Read-only/decision side:
+`Controller -> per-PID shared memory -> WH_GETMESSAGE producer hook -> state read/inspect -> state machine`.
 
-v1.1.5 auto-heal flow:
-`capture raw MapID/X/Y -> choose NPC by captured map -> route -> ClickNPC(npcID) -> inspect live GameDialog -> read live selectionID -> send verified semantic request -> wait next real UI/state`.
+Canonical mutable-action target architecture:
+`validated producer hook -> construct/root legitimate System.Action -> MainThread.Execute(Action) -> return from hook -> Unity Update -> DoExecuteWorks -> Action.Invoke -> observe state proof`.
+
+The hook may be a valid managed Unity-main-thread producer context, but gameplay/UI mutation must not be treated as safe merely because it is invoked directly from that hook. Queueing restores the normal game-owned Update boundary and avoids re-entrant mutation from the message hook.
 
 ## Confirmed Technical Facts
 - CONFIRMED STATIC: Đỗ Thanh Đằng = NPC/ResID `339`, MapID `5` Lâu Lan.
 - CONFIRMED STATIC: Long Phá Thiên = NPC/ResID `463`, `ResName=PuTongXiaShi2`, MapID `3` Lạc Dương.
-- CONFIRMED RUNTIME: `ClickNPC(339)` opens intended Lâu Lan NPC dialog.
-- CONFIRMED: NPC X/Y must not be inferred/hardcoded; user captures raw runtime MapID/X/Y into `ThanLongAutoHeal.target.tsv`.
-- CONFIRMED canonical KB: dynamic `GameDialog` has `Selections[selectionID] = visibleText`; generated button stores selectionID in `Tag`.
-- CONFIRMED Lua source: GameDialog selection sends `CMD_SHOW_GAMEDIALOG = 100007` payload `selectionID:SelectedItemID`; ordinary no-award choice defaults `SelectedItemID=-1`.
-- CONFIRMED: `LuaSystemAPI_Network.SendPacket(packetID,data)` is outbound Lua network bridge.
-- CONFIRMED asset: `MessageBox` stores semantic OK/Cancel callbacks and has `ButtonOKClicked()`.
-- CONFIRMED BUILD: v1.1.5 architecture audit, Route FSM, Heal FSM, bridge DLL, PE verification, controller EXE and artifact upload all PASS in run `31909204317`.
-- CONFIRMED RULE: BUILD PASS != RUNTIME PASS.
+- CONFIRMED: NPC X/Y must not be inferred/hardcoded; current test target uses raw user-captured MapID/X/Y.
+- CONFIRMED canonical Lua/KB: dynamic `GameDialog` has `Selections[selectionID] = visibleText`; generated button stores selectionID in `Tag`.
+- CONFIRMED canonical Lua/KB: a GameDialog function choice sends `CMD_SHOW_GAMEDIALOG = 100007`, payload `selectionID:SelectedItemID`; ordinary no-award choice commonly uses `SelectedItemID=-1`.
+- CONFIRMED canonical UI lifecycle: inbound `CMD_SHOW_GAMEDIALOG` destroys the previous GameDialog and may create a new one. Therefore a visible dialog flicker can mean reconstruction and is **not** proof of Treatment success.
+- CONFIRMED canonical MainThread: `MainThread.Execute(Action)` enqueues; Unity `Update()` calls `DoExecuteWorks()`, which dequeues and invokes Actions.
+- CONFIRMED frozen-client Action donor: legitimate `System.Action` construction accepts managed target + callback `MethodInfo*`; frozen direct constructor locator `GameAssembly + 0x49F810` is diagnostic/build-specific evidence, not universal identity.
+- CONFIRMED protocol rule: BUILD/CI PASS does not establish runtime PASS.
 
-## Important IDs / Maps
-- `339` = Đỗ Thanh Đằng = Map `5` Lâu Lan.
-- `463` = Long Phá Thiên = Map `3` Lạc Dương.
-- `CMD_SHOW_GAMEDIALOG = 100007`.
+## Current Root-Cause Assessment
+### DISPROVEN / strongly weakened
+**“NPC 339/Lâu Lan alone is the root cause.”**
+Reason: the user reports the same flicker/non-progression using the v1.1.5 A/B target NPC 463 in Lạc Dương.
 
-## Confidence / Hypotheses
-- CONFIRMED STATIC: identity/map of NPC 463.
-- HYPOTHESIS: Long Phá Thiên 463 provides the same `Trị liệu` service. Canonical `NPC_SERVICE_CANDIDATES.md` does not classify 463 in LangZhong/MingYi healer families. Do not call it a verified healer until runtime proves it.
-- HYPOTHESIS under test: failure may be specific to NPC 339/Lâu Lan rather than shared action layer.
+### LIKELY, not yet CONFIRMED
+A shared mutation/execution-boundary issue exists in the external bridge. Earlier versions performed the decisive action directly/re-entrantly from the `WH_GETMESSAGE` hook or via an invocation path rooted in that producer request. Canonical client knowledge says mutable actions should be queued through `MainThread.Execute(Action)` and execute later in normal Unity Update.
+
+This is the hypothesis v1.1.6 isolates. It must not be called root cause until runtime proof succeeds and Treatment behavior changes accordingly.
 
 ## Important Files
-- `src/controller_part04.inc` — v1.1.5 map->NPC selection and heal runtime FSM.
-- `src/controller_part05.inc` — continuation of runtime FSM/controller.
-- `src/controller.cpp` — clean includes only; legacy macro NPC override removed.
-- `src/bridge_heal_packet_v1_1_4.inc` — semantic selectionID packet implementation retained unchanged for isolation test.
-- `src/bridge_part03.inc` / `src/bridge_part04.inc` — UI discovery and historical callback path.
-- `src/heal_logic.h` — pure heal-dialog FSM.
-- `src/protocol.h` — shared command/snapshot protocol.
-- `VERSION_v1.1.5.md` — current version test design + build result.
-- `CHANGELOG.md` — short history.
+- `AI_START_HERE.md` — mandatory startup pointer for every version.
+- `AI_PROJECT_KNOWLEDGE_PROTOCOL_V2_OPTIMIZED.md` — mandatory engineering-lineage protocol.
+- `AI_CLIENT_ANALYSIS_RULES.txt` — mandatory canonical-client analysis rule.
+- `src/bridge_mainthread_v1_1_6.inc` — CTS proof + queued live UIButton event implementation.
+- `src/bridge.cpp` — selects v1.1.6 as active heal-choice implementation while retaining old versions as historical helpers.
+- `src/bridge_part04.inc` — UI discovery and v1.1.3 historical callback implementation.
+- `src/bridge_heal_packet_v1_1_4.inc` — historical v1.1.4 direct semantic packet implementation; no longer active for v1.1.6 Treatment choice.
+- `src/controller_part04.inc` / `src/controller_part05.inc` — heal state machine and MapID->NPC test mapping.
+- `docs/features/AUTO_HEAL_NPC.md` — feature lineage/current contract.
+- `docs/bugs/BUG_REGISTRY.md` — stable bug record.
+- `docs/evidence/EVIDENCE_REGISTRY.md` — runtime/source/CI evidence.
+- `docs/decisions/DECISIONS.md` — active architecture decisions.
+- `docs/history/VERSION_v1.1.6.md` — detailed current version record.
+
+## Important IDs / APIs / Locators
+- NPC 339 = Đỗ Thanh Đằng, Map 5 Lâu Lan.
+- NPC 463 = Long Phá Thiên, Map 3 Lạc Dương.
+- `CMD_SHOW_GAMEDIALOG = 100007`.
+- `FGStudio.Engine.Utilities.MainThread.Execute(System.Action)`.
+- Frozen Action ctor locator: `GameAssembly + 0x49F810` — build-specific diagnostic/donor only.
+- Proof target: `System.Threading.CancellationTokenSource.Cancel()`; proof observable: `IsCancellationRequested false -> true`.
 
 ## Working Mechanisms
 - Runtime coordinate capture/persistence.
-- Clean Route AutoPath.
-- StopPath / dismount.
-- `ClickNPC(339)` runtime opening in Lâu Lan.
-- Live GameDialog discovery by text.
-- Source/build path for semantic `selectionID` request.
+- Route/AutoPath to captured target.
+- StopPath/dismount.
+- Semantic `ClickNPC` opening NPC interaction.
+- Live GameDialog/button discovery by text.
 
 ## Failed / Unsafe Mechanisms
-
 ### FAILED-001 — inferred coordinate scale
-**Attempt:** infer displayed 294:172 as 29400,17200.
-**Result:** wrong coordinate.
-**Lesson:** raw runtime capture only.
+Attempt: infer displayed 294:172 as 29400,17200.
+Result: wrong target coordinates.
+Lesson: raw runtime capture only.
 
-### FAILED-002 — `UIButton.HandleClickEvent()` as Treatment business action
-**Versions:** v1.1.0–v1.1.2.
-**Result:** UI flicker, no Treatment transition.
-**Lesson:** visual click is not semantic success.
-**Retry Conditions:** only after trace proves it reaches same business request.
+### FAILED-002 — direct `UIButton.HandleClickEvent()` in hook path
+Versions: v1.1.0–v1.1.2.
+Result: visual flicker, no Treatment transition.
+Lesson: direct/re-entrant invocation from the hook is not accepted as equivalent to a normal Unity UI event. Do not retry this exact execution boundary.
+Retry condition: only through a materially different execution boundary with new evidence — v1.1.6 queues the callback through MainThread and is therefore a distinct experiment.
 
-### FAILED-003 — UI resolver-only fix
-**Version:** v1.1.2.
-**Result:** UI discovery improved/build PASS, Treatment still FAIL.
-**Lesson:** discovery alone was not root cause.
+### FAILED-003 — resolver-only fix
+Version: v1.1.2.
+Result: Treatment still failed.
+Lesson: UI discovery alone was not root cause.
 
 ### FAILED-004 — `ExecuteUIObject(GameDialog.FunctionButtonClicked(liveButton))`
-**Version:** v1.1.3.
-**Result:** same flicker, no Treatment transition.
-**Lesson:** callback source is useful documentation of semantic request; current executor invocation is not authoritative runtime success.
+Version: v1.1.3.
+Result: same flicker/no progression.
+Lesson: source-correct callback semantics do not prove the external invocation boundary is correct.
 
-### FAILED-005 — v1.1.4 semantic packet on NPC 339/Lâu Lan
-**Attempt:** resolve live treatment button, read `Tag=selectionID`, send source-verified `CMD_SHOW_GAMEDIALOG 100007` payload `selectionID:-1`.
-**Result:** user reports same screen/dialog flicker and no progression.
-**Failure Cause:** NOT CONFIRMED. Could be NPC/server-dialog-specific, wrong runtime data exposure, lifecycle issue, or action path despite source-correct payload.
-**Lesson:** do not immediately rewrite action layer again; isolate NPC/map variable first.
-**Retry Conditions:** after A/B test with NPC 463 or targeted trace of actual manual Treatment request.
+### FAILED-005 — direct source-verified GameDialog packet on NPC 339
+Version: v1.1.4.
+Result: same flicker/no progression.
+Lesson: correct source-level payload alone did not establish end-to-end runtime action success in this bridge.
 
-### DEPRECATED IMPLEMENTATION — macro NPC override hotfix
-An intermediate v1.1.5 draft modified `src/controller.cpp` with preprocessor overrides for `kHealNpcID`/target loading. It was removed before current handoff because it was brittle and risked recursive macro behavior. Current mapping is explicit in `controller_part04.inc`.
+### FAILED-006 — NPC/map isolation did not change symptom
+Version: v1.1.5.
+Attempt: same v1.1.4 action layer on Long Phá Thiên 463/Lạc Dương.
+Result: user reports the same flicker/no progression.
+Lesson: NPC 339/Lâu Lan-specific fault is not a sufficient explanation; investigate common action bridge/state boundary.
 
-## Architectural Rules
-- Read uploaded Knowledge Protocol + project KB before code changes.
-- Read canonical client `AI_INDEX.md` + VERIFIED/database before reverse.
-- No broad binary reverse when exact fact exists in docs/database.
-- Only targeted binary/metadata analysis for exact missing facts.
+## Hard Architectural Rules
+- Read mandatory startup docs before every version.
+- Read canonical client KB narrowly before binary work.
+- No broad reverse when exact fact already exists.
 - No hardcoded NPC X/Y.
-- No fixed/guessed Treatment selectionID.
-- No guessed packet payload.
+- No guessed universal Treatment selection ID.
 - No stale UI pointer across UI transition.
-- No `Sleep` on game callback thread as readiness proof.
-- One mutable action at a time; advance on concrete state evidence.
+- Do not use visible flicker as success proof.
+- Do not sleep on the Unity/main-thread hook as readiness/success proof.
+- Max one mutable action in flight per PID.
+- Queue mutable UI/game actions through verified MainThread action boundary once that bridge proof passes.
+- Never enqueue then synchronously wait for the Action callback in the same WH_GETMESSAGE invocation.
 - BUILD PASS != RUNTIME PASS.
-- Preserve failed attempts/corrections.
 
-## Known Bugs / Limitations
-- Full auto-heal chain has not achieved runtime PASS.
-- Long Phá Thiên 463 healer service semantics are not yet runtime verified.
-- Confirmation branch after successful Treatment has not been runtime reached in current test series.
-- Existing saved target file does not store NPC ID; v1.1.5 intentionally derives NPC from captured MapID (3 or 5). Map other than 3/5 fails closed.
+## Known Bugs
+### BUG-001 — Auto Treatment GameDialog action flickers but does not advance
+Status: OPEN.
+Versions observed bad: v1.1.0 through v1.1.5.
+Next experiment: v1.1.6 MainThread queued UIButton event after CTS proof.
 
-## Open Research Questions
-1. Does NPC 463/Map 3 expose a `Trị liệu` GameDialog and advance with the unchanged v1.1.4 semantic action?
-2. If 463 also fails identically, what exact outbound request occurs when user manually clicks `Trị liệu`?
-3. Does local GameDialog lifecycle need a separate semantic close/transition after direct request?
-4. What exact confirmation UI follows a successful Treatment on each NPC/server dialog?
+## Current Limitations
+- Full Treatment chain has never achieved runtime PASS.
+- Confirmation/`Ta biết rồi` path has not been reached after a successful Treatment transition in this series.
+- v1.1.6 Action construction uses a frozen-snapshot direct Action constructor locator after semantic class/method checks; it must be treated as build-specific and runtime-tested.
+- The current route/ClickNPC actions are intentionally not migrated in v1.1.6 because they are already runtime-working; this version isolates only the broken UI mutation boundary.
+
+## Open Questions
+1. Does the CTS MainThread proof pass repeatedly on the live client without crash/corruption?
+2. After proof PASS, does queued `UIButton.HandleClickEvent` perform a real Treatment transition instead of mere flicker?
+3. If it still flickers with proof PASS, what exact GameDialog data/selection changes before vs after a manual human Treatment click compared with the queued action?
+4. What real follow-up UI occurs after successful Treatment: MessageBox, dynamic GameDialog, or server-side state change?
 
 ## Next Development Priorities
-1. User goes to Long Phá Thiên in Lạc Dương, presses `TỰ LẤY TỌA ĐỘ NPC`, confirms saved target MapID is 3.
-2. Run Auto trị liệu and capture log beginning at `AUTO TRỊ LIỆU START • NPC 463 Long Phá Thiên`.
-3. Compare runtime behavior with NPC 339/Lâu Lan.
-4. If both fail identically, stop changing NPCs and perform targeted trace of one legitimate manual Treatment action only.
-5. Only port to main after repeated full runtime PASS without crash/disconnect.
+1. Finish CI/build for v1.1.6.
+2. Runtime test and preserve log from `MAINTHREAD_PROOF` through queued Treatment action.
+3. If CTS proof fails: fix only the delegate/MainThread bridge stage indicated by log.
+4. If CTS proof passes but Treatment still fails: do one targeted manual-vs-tool dialog/request/state trace; do not change NPC again and do not broad-reverse the client.
+5. Only port to production after repeated complete runtime PASS without crash/disconnect.
+
+## Knowledge Index
+- Feature: `docs/features/AUTO_HEAL_NPC.md`
+- Bug: `docs/bugs/BUG_REGISTRY.md#bug-001`
+- Decisions: `docs/decisions/DECISIONS.md`
+- Evidence: `docs/evidence/EVIDENCE_REGISTRY.md`
+- Current version: `docs/history/VERSION_v1.1.6.md`
+- Older detailed handoffs remain under `docs/` and root `VERSION_v1.1.x.md` files.
 
 ---
 
-# VERSION HISTORY
+# VERSION LINEAGE SUMMARY
 
-## VERSION 1.1.0-test — 2026-08-16
-Initial route/NPC/GameDialog auto-heal test using NPC 339.
+## v1.1.0-test — 2026-08-16
+Initial Auto Heal test using NPC 339; direct UIButton event path. BUILD PASS; runtime Treatment FAIL.
 
-## VERSION 1.1.1-test — 2026-08-16
-Removed inferred X/Y; added user runtime coordinate capture/persistence.
+## v1.1.1-test — 2026-08-16
+Removed inferred X/Y; added user runtime coordinate capture. Route behavior became usable.
 
-## VERSION 1.1.2-test — 2026-08-16
-UI resolver adjustment. Route/NPC open PARTIAL PASS; Treatment FAIL.
+## v1.1.2-test — 2026-08-16
+UI resolver adjustment. NPC open PARTIAL PASS; Treatment FAIL.
 
-## VERSION 1.1.3-test — 2026-08-16
-Exact Lua callback through ExecuteUIObject. Build PASS; runtime Treatment FAIL with same flicker.
+## v1.1.3-test — 2026-08-16
+Tried exact GameDialog Lua callback through ExecuteUIObject. BUILD PASS; runtime Treatment FAIL.
 
-## VERSION 1.1.4-test — 2026-08-16
-Semantic dynamic GameDialog request using live `selectionID` + verified packet/payload. Build PASS. Runtime on NPC 339/Lâu Lan reported FAIL with same flicker.
+## v1.1.4-test — 2026-08-16
+Tried live selectionID + verified packet/payload. BUILD PASS; runtime FAIL on NPC 339/Lâu Lan.
 
-## VERSION 1.1.5-test — 2026-08-16
-### User Requests
-Force-read MD/knowledge; suspect Lâu Lan NPC; add Long Phá Thiên Lạc Dương while keeping user-captured coordinates.
-### Initial State
-v1.1.4 NPC 339 still flickers/fails at Treatment.
-### Investigation
-Canonical NPC database directly confirms Long Phá Thiên = 463, MapID 3 Lạc Dương; no binary reverse required. NPC_SERVICE_CANDIDATES does not verify 463 as healer.
-### Solution
-Keep action layer unchanged. Select NPC from captured target map: Map3->463, Map5->339; other maps fail closed.
-### Files Changed
-`src/controller.cpp`, `src/controller_part04.inc`, `src/controller_part05.inc`, `build.cmd`, `.github/workflows/build.yml`, `VERSION_v1.1.5.md`, `CHANGELOG.md`, `PROJECT_KNOWLEDGE.md`.
-### Data Sources
-Uploaded AI Project Knowledge Protocol; project KB; canonical `AI_INDEX.md`; `database/npcs/NPCS_0401_0600.csv`; `NPC_SERVICE_CANDIDATES.md`.
-### Test Results
-BUILD PASS in GitHub Actions run `31909204317`; artifact `ThanLongTestAutoHeal-v1.1.5`; SHA256 `652a12e2f454d1d8bee6d5025512825d98262e38a567d69b6597b1143daedf93`. RUNTIME NEEDS USER TEST.
-### Recommended Next Step
-Fresh coordinate capture next to Long Phá Thiên in Lạc Dương, then runtime A/B test.
+## v1.1.5-test — 2026-08-16
+A/B NPC/map isolation: Map3->463, Map5->339, coordinates still user-captured. BUILD PASS run `31909204317`. User runtime report: NPC 463/Lạc Dương shows same flicker/no progression. RUNTIME FAIL for Treatment.
+
+## v1.1.6-test — 2026-08-16
+Based on v1.1.5. Reason: identical failure across two NPC/maps points to common execution boundary rather than a sole NPC fault. Added mandatory V2 protocol/TXT/startup contract; added CTS proof and MainThread-queued live UIButton event. BUILD/CI PENDING; RUNTIME UNTESTED.
 
 ---
 
-# DECISION LOG
+# DECISION SUMMARY
+- DEC-001 ACTIVE: user captures raw NPC target coordinates; no inferred X/Y.
+- DEC-002 ACTIVE: canonical client repo is read-first; binary reverse targeted-only.
+- DEC-003 ACTIVE: state-driven progression; no fixed Sleep as proof.
+- DEC-004 SUPERSEDED for current experiment: direct GameDialog packet is source-correct but failed end-to-end in v1.1.4/v1.1.5.
+- DEC-005 ACTIVE: for v1.1.6, broken heal UI mutation is queued through `MainThread.Execute(Action)` after an isolated CTS proof; no direct hook mutation is considered authoritative.
 
-## DECISION-001
-**Status:** ACTIVE
-**Decision:** NPC target position is captured from runtime, never inferred from displayed coordinate scaling.
-
-## DECISION-002
-**Status:** SUPERSEDED by DECISION-004
-**Decision:** Prefer exact GameDialog Lua callback over generic UIButton click.
-
-## DECISION-003
-**Status:** ACTIVE
-**Decision:** Never solve UI readiness by sleeping on game callback thread; gate across observations/ticks.
-
-## DECISION-004
-**Status:** ACTIVE
-**Decision:** For dynamic GameDialog, use live server-provided selection semantics and source-verified packet/payload rather than guessed button behavior.
-
-## DECISION-005
-**Status:** ACTIVE
-**Decision:** Canonical client repo is read-first; native reverse is targeted-only for exact missing facts.
-
-## DECISION-006
-**Date:** 2026-08-16
-**Status:** ACTIVE
-**Decision:** v1.1.5 isolates NPC/map without changing v1.1.4 action layer. Captured MapID selects the test NPC (3->463, 5->339).
-**Context:** v1.1.4 still fails on 339/Lâu Lan and user suspects NPC-specific issue.
-**Alternatives Considered:** rewrite packet/action again; hardcode Long Phá Thiên coordinates; replace 339 globally.
-**Why Rejected:** those alter multiple variables or violate runtime-coordinate rule.
-**Consequences:** v1.1.5 is an A/B test. Runtime results determine whether NPC-specific investigation is justified.
-
----
-
-# CORRECTION LOG
-
-## CORRECTION-001
-**Old Knowledge:** live UIButton `HandleClickEvent()` could be sufficient for Treatment.
-**New Finding:** runtime disproved it.
-**Status:** DEPRECATED/FAILED.
-
-## CORRECTION-002
-**Old Knowledge:** source-correct `FunctionButtonClicked` through current ExecuteUIObject bridge was likely complete fix.
-**New Finding:** runtime v1.1.3 still fails.
-**Status:** DEPRECATED as authoritative action path for this feature.
-
-## CORRECTION-003
-**Old Knowledge:** v1.1.4 semantic packet path was awaiting runtime test.
-**New Finding:** user reports v1.1.4 on NPC 339/Lâu Lan still only flickers and does not advance.
-**Evidence:** user runtime report immediately before v1.1.5 request.
-**Affected Version:** v1.1.4.
-**Impact:** mark runtime FAIL on 339/Lâu Lan; retain action layer only for controlled A/B test with 463/Lạc Dương.
+# CORRECTION SUMMARY
+- CORRECTION-001: direct HandleClickEvent inside hook is DEPRECATED/FAILED.
+- CORRECTION-002: ExecuteUIObject callback path is DEPRECATED as authoritative action path.
+- CORRECTION-003: v1.1.4 packet path is source-correct but runtime FAILED on 339.
+- CORRECTION-004: hypothesis “Lâu Lan NPC alone causes the failure” is DISPROVEN as a sole explanation by identical v1.1.5 behavior at Long Phá Thiên/Lạc Dương.
