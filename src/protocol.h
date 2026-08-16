@@ -60,6 +60,7 @@ struct Snapshot {
     std::int32_t waitingChangeMap = 0;
     std::uint32_t healDialogMask = 0;
     wchar_t characterName[64]{};
+    wchar_t healDialogDetail[320]{};
 };
 
 struct Request {
