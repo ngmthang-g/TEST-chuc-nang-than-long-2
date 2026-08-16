@@ -38,6 +38,6 @@ Only fixes the Lua manager/LuaEnv resolver:
 
 Downstream GameDialog semantics remain current runtime `Selections[selectionID]=visibleText`, re-read at action time, no hardcoded ID and no UIRoot/UIButton dependency.
 
-Source-bearing build run `31933118883`: PASS. Final verified run `31933561439`: PASS. Final artifact name: `ThanLongTestAutoHeal-v1.1.10`.
+Source-bearing build run `31933118883`: PASS. Verified full repository build: PASS. Artifact name: `ThanLongTestAutoHeal-v1.1.10`.
 
 See `docs/history/VERSION_v1.1.10.md` and `docs/investigations/V119_LUA_MANAGER_RUNTIME_FINDING.md`.
