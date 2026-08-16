@@ -34,42 +34,42 @@ User reported current tool still flickered before the build-valid v1.1.8 handoff
 
 ## EVID-009 — v1.1.8 build-valid artifact
 **Type:** CI / BUILD  
-Source run `31926671467` and final-head run `31926929828` passed architecture audit, self-tests, bridge/controller compilation and artifact upload.
+Source/final v1.1.8 runs passed architecture audit, self-tests, bridge/controller compilation and artifact upload.
 
-## EVID-010 — v1.1.8 runtime isolates failure to UIRoot observer representation
+## EVID-010 — v1.1.8 runtime isolates UIRoot representation failure
 **Type:** USER_RUNTIME + EXACT LOG  
 **Date:** 2026-08-16  
-**Artifact:** delivered v1.1.8  
-**Context:** PID 4324, NPC 339, Map 5, captured coordinate `9442,5510`.
-
-Observed:
-- mount / AutoPath / dismount succeeded;
-- exactly one `Đã gọi ClickNPC npcID=339`;
-- current GameDialog opened;
-- every probe for ~15 seconds returned `DIALOG_V118 NO MATCH • UI=GameDialog • wanted=Trị liệu • clickable=0 • texts=0 • labels=<none>`;
-- controller failed closed with no second NPC interaction.
-
-Supports:
-1. WaitTreatment anti-reopen is runtime PASS for this transaction;
-2. bridge-visible `UIRoot/CoreChildren` has zero relevant text/clickable nodes for the live dynamic GameDialog;
-3. v1.1.8 never reaches Treatment selectionID/action, so this test does not disprove the action/server request.
-
-Confidence: **CONFIRMED runtime evidence**.
+GameDialog opens after one NPC interaction; for ~15 seconds every probe returns `DIALOG_V118 NO MATCH ... clickable=0 • texts=0 • labels=<none>`; controller fails closed without another NPC interaction. This confirms anti-reopen for the transaction and confirms the bridge-visible UIRoot representation is empty for the relevant dynamic dialog nodes.
 
 ## EVID-011 — Runtime `Selections` is the stronger canonical source
 **Type:** CANONICAL CLIENT SOURCE/KB  
-Relevant Auto Heal/GameDialog docs establish `Selections[selectionID]=visibleText`; built-in AutoFight dialog logic inspects current selections; command `100007` submits `selectionID:SelectedItemID`. This supports moving v1.1.9 observation from UIRoot to live Lua dialog data. Exact live table path remains runtime evidence.
+GameDialog docs establish `Selections[selectionID]=visibleText`; built-in AutoFight dialog logic inspects current selections; command `100007` submits `selectionID:SelectedItemID`.
 
 ## EVID-012 — v1.1.9 source builds and packages successfully
 **Type:** CI / BUILD ARTIFACT  
-**Date / Version:** 2026-08-16 / v1.1.9-test  
-**Source commit:** `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`  
-**Actions run:** `31932086373`  
-**Observation:** architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL + PE verification PASS; controller EXE PASS; artifact upload PASS.  
-**Artifact:** `ThanLongTestAutoHeal-v1.1.9`, ID `9259620117`.  
-**ZIP SHA-256:** `823f04f60fad78720f3742d7e93a7c31b6e382f504fe44982c41cf9a967d648a`.  
-**EXE SHA-256:** `3228bf03c493329af00c8014b47c9f486469a39b24b2c09add5df2061a450ad8`.  
-**DLL SHA-256:** `22019c4c9f4f4aaf29db3c4c328d9a948d285f41186698c981335cc039df7ea9`.  
-**Supports:** v1.1.9 source is build-valid and ready for live Lua-dialog probing.  
-**Does NOT Prove:** that LuaEnv probe finds live selections, that Treatment is accepted, or that the full heal flow completes.  
+Source commit `1eac3b9eb55dae9a80d6fcba847c7bd7281fe3b7`, run `31932086373`: architecture audit, FSM tests, bridge/controller build and upload PASS. Artifact `ThanLongTestAutoHeal-v1.1.9`, ID `9259620117`. This proved build validity only.
+
+## EVID-013 — v1.1.9 runtime fails specifically at LuaSystemManager instance resolution
+**Type:** USER_RUNTIME + SCREENSHOT/EXACT LOG + SOURCE CORRELATION  
+**Date / Version:** 2026-08-16 / delivered v1.1.9  
+**Context:** PID 4324, Map 5, NPC 339 Đỗ Thanh Đằng. The captured UI status says the GameDialog is open and it is waiting for live Treatment selection. Log shows `Đã gọi ClickNPC npcID=339` followed by repeated:
+
+`LUA_DIALOG_V119 PROBE FAIL • LUA_DIALOG_V119: LuaSystemManager instance unresolved`
+
+**Supports:** the failure is before LuaEnv/DoString/Selections/action. Source audit confirms v1.1.9 `ResolveLuaEnvV119()` first required `ResolveLuaSystemManagerV119()`, whose only instance paths were `get_Instance` and four named static fields.  
+**Does NOT Prove:** DoString failure, missing Treatment text/ID, packet rejection, MessageBox behavior or server refusal.  
+**Confidence:** **CONFIRMED runtime boundary + source implementation fact**.
+
+## EVID-014 — Canonical KB does not verify a LuaSystemManager singleton contract
+**Type:** CANONICAL CLIENT KB  
+`LuaSystemManager` high-value members include `get_LuaEnv/set_LuaEnv`; IL2CPP reflection/static-field APIs are verified. The current canonical docs do not claim a stable `get_Instance` or a particular singleton backing-field name for LuaSystemManager. This supports correcting the resolver rather than declaring Lua data inaccessible.
+
+## EVID-015 — v1.1.10 source-bearing resolver build passes
+**Type:** CI / BUILD ARTIFACT  
+**Source-bearing commit:** `d35517385266d4fa75011374966816a0e8d5ada1`  
+**Actions run:** `31933118883`  
+Architecture audit PASS; Route FSM PASS; Heal FSM PASS; bridge DLL + PE verification PASS; controller build PASS; artifact upload PASS.  
+Artifact `ThanLongTestAutoHeal-v1.1.10`, ID `9259895908`, ZIP digest `sha256:4b43c205bedd4177288b562ed7df20b08adb5f295b6b1601a11699e0bb80ef60`.  
+**Supports:** the new resolver/fallback code compiles/packages correctly.  
+**Does NOT Prove:** that the live client resolves LuaEnv, that T is found, or that Treatment completes.  
 **Confidence:** CONFIRMED BUILD; **RUNTIME UNTESTED**.
