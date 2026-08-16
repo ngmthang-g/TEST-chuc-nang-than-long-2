@@ -14,7 +14,7 @@ Do not infer/hardcode NPC X/Y. Current map mapping: Map 3 -> NPC 463 test candid
 
 ## DEC-004 — MainThread remains the preferred production mutation boundary
 **Status:** ACTIVE  
-For live Unity/UI mutations, prefer legitimate managed `System.Action -> MainThread.Execute -> Unity Update`. v1.1.9 does not revoke this architecture.
+For live Unity/UI mutations, prefer legitimate managed `System.Action -> MainThread.Execute -> Unity Update`. The narrow GameDialog packet proof does not revoke this architecture.
 
 ## DEC-005 — MainThread proof is asynchronous
 **Status:** ACTIVE  
@@ -22,34 +22,40 @@ Never enqueue and synchronously wait inside the same hook request. CTS proof beg
 
 ## DEC-006 — Never reopen NPC from WaitTreatment because dialog observation is unresolved
 **Status:** ACTIVE / RUNTIME SUPPORTED  
-The old retry loop polluted evidence and could reconstruct GameDialog. v1.1.8 removed it; user runtime log showed only one `ClickNPC` for the tested transaction.
+The old retry loop polluted evidence and could reconstruct GameDialog. v1.1.8 removed it; user runtime log showed one NPC interaction for the tested transaction.
 
 ## DEC-007 — Dynamic GameDialog selection identity must come from current runtime state
 **Status:** ACTIVE, wording superseded by DEC-008  
-Never hardcode Treatment ID. v1.1.8 tried to derive identity through live button Tag. Runtime proved the active UIRoot representation had zero button/text nodes, so the identity rule remains but its source moves to `Selections` directly.
+Never hardcode Treatment ID. Identity remains runtime/server data even though the source moved away from UIRoot button Tag.
 
 ## DEC-008 — Abandon UIRoot/UIButton as active observer for this dynamic GameDialog
-
 **Date / Version:** 2026-08-16 / v1.1.9  
 **Status:** ACTIVE  
-**Decision:** Do not continue tuning tree depth, text normalization or UIButton matching against `FindUI("GameDialog") -> UIRoot/CoreChildren` for Treatment. Use server/runtime Lua dialog data instead.  
-**Evidence:** v1.1.8 user log: GameDialog present, one NPC open, then repeated `clickable=0 • texts=0 • labels=<none>` for 15 seconds.  
-**Canonical support:** `GameDialog.Selections[selectionID]=visibleText`; built-in AutoFight dialog flows inspect current selections.  
-**Why:** the representation being scanned is empty for the relevant dynamic content in the tested runtime; another matcher on the same empty tree cannot recover information that is not there.  
-**Consequences:** v1.1.8 UIRoot observer remains compiled/preserved only for lineage; v1.1.9 active observer reads Lua runtime data.
+Do not continue tree-depth/text/UIButton tuning against `FindUI("GameDialog") -> UIRoot/CoreChildren`; runtime v1.1.8 proved zero relevant nodes while dialog presence existed. Use runtime Lua dialog data instead.
 
-## DEC-009 — v1.1.9 uses live Lua Selections + exact semantic GameDialog request as a narrow proof
-
+## DEC-009 — Use live Lua Selections + exact semantic GameDialog request as a narrow proof
 **Date / Version:** 2026-08-16 / v1.1.9  
 **Status:** ACTIVE FOR TEST LAB ONLY  
-**Decision:** At observation time, recover current `Selections` through Lua runtime. At action time, re-read them, match the requested semantic text, and send the canonical request `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentSelectionID>:-1`.  
-**Guards:** no cached ID, no guessed ID, SafeForAction, current game hook thread, IL2CPP-attached thread, CTS/MainThread proof prerequisite, max one controller action in flight.  
-**Why direct network for this proof:** v1.1.8 cannot obtain a current UIButton instance from the active representation, while the exact packet/payload construction is already source-verified. This isolates observer + semantic request from unavailable UI object plumbing.  
-**Important limitation:** this is not a blanket production permission to bypass `MainThread.Execute`. It is a narrow diagnostic/business-action proof. If successful, production integration should still prefer the cleanest game-owned semantic boundary available for the final architecture.  
-**Expected evidence:** `LUA_DIALOG_V119` with actual IDs followed by `ACTION_V119 SENT ... selectionID=<same live id> • payload=<id>:-1`, then a concrete server/UI/result transition.
+Observe current `Selections`; at action time re-read them and submit `CMD_SHOW_GAMEDIALOG=100007` with `<actualCurrentSelectionID>:-1`. No cached/guessed ID. This is a diagnostic/business-action proof, not blanket permission to bypass preferred MainThread production architecture.
 
 ## DEC-010 — MessageBox confirmation is not a GameDialog selection unless runtime says so
-
 **Date / Version:** 2026-08-16 / v1.1.9  
 **Status:** ACTIVE  
-If a live `MessageBox` exists, execute its semantic `ButtonOKClicked()` callback. If no MessageBox exists and current `Selections` contains `Xác nhận`, treat that as a dynamic GameDialog selection. Never force one model onto the other.
+If a live `MessageBox` exists, execute semantic `ButtonOKClicked()`. Otherwise a current GameDialog `Xác nhận` selection uses its actual current ID.
+
+## DEC-011 — Resolve LuaEnv without assuming a LuaSystemManager singleton contract
+
+**Date / Version:** 2026-08-16 / v1.1.10  
+**Status:** ACTIVE  
+**Trigger:** delivered v1.1.9 runtime repeatedly failed at `LuaSystemManager instance unresolved` before LuaEnv/DoString. Source audit showed v1.1.9 required a manager instance first and only tried `get_Instance` plus four guessed field names. Canonical KB does not verify those singleton details.
+
+**Decision:** resolve the actual requirement — `LuaEnv` — in evidence order:
+1. call `get_LuaEnv` directly if metadata marks it static;
+2. if instance getter is required, use semantic `get_Instance` only if present;
+3. enumerate bounded static **reference** fields through IL2CPP metadata APIs, accepting only candidates whose runtime class validates as LuaSystemManager/derived;
+4. use Unity typed object lookup only if the manager class hierarchy proves it derives from UnityEngine.Object;
+5. otherwise fail closed with diagnostics.
+
+**Rejected:** inventing more singleton field names; raw pointer/heap guessing; broad GameAssembly reverse; returning to UIRoot; hardcoding a Treatment ID.
+
+**Consequences:** `bridge_lua_manager_v1_1_10.inc` emits `LUA_MANAGER_V120` / resolver route evidence. The downstream `Selections` probe and semantic action remain unchanged so the version isolates one failing variable.
