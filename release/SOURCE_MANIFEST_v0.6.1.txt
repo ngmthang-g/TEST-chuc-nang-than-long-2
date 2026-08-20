@@ -1,0 +1,19 @@
+ThanLong Item Consolidator - Complete Source v0.6.1
+
+Archive: ThanLongItemConsolidator_Source_v0.6.1.zip
+SHA-256: 97d7be1c60115634b2e4e1a1890dfa9debf803ef0fd48f2e901e8e273a43944e
+GitHub snapshot commit: 1048c2064ec6be05756e25aa8a0adc7893df3f38
+Git tree: fd55f16c6415e56469867ff55902c7e73756c4e2
+Direct product base: v0.5.0
+Version in archive: v0.6.1
+CMake project version: 0.6.1
+
+The ZIP is a complete tracked repository snapshot made with git archive. It contains
+controller/Bridge source, protocol, resources, CMake build files, GitHub workflow,
+logic tests, verifier scripts, project knowledge/history and the release evidence that
+belonged to that exact v0.6.1 tree. It contains no .git directory or later v0.6.2 code.
+
+Historical note: the v0.6.1 documents record the status known when that version was
+packaged. Later live-client evidence established Confirm + Revive PASS, AUTO FAIL,
+Auto Sell PARTIAL/FAIL and F4 user-reported FAIL. Those later fixes belong to v0.6.2
+and are intentionally not included in this archive.
