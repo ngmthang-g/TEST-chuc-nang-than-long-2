@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 82223)
-Total output lines: 6489
-
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -2086,7 +2083,2311 @@ private:
         const std::vector<int> rows = SelectedRows(tradeSeqList_);
         if (!seq || rows.empty()) { Log(L"SAO CHÉP GD: hãy chọn một hoặc nhiều dòng."); return; }
         tradeClipboard_.clear(); tradeClipboardMode_ = tradeEditorMode_;
-        for (int row : rows) if (row >= 0 && row < static_cast<int>(seq->s…32223 tokens truncated…Input.");
+        for (int row : rows) if (row >= 0 && row < static_cast<int>(seq->size())) tradeClipboard_.push_back((*seq)[static_cast<std::size_t>(row)]);
+        UpdateRecorderUi(L"Đã sao chép " + std::to_wstring(tradeClipboard_.size()) + L" dòng GD • bấm DÁN để thêm vào cuối chuỗi");
+    }
+
+    void PasteTradeRows() {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        if (!seq || tradeClipboard_.empty() || tradeClipboardMode_ != tradeEditorMode_) {
+            Log(L"DÁN GD: clipboard rỗng hoặc khác loại editor MAIN/CON."); return;
+        }
+        const std::size_t first = seq->size();
+        int nextGroupId = MaxTradeGroupId(*seq) + 1;
+        std::vector<std::pair<int, int>> groupMap;
+        for (TradeSequenceStep step : tradeClipboard_) {
+            if (seq->size() >= 64) break;
+            if (tradeEditorMode_ == 1) {
+                step.target = 1;
+                step.mainRef = static_cast<int>(seq->size());
+                step.kind = 0;
+                step.groupId = 0;
+                step.groupRepeat = 1;
+            } else if (step.groupId > 0) {
+                int mapped = 0;
+                for (const auto& entry : groupMap) {
+                    if (entry.first == step.groupId) { mapped = entry.second; break; }
+                }
+                if (mapped == 0) {
+                    mapped = nextGroupId++;
+                    groupMap.emplace_back(step.groupId, mapped);
+                }
+                step.groupId = mapped;
+                step.groupRepeat = std::clamp(step.groupRepeat, 1, 999);
+            }
+            seq->push_back(step);
+        }
+        if (tradeEditorMode_ == 1) {
+            for (std::size_t i = 0; i < seq->size(); ++i) (*seq)[i].mainRef = static_cast<int>(i);
+        } else {
+            NormalizeTradeGroups(*seq);
+        }
+        SaveEditorSequence(); RefreshTradeSequenceList(); PopulateTradeTargetCombo();
+        if (seq->size() > first) {
+            const int row = static_cast<int>(first);
+            ListView_SetItemState(tradeSeqList_, row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+            ListView_EnsureVisible(tradeSeqList_, row, FALSE);
+            LoadTradeSequenceRowToEditor(row);
+        }
+        UpdateRecorderUi(L"Đã DÁN " + std::to_wstring(seq->size() - first) + L" dòng GD vào cuối chuỗi");
+    }
+
+    void GroupSelectedTradeRows() {
+        if (tradeEditorMode_ != 2) { Log(L"GOM NHÓM chỉ dùng trong CHUỖI GD ACC CON."); return; }
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        std::vector<int> rows = SelectedRows(tradeSeqList_);
+        if (!seq || rows.empty()) { Log(L"GOM NHÓM: chọn một hoặc nhiều dòng liên tiếp."); return; }
+        std::sort(rows.begin(), rows.end());
+        for (std::size_t i = 1; i < rows.size(); ++i) {
+            if (rows[i] != rows[i - 1] + 1) {
+                Log(L"GOM NHÓM: các dòng phải liên tiếp nhau."); return;
+            }
+        }
+        const int repeat = tradeSeqGroupRepeat_
+            ? std::clamp(_wtoi(GetText(tradeSeqGroupRepeat_).c_str()), 1, 999)
+            : 1;
+        const int id = MaxTradeGroupId(*seq) + 1;
+        for (int row : rows) {
+            if (row < 0 || row >= static_cast<int>(seq->size())) continue;
+            TradeSequenceStep& step = (*seq)[static_cast<std::size_t>(row)];
+            step.groupId = id;
+            step.groupRepeat = repeat;
+        }
+        NormalizeTradeGroups(*seq);
+        SaveEditorSequence();
+        RefreshTradeSequenceList();
+        for (int row : rows) {
+            ListView_SetItemState(tradeSeqList_, row, LVIS_SELECTED, LVIS_SELECTED);
+        }
+        if (!rows.empty()) {
+            ListView_SetItemState(tradeSeqList_, rows.front(), LVIS_FOCUSED, LVIS_FOCUSED);
+            LoadTradeSequenceRowToEditor(rows.front());
+        }
+        Log(L"Đã GOM " + std::to_wstring(rows.size()) + L" dòng thành mini-sequence • lặp nhóm " + std::to_wstring(repeat) + L" lần.");
+    }
+
+    void UngroupSelectedTradeRows() {
+        if (tradeEditorMode_ != 2) { Log(L"BỎ NHÓM chỉ dùng trong CHUỖI GD ACC CON."); return; }
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        const std::vector<int> rows = SelectedRows(tradeSeqList_);
+        if (!seq || rows.empty()) { Log(L"BỎ NHÓM: chọn ít nhất một dòng thuộc nhóm."); return; }
+        std::vector<int> groupIds;
+        for (int row : rows) {
+            if (row < 0 || row >= static_cast<int>(seq->size())) continue;
+            const int id = (*seq)[static_cast<std::size_t>(row)].groupId;
+            if (id > 0 && std::find(groupIds.begin(), groupIds.end(), id) == groupIds.end()) groupIds.push_back(id);
+        }
+        if (groupIds.empty()) { Log(L"BỎ NHÓM: các dòng đã chọn không thuộc nhóm nào."); return; }
+        for (TradeSequenceStep& step : *seq) {
+            if (std::find(groupIds.begin(), groupIds.end(), step.groupId) != groupIds.end()) {
+                step.groupId = 0;
+                step.groupRepeat = 1;
+            }
+        }
+        NormalizeTradeGroups(*seq);
+        SaveEditorSequence();
+        RefreshTradeSequenceList();
+        Log(L"Đã BỎ " + std::to_wstring(groupIds.size()) + L" nhóm khỏi chuỗi GD.");
+    }
+
+    int SelectedMacroIndex() const {
+        return FocusedSelectedRow(sellMacroList_);
+    }
+
+    void RefreshSellMacroList() {
+        if (!sellMacroList_) return;
+        ListView_DeleteAllItems(sellMacroList_);
+        Account* a = SelectedAccount();
+        if (!a) return;
+        for (std::size_t i = 0; i < a->profile.sellMacro.size(); ++i) {
+            const SellMacroStep& step = a->profile.sellMacro[i];
+            std::wstring no = std::to_wstring(i + 1);
+            LVITEMW item{};
+            item.mask = LVIF_TEXT;
+            item.iItem = static_cast<int>(i);
+            item.pszText = const_cast<wchar_t*>(no.c_str());
+            ListView_InsertItem(sellMacroList_, &item);
+            ListView_SetItemText(sellMacroList_, static_cast<int>(i), 1,
+                const_cast<wchar_t*>(step.description.empty() ? L"(chưa mô tả)" : step.description.c_str()));
+            std::wstring point = PointDescription(step.point);
+            ListView_SetItemText(sellMacroList_, static_cast<int>(i), 2, const_cast<wchar_t*>(point.c_str()));
+            std::wstring delay = std::to_wstring(step.delayMs);
+            std::wstring repeat = std::to_wstring(step.repeat);
+            ListView_SetItemText(sellMacroList_, static_cast<int>(i), 3, const_cast<wchar_t*>(delay.c_str()));
+            ListView_SetItemText(sellMacroList_, static_cast<int>(i), 4, const_cast<wchar_t*>(repeat.c_str()));
+        }
+    }
+
+    void ClearSellMacroEditor() {
+        SetText(sellDesc_, L"");
+        SetText(sellDelay_, L"600");
+        SetText(sellRepeat_, L"1");
+    }
+
+    void LoadSelectedMacroEditor() {
+        Account* a = SelectedAccount();
+        const int index = SelectedMacroIndex();
+        if (!a || index < 0 || index >= static_cast<int>(a->profile.sellMacro.size())) {
+            ClearSellMacroEditor();
+            return;
+        }
+        const SellMacroStep& step = a->profile.sellMacro[static_cast<std::size_t>(index)];
+        SetText(sellDesc_, step.description);
+        SetText(sellDelay_, std::to_wstring(step.delayMs));
+        SetText(sellRepeat_, std::to_wstring(step.repeat));
+    }
+
+    void AddSellMacroRow() {
+        Account* a = SelectedAccount();
+        if (!a) { Log(L"Chưa chọn acc để thêm bước bán"); return; }
+        if (a->profile.sellMacro.size() >= 64) { LogAccount(*a, L"Macro bán tối đa 64 dòng."); return; }
+        SellMacroStep step{};
+        step.description = L"Bước " + std::to_wstring(a->profile.sellMacro.size() + 1);
+        a->profile.sellMacro.push_back(step);
+        SaveProfile(a->profile);
+        RefreshSellMacroList();
+        const int row = static_cast<int>(a->profile.sellMacro.size() - 1);
+        ListView_SetItemState(sellMacroList_, row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        ListView_EnsureVisible(sellMacroList_, row, FALSE);
+        LoadSelectedMacroEditor();
+    }
+
+    void DeleteSellMacroRow() {
+        Account* a = SelectedAccount();
+        const int index = SelectedMacroIndex();
+        if (!a || index < 0 || index >= static_cast<int>(a->profile.sellMacro.size())) {
+            Log(L"Chưa chọn dòng macro để xóa"); return;
+        }
+        a->profile.sellMacro.erase(a->profile.sellMacro.begin() + index);
+        SaveProfile(a->profile);
+        RefreshSellMacroList();
+        ClearSellMacroEditor();
+    }
+
+    void SaveSellMacroRow() {
+        Account* a = SelectedAccount();
+        const int index = SelectedMacroIndex();
+        if (!a || index < 0 || index >= static_cast<int>(a->profile.sellMacro.size())) {
+            Log(L"Chưa chọn dòng macro để lưu"); return;
+        }
+        SellMacroStep& step = a->profile.sellMacro[static_cast<std::size_t>(index)];
+        step.description = GetText(sellDesc_);
+        int delay = _wtoi(GetText(sellDelay_).c_str());
+        int repeat = _wtoi(GetText(sellRepeat_).c_str());
+        if (delay < 50) delay = 50;
+        if (delay > 60000) delay = 60000;
+        if (repeat < 1) repeat = 1;
+        if (repeat > 999) repeat = 999;
+        step.delayMs = delay;
+        step.repeat = repeat;
+        SaveProfile(a->profile);
+        RefreshSellMacroList();
+        ListView_SetItemState(sellMacroList_, index, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        LoadSelectedMacroEditor();
+    }
+
+    void BeginMacroCapture() {
+        Account* a = SelectedAccount();
+        const int index = SelectedMacroIndex();
+        if (!a || index < 0 || index >= static_cast<int>(a->profile.sellMacro.size())) {
+            Log(L"Chưa chọn dòng macro để lấy tọa độ"); return;
+        }
+        captureSlot_ = ClickSlot::None;
+        captureMacroIndex_ = index;
+        captureTradeSequenceIndex_ = -1;
+        captureTradeSequenceMode_ = 0;
+        captureTradeSequenceMainRef_ = -1;
+        capturePid_ = a->game.pid;
+        LogAccount(*a, L"Đang chờ F8 cho macro bán dòng " + std::to_wstring(index + 1));
+        SetText(selected_, L"LẤY TỌA ĐỘ MACRO DÒNG " + std::to_wstring(index + 1) + L" • đưa chuột vào game rồi F8");
+    }
+
+    void TestSellMacroRow() {
+        Account* a = SelectedAccount();
+        const int index = SelectedMacroIndex();
+        if (!a || index < 0 || index >= static_cast<int>(a->profile.sellMacro.size())) {
+            Log(L"Chưa chọn dòng macro để TEST"); return;
+        }
+        const SellMacroStep& step = a->profile.sellMacro[static_cast<std::size_t>(index)];
+        POINT point{}; std::wstring error;
+        if (!ScaleClickPoint(a->game, step.point, point, error)) {
+            LogAccount(*a, L"TEST macro FAIL: " + error); return;
+        }
+        if (!CoordinatorClick(*a, point, L"TEST CHUỖI BÁN ĐỒ dòng " + std::to_wstring(index + 1), error, false)) {
+            LogAccount(*a, L"TEST macro REAL INPUT FAIL: " + error); return;
+        }
+        LogAccount(*a, L"TEST macro dòng " + std::to_wstring(index + 1) + L" PASS • chuột giữ tại game");
+    }
+
+    void LoadSellNpcPositionToUi(const Account& a) {
+        int index = a.profile.sellNpcPreset;
+        if (index < 0 || index >= static_cast<int>(kSellNpcs.size())) index = 0;
+        const SellNpcPosition& pos = sellNpcPositions_[static_cast<std::size_t>(index)];
+        if (pos.valid) {
+            SetText(sellNpcX_, std::to_wstring(pos.x));
+            SetText(sellNpcY_, std::to_wstring(pos.y));
+            SetText(sellNpcPosText_, L"M" + std::to_wstring(kSellNpcs[static_cast<std::size_t>(index)].mapID) + L" • " +
+                                     std::to_wstring(pos.x) + L"," + std::to_wstring(pos.y));
+        } else {
+            SetText(sellNpcX_, L"");
+            SetText(sellNpcY_, L"");
+            SetText(sellNpcPosText_, L"CHƯA LẤY");
+        }
+    }
+
+    void PersistSellNpcPositionEditor(Account& a) {
+        int index = a.profile.sellNpcPreset;
+        if (index < 0 || index >= static_cast<int>(kSellNpcs.size())) index = 0;
+        const std::wstring xText = GetText(sellNpcX_);
+        const std::wstring yText = GetText(sellNpcY_);
+        SellNpcPosition& pos = sellNpcPositions_[static_cast<std::size_t>(index)];
+        if (xText.empty() || yText.empty()) {
+            pos = SellNpcPosition{};
+            SaveSharedSellNpcPositions(sellNpcPositions_);
+            return;
+        }
+        const int x = _wtoi(xText.c_str());
+        const int y = _wtoi(yText.c_str());
+        if (x < 0 || y < 0) {
+            pos = SellNpcPosition{};
+            SaveSharedSellNpcPositions(sellNpcPositions_);
+            return;
+        }
+        pos.x = x;
+        pos.y = y;
+        pos.valid = true;
+        SaveSharedSellNpcPositions(sellNpcPositions_);
+    }
+
+    void OnSellNpcSelectionChanged() {
+        Account* a = SelectedAccount();
+        if (!a) return;
+        PersistSellNpcPositionEditor(*a);
+        const LRESULT sellSel = SendMessageW(sellNpcCombo_, CB_GETCURSEL, 0, 0);
+        if (sellSel != CB_ERR && sellSel >= 0 && sellSel < static_cast<LRESULT>(kSellNpcs.size())) {
+            a->profile.sellNpcPreset = static_cast<int>(sellSel);
+        }
+        SaveProfile(a->profile);
+        LoadSellNpcPositionToUi(*a);
+    }
+
+    void CaptureSellNpcPosition() {
+        Account* a = SelectedAccount();
+        if (!a) { Log(L"Chưa chọn acc để lấy tọa NPC"); return; }
+        std::wstring error;
+        if (!ReadSnapshot(*a, error, 1200)) {
+            LogAccount(*a, L"Không đọc được state để lấy tọa NPC: " + error);
+            return;
+        }
+        int index = a->profile.sellNpcPreset;
+        if (index < 0 || index >= static_cast<int>(kSellNpcs.size())) index = 0;
+        const SellNpcPreset& npc = kSellNpcs[static_cast<std::size_t>(index)];
+        const Snapshot& snap = a->snapshot;
+        if ((snap.validMask & (ValidMap | ValidPosition)) != (ValidMap | ValidPosition)) {
+            LogAccount(*a, L"State chưa có Map/X/Y để lấy tọa NPC");
+            return;
+        }
+        if (snap.mapID != npc.mapID) {
+            LogAccount(*a, L"Không lưu: đang ở MapID " + std::to_wstring(snap.mapID) +
+                           L" nhưng NPC đã chọn thuộc MapID " + std::to_wstring(npc.mapID));
+            return;
+        }
+        SellNpcPosition& pos = sellNpcPositions_[static_cast<std::size_t>(index)];
+        pos.x = snap.x;
+        pos.y = snap.y;
+        pos.valid = true;
+        SaveSharedSellNpcPositions(sellNpcPositions_);
+        LoadSellNpcPositionToUi(*a);
+        LogAccount(*a, L"ĐÃ LẤY TỌA NPC • " + std::wstring(npc.name) + L" • " +
+                       std::to_wstring(pos.x) + L"," + std::to_wstring(pos.y));
+    }
+
+    void LoadTradeSettings() {
+        tradeEnabled_ = ReadIniInt(L"Global", L"TradeEnabled", 1) != 0;
+        mainSellThreshold_ = ReadIniInt(L"Global", L"MainSellThreshold", 6);
+        mainSellThreshold_ = std::clamp(mainSellThreshold_, 1, 90);
+
+        tradeRendezvous_.name = L"TỌA GD";
+        tradeRendezvous_.mapID = ReadIniInt(L"Global", L"TradeRendezvousMap", 0);
+        tradeRendezvous_.x = ReadIniInt(L"Global", L"TradeRendezvousX", 0);
+        tradeRendezvous_.y = ReadIniInt(L"Global", L"TradeRendezvousY", 0);
+        tradeRendezvous_.valid = tradeRendezvous_.mapID > 0 && ReadIniInt(L"Global", L"TradeRendezvousValid", 0) != 0;
+        tradeRendezvousTolerance_ = std::clamp(ReadIniInt(L"Global", L"TradeRendezvousTolerance", 120), 20, 500);
+    }
+
+    void LoadTradeSequence() {
+        // v0.2.7: exactly two reusable trade definitions:
+        // 1) MAIN shared coordinate library; 2) one shared ordered ACC CON workflow.
+        mainTradeSequence_.clear();
+        childTradeSequence_.clear();
+        legacyChildTradeTemplate_.clear();
+        sharedChildTradeMigrationDone_ = false;
+
+        // Prefer the MAIN-shared section.
+        int mainCount = std::clamp(ReadIniInt(L"MainTradeSequence", L"Count", 0), 0, 64);
+        for (int i = 0; i < mainCount; ++i) {
+            TradeSequenceStep step{};
+            const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+            step.target = 1;
+            step.mainRef = i;
+            step.kind = 0;
+            step.description = ReadIniText(L"MainTradeSequence", prefix + L"Desc");
+            step.point.x = ReadIniInt(L"MainTradeSequence", prefix + L"X", -1);
+            step.point.y = ReadIniInt(L"MainTradeSequence", prefix + L"Y", -1);
+            step.point.baseW = ReadIniInt(L"MainTradeSequence", prefix + L"W", 0);
+            step.point.baseH = ReadIniInt(L"MainTradeSequence", prefix + L"H", 0);
+            step.point.valid = step.point.x >= 0 && step.point.y >= 0 && step.point.baseW > 0 && step.point.baseH > 0;
+            step.delayMs = std::clamp(ReadIniInt(L"MainTradeSequence", prefix + L"Delay", 500), 50, 60000);
+            step.repeat = std::clamp(ReadIniInt(L"MainTradeSequence", prefix + L"Repeat", 1), 1, 999);
+            mainTradeSequence_.push_back(step);
+        }
+
+        // v0.2.7 shared ACC CON workflow. Count=-1 means the section does not exist yet,
+        // allowing one-time migration from the old per-CON profiles.
+        const int sharedChildCountRaw = ReadIniInt(L"ChildTradeSequence", L"Count", -1);
+        if (sharedChildCountRaw >= 0) {
+            sharedChildTradeMigrationDone_ = true;
+            const int sharedChildCount = std::clamp(sharedChildCountRaw, 0, 64);
+            for (int i = 0; i < sharedChildCount; ++i) {
+                TradeSequenceStep step{};
+                const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+                step.target = std::clamp(ReadIniInt(L"ChildTradeSequence", prefix + L"Target", 0), 0, 1);
+                step.mainRef = ReadIniInt(L"ChildTradeSequence", prefix + L"MainRef", -1);
+                step.kind = std::clamp(ReadIniInt(L"ChildTradeSequence", prefix + L"Kind", 0), 0, 1);
+                step.description = ReadIniText(L"ChildTradeSequence", prefix + L"Desc");
+                step.point.x = ReadIniInt(L"ChildTradeSequence", prefix + L"X", -1);
+                step.point.y = ReadIniInt(L"ChildTradeSequence", prefix + L"Y", -1);
+                step.point.baseW = ReadIniInt(L"ChildTradeSequence", prefix + L"W", 0);
+                step.point.baseH = ReadIniInt(L"ChildTradeSequence", prefix + L"H", 0);
+                step.point.valid = step.point.x >= 0 && step.point.y >= 0 && step.point.baseW > 0 && step.point.baseH > 0;
+                step.delayMs = std::clamp(ReadIniInt(L"ChildTradeSequence", prefix + L"Delay", 500), 50, 60000);
+                step.repeat = std::clamp(ReadIniInt(L"ChildTradeSequence", prefix + L"Repeat", 1), 1, 999);
+                step.groupId = std::max(0, ReadIniInt(L"ChildTradeSequence", prefix + L"GroupId", 0));
+                step.groupRepeat = std::clamp(ReadIniInt(L"ChildTradeSequence", prefix + L"GroupRepeat", 1), 1, 999);
+                if (step.kind == 1) { step.target = 0; step.mainRef = -1; }
+                childTradeSequence_.push_back(step);
+            }
+        }
+
+        // One-time migration template from v0.2.3 combined global TradeSequence.
+        int legacyCount = std::clamp(ReadIniInt(L"TradeSequence", L"Count", 0), 0, 64);
+        std::vector<int> oldMainToNew(static_cast<std::size_t>(legacyCount), -1);
+        if (mainTradeSequence_.empty()) {
+            for (int i = 0; i < legacyCount; ++i) {
+                const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+                if (std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Target", 0), 0, 1) != 0) continue;
+                TradeSequenceStep mainStep{};
+                mainStep.target = 1; mainStep.mainRef = static_cast<int>(mainTradeSequence_.size());
+                mainStep.description = ReadIniText(L"TradeSequence", prefix + L"Desc");
+                mainStep.point.x = ReadIniInt(L"TradeSequence", prefix + L"X", -1);
+                mainStep.point.y = ReadIniInt(L"TradeSequence", prefix + L"Y", -1);
+                mainStep.point.baseW = ReadIniInt(L"TradeSequence", prefix + L"W", 0);
+                mainStep.point.baseH = ReadIniInt(L"TradeSequence", prefix + L"H", 0);
+                mainStep.point.valid = mainStep.point.x >= 0 && mainStep.point.y >= 0 && mainStep.point.baseW > 0 && mainStep.point.baseH > 0;
+                mainStep.delayMs = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Delay", 500), 50, 60000);
+                mainStep.repeat = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Repeat", 1), 1, 999);
+                oldMainToNew[static_cast<std::size_t>(i)] = mainStep.mainRef;
+                mainTradeSequence_.push_back(mainStep);
+            }
+            if (!mainTradeSequence_.empty()) SaveMainTradeSequence();
+        } else {
+            // Map legacy MAIN rows to new MAIN rows in original MAIN-order for child migration.
+            int ref = 0;
+            for (int i = 0; i < legacyCount; ++i) {
+                const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+                if (std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Target", 0), 0, 1) == 0 && ref < static_cast<int>(mainTradeSequence_.size())) {
+                    oldMainToNew[static_cast<std::size_t>(i)] = ref++;
+                }
+            }
+        }
+        for (int i = 0; i < legacyCount; ++i) {
+            TradeSequenceStep step{};
+            const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+            const int oldTarget = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Target", 0), 0, 1);
+            step.kind = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Kind", 0), 0, 1);
+            step.description = ReadIniText(L"TradeSequence", prefix + L"Desc");
+            step.delayMs = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Delay", 500), 50, 60000);
+            step.repeat = std::clamp(ReadIniInt(L"TradeSequence", prefix + L"Repeat", 1), 1, 999);
+            if (oldTarget == 0) {
+                step.target = 1;
+                step.mainRef = oldMainToNew[static_cast<std::size_t>(i)];
+                step.kind = 0;
+            } else {
+                step.target = 0;
+                step.mainRef = -1;
+                step.point.x = ReadIniInt(L"TradeSequence", prefix + L"X", -1);
+                step.point.y = ReadIniInt(L"TradeSequence", prefix + L"Y", -1);
+                step.point.baseW = ReadIniInt(L"TradeSequence", prefix + L"W", 0);
+                step.point.baseH = ReadIniInt(L"TradeSequence", prefix + L"H", 0);
+                step.point.valid = step.point.x >= 0 && step.point.y >= 0 && step.point.baseW > 0 && step.point.baseH > 0;
+            }
+            if (step.target == 0 || step.mainRef >= 0) legacyChildTradeTemplate_.push_back(step);
+        }
+        NormalizeTradeGroups(childTradeSequence_);
+        NormalizeTradeGroups(legacyChildTradeTemplate_);
+    }
+
+    void SaveMainTradeSequence() {
+        EnsureUnicodeIni();
+        WriteIniInt(L"MainTradeSequence", L"Count", static_cast<int>(mainTradeSequence_.size()));
+        for (std::size_t i = 0; i < mainTradeSequence_.size(); ++i) {
+            const TradeSequenceStep& step = mainTradeSequence_[i];
+            const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+            WriteIniText(L"MainTradeSequence", prefix + L"Desc", step.description);
+            WriteIniInt(L"MainTradeSequence", prefix + L"X", step.point.valid ? step.point.x : -1);
+            WriteIniInt(L"MainTradeSequence", prefix + L"Y", step.point.valid ? step.point.y : -1);
+            WriteIniInt(L"MainTradeSequence", prefix + L"W", step.point.valid ? step.point.baseW : 0);
+            WriteIniInt(L"MainTradeSequence", prefix + L"H", step.point.valid ? step.point.baseH : 0);
+            WriteIniInt(L"MainTradeSequence", prefix + L"Delay", step.delayMs);
+            WriteIniInt(L"MainTradeSequence", prefix + L"Repeat", step.repeat);
+        }
+        FlushIni();
+    }
+
+    void SaveSharedChildTradeSequence() {
+        EnsureUnicodeIni();
+        NormalizeTradeGroups(childTradeSequence_);
+        WriteIniInt(L"ChildTradeSequence", L"Count", static_cast<int>(childTradeSequence_.size()));
+        for (std::size_t i = 0; i < childTradeSequence_.size(); ++i) {
+            const TradeSequenceStep& step = childTradeSequence_[i];
+            const std::wstring prefix = L"Step_" + std::to_wstring(i) + L"_";
+            WriteIniInt(L"ChildTradeSequence", prefix + L"Target", step.target);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"MainRef", step.mainRef);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"Kind", step.kind);
+            WriteIniText(L"ChildTradeSequence", prefix + L"Desc", step.description);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"X", step.point.valid ? step.point.x : -1);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"Y", step.point.valid ? step.point.y : -1);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"W", step.point.valid ? step.point.baseW : 0);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"H", step.point.valid ? step.point.baseH : 0);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"Delay", step.delayMs);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"Repeat", step.repeat);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"GroupId", step.groupId);
+            WriteIniInt(L"ChildTradeSequence", prefix + L"GroupRepeat", step.groupRepeat);
+        }
+        sharedChildTradeMigrationDone_ = true;
+        FlushIni();
+    }
+
+    void EnsureSharedChildTradeSequence() {
+        if (sharedChildTradeMigrationDone_) return;
+        sharedChildTradeMigrationDone_ = true;
+
+        // Prefer the old sequence of the lowest CON slot so existing setups migrate deterministically.
+        for (int slot = 1; slot <= 6; ++slot) {
+            Account* child = AccountByTradeRole(slot + 1);
+            if (!child || child->profile.childTradeSequence.empty()) continue;
+            childTradeSequence_ = child->profile.childTradeSequence;
+            SaveSharedChildTradeSequence();
+            LogAccount(*child, L"v0.2.7 MIGRATE: lấy chuỗi GD cũ của " + TradeRoleLabel(child->profile.tradeRole) +
+                               L" làm CHUỖI GD ACC CON dùng chung cho CON1→CON6.");
+            return;
+        }
+
+        if (!legacyChildTradeTemplate_.empty()) {
+            childTradeSequence_ = legacyChildTradeTemplate_;
+            SaveSharedChildTradeSequence();
+            Log(L"v0.2.7 MIGRATE: lấy template GD legacy làm CHUỖI GD ACC CON dùng chung.");
+            return;
+        }
+
+        // Persist an intentional empty shared section so we do not repeatedly scan legacy profiles.
+        SaveSharedChildTradeSequence();
+    }
+
+    std::vector<TradeSequenceStep>* EditorSequence() {
+        if (tradeEditorMode_ == 1) return &mainTradeSequence_;
+        if (tradeEditorMode_ == 2) {
+            Account* child = TradeEditorChild();
+            if (!child || child->profile.tradeRole < 2) return nullptr; // selected CON is only the capture/test donor.
+            EnsureSharedChildTradeSequence();
+            return &childTradeSequence_;
+        }
+        return nullptr;
+    }
+
+    Account* TradeEditorChild() {
+        Account* child = AccountByPid(tradeEditorChildPid_);
+        return child && child->profile.tradeRole >= 2 ? child : nullptr;
+    }
+
+    const TradeSequenceStep* ResolveMainReference(const TradeSequenceStep& step) const {
+        if (step.target != 1 || step.mainRef < 0 || step.mainRef >= static_cast<int>(mainTradeSequence_.size())) return nullptr;
+        return &mainTradeSequence_[static_cast<std::size_t>(step.mainRef)];
+    }
+
+    void NormalizeTradeGroups(std::vector<TradeSequenceStep>& seq) {
+        int nextId = 1;
+        int previousOldId = 0;
+        int currentNewId = 0;
+        int currentRepeat = 1;
+        for (std::size_t i = 0; i < seq.size(); ++i) {
+            TradeSequenceStep& step = seq[i];
+            const int oldId = step.groupId;
+            if (oldId <= 0) {
+                step.groupId = 0;
+                step.groupRepeat = 1;
+                previousOldId = 0;
+                currentNewId = 0;
+                continue;
+            }
+            if (i == 0 || oldId != previousOldId || currentNewId == 0) {
+                currentNewId = nextId++;
+                currentRepeat = std::clamp(step.groupRepeat, 1, 999);
+            }
+            step.groupId = currentNewId;
+            step.groupRepeat = currentRepeat;
+            previousOldId = oldId;
+        }
+    }
+
+    int MaxTradeGroupId(const std::vector<TradeSequenceStep>& seq) const {
+        int maxId = 0;
+        for (const TradeSequenceStep& step : seq) maxId = std::max(maxId, step.groupId);
+        return maxId;
+    }
+
+    std::size_t TradeGroupStart(const std::vector<TradeSequenceStep>& seq, std::size_t index) const {
+        if (index >= seq.size() || seq[index].groupId <= 0) return index;
+        const int id = seq[index].groupId;
+        while (index > 0 && seq[index - 1].groupId == id) --index;
+        return index;
+    }
+
+    std::size_t TradeGroupEnd(const std::vector<TradeSequenceStep>& seq, std::size_t index) const {
+        if (index >= seq.size() || seq[index].groupId <= 0) return index;
+        const int id = seq[index].groupId;
+        while (index + 1 < seq.size() && seq[index + 1].groupId == id) ++index;
+        return index;
+    }
+
+    std::wstring TradeGroupLabel(const TradeSequenceStep& step) const {
+        if (step.groupId <= 0) return L"-";
+        return L"G" + std::to_wstring(step.groupId) + L" ×" + std::to_wstring(step.groupRepeat);
+    }
+
+    bool TradeSequenceReady(std::wstring& reason) {
+        EnsureSharedChildTradeSequence();
+        if (childTradeSequence_.empty()) { reason = L"chưa có CHUỖI GD ACC CON dùng chung"; return false; }
+        for (std::size_t i = 0; i < childTradeSequence_.size(); ++i) {
+            const TradeSequenceStep& step = childTradeSequence_[i];
+            if (step.target == 1) {
+                const TradeSequenceStep* shared = ResolveMainReference(step);
+                if (!shared) { reason = L"bước " + std::to_wstring(i + 1) + L" tham chiếu MAIN không tồn tại"; return false; }
+                if (!shared->point.valid) { reason = L"MAIN bước " + std::to_wstring(step.mainRef + 1) + L" chưa lấy tọa độ"; return false; }
+            } else if (!step.point.valid) {
+                reason = L"CON bước " + std::to_wstring(i + 1) + L" chưa lấy tọa độ"; return false;
+            }
+        }
+        if (!HasChildTransferStep(childTradeSequence_)) {
+            reason = L"chuỗi GD bắt buộc phải có ít nhất 1 bước CHUYỂN ĐỒ của ACC CON";
+            return false;
+        }
+        return true;
+    }
+
+    std::wstring TradeStepTargetLabel(const TradeSequenceStep& step) {
+        if (tradeEditorMode_ == 1) return L"MAIN";
+        if (step.target == 1) return L"MAIN #" + std::to_wstring(step.mainRef + 1);
+        return L"ACC CON ĐANG GD";
+    }
+
+    static std::wstring TradeStepKindLabel(const TradeSequenceStep& step) {
+        return step.kind == 1 ? L"CHUYỂN ĐỒ" : L"CLICK";
+    }
+
+    const TradeSequenceStep* EffectiveEditorStep(const TradeSequenceStep& step) const {
+        return tradeEditorMode_ == 2 && step.target == 1 ? ResolveMainReference(step) : &step;
+    }
+
+    void RefreshTradeSequenceList() {
+        if (!tradeSeqList_) return;
+        ListView_DeleteAllItems(tradeSeqList_);
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        if (!seq) return;
+        for (std::size_t i = 0; i < seq->size(); ++i) {
+            const TradeSequenceStep& step = (*seq)[i];
+            const TradeSequenceStep* effective = EffectiveEditorStep(step);
+            std::wstring idx = std::to_wstring(i + 1);
+            LVITEMW item{}; item.mask = LVIF_TEXT; item.iItem = static_cast<int>(i); item.pszText = idx.data();
+            ListView_InsertItem(tradeSeqList_, &item);
+            const std::array<std::wstring, 7> cols = {{
+                TradeStepTargetLabel(step), TradeStepKindLabel(step),
+                (effective && !effective->description.empty()) ? effective->description : L"(không mô tả)",
+                effective ? PointDescription(effective->point) : L"MAIN REF LỖI",
+                effective ? std::to_wstring(effective->delayMs) : L"-",
+                effective ? std::to_wstring(effective->repeat) : L"-",
+                tradeEditorMode_ == 2 ? TradeGroupLabel(step) : L"-"
+            }};
+            for (int col = 0; col < 7; ++col) ListView_SetItemText(tradeSeqList_, static_cast<int>(i), col + 1, const_cast<wchar_t*>(cols[static_cast<std::size_t>(col)].c_str()));
+        }
+    }
+
+    void SelectTradeSequenceDragRange(int startRow, int endRow) {
+        if (!tradeSeqList_) return;
+        const int count = ListView_GetItemCount(tradeSeqList_);
+        if (count <= 0) return;
+        startRow = std::clamp(startRow, 0, count - 1);
+        endRow = std::clamp(endRow, 0, count - 1);
+        const int first = std::min(startRow, endRow);
+        const int last = std::max(startRow, endRow);
+        tradeSeqDragUpdating_ = true;
+        for (int i = 0; i < count; ++i) {
+            const UINT state = (i >= first && i <= last) ? LVIS_SELECTED : 0;
+            ListView_SetItemState(tradeSeqList_, i, state, LVIS_SELECTED);
+        }
+        ListView_SetItemState(tradeSeqList_, endRow, LVIS_FOCUSED, LVIS_FOCUSED);
+        ListView_EnsureVisible(tradeSeqList_, endRow, FALSE);
+        tradeSeqDragUpdating_ = false;
+        LoadTradeSequenceRowToEditor(endRow);
+        UpdateRecorderUi(L"Đã kéo chọn " + std::to_wstring(last - first + 1) + L" dòng GD");
+    }
+
+    int SelectedTradeSequenceIndex() const {
+        return FocusedSelectedRow(tradeSeqList_);
+    }
+
+    void PopulateTradeTargetCombo(const TradeSequenceStep* step = nullptr) {
+        if (!tradeSeqTarget_) return;
+        SendMessageW(tradeSeqTarget_, CB_RESETCONTENT, 0, 0);
+        if (tradeEditorMode_ == 1) {
+            SendMessageW(tradeSeqTarget_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"MAIN (DÙNG CHUNG)"));
+            SendMessageW(tradeSeqTarget_, CB_SETCURSEL, 0, 0);
+            EnableWindow(tradeSeqTarget_, FALSE);
+            return;
+        }
+        EnableWindow(tradeSeqTarget_, TRUE);
+        const std::wstring childName = L"ACC CON ĐANG GD (DÙNG CHUNG)";
+        SendMessageW(tradeSeqTarget_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(childName.c_str()));
+        for (std::size_t i = 0; i < mainTradeSequence_.size(); ++i) {
+            std::wstring label = L"MAIN #" + std::to_wstring(i + 1) + L" • " + (mainTradeSequence_[i].description.empty() ? L"(không mô tả)" : mainTradeSequence_[i].description);
+            SendMessageW(tradeSeqTarget_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+        }
+        int sel = 0;
+        if (step && step->target == 1 && step->mainRef >= 0 && step->mainRef < static_cast<int>(mainTradeSequence_.size())) sel = step->mainRef + 1;
+        SendMessageW(tradeSeqTarget_, CB_SETCURSEL, sel, 0);
+    }
+
+    void LoadTradeSequenceRowToEditor(int index) {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        if (!seq || index < 0 || index >= static_cast<int>(seq->size())) return;
+        TradeSequenceStep& step = (*seq)[static_cast<std::size_t>(index)];
+        const TradeSequenceStep* effective = EffectiveEditorStep(step);
+        PopulateTradeTargetCombo(&step);
+        if (tradeSeqKind_) SendMessageW(tradeSeqKind_, CB_SETCURSEL, step.kind, 0);
+        if (effective) {
+            SetText(tradeSeqDesc_, effective->description);
+            SetText(tradeSeqDelay_, std::to_wstring(effective->delayMs));
+            SetText(tradeSeqRepeat_, std::to_wstring(effective->repeat));
+        }
+        if (tradeSeqGroupRepeat_) SetText(tradeSeqGroupRepeat_, std::to_wstring(step.groupId > 0 ? step.groupRepeat : 1));
+        const bool sharedRef = tradeEditorMode_ == 2 && step.target == 1;
+        EnableWindow(tradeSeqDesc_, !sharedRef);
+        EnableWindow(tradeSeqDelay_, !sharedRef);
+        EnableWindow(tradeSeqRepeat_, !sharedRef);
+        if (tradeSeqKind_) EnableWindow(tradeSeqKind_, !sharedRef && tradeEditorMode_ == 2);
+        if (tradeSeqGroupRepeat_) EnableWindow(tradeSeqGroupRepeat_, tradeEditorMode_ == 2);
+    }
+
+    void SaveEditorSequence() {
+        if (tradeEditorMode_ == 1) SaveMainTradeSequence();
+        else if (tradeEditorMode_ == 2) SaveSharedChildTradeSequence();
+    }
+
+    void AddTradeSequenceRow() {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        if (!seq || seq->size() >= 64) return;
+        TradeSequenceStep step{};
+        if (tradeEditorMode_ == 1) {
+            step.target = 1; step.mainRef = static_cast<int>(seq->size()); step.description = L"MAIN bước " + std::to_wstring(seq->size() + 1);
+        } else {
+            step.target = 0; step.mainRef = -1; step.description = L"CON bước " + std::to_wstring(seq->size() + 1);
+        }
+        seq->push_back(step); SaveEditorSequence(); RefreshTradeSequenceList();
+        const int row = static_cast<int>(seq->size()) - 1;
+        ListView_SetItemState(tradeSeqList_, row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        ListView_EnsureVisible(tradeSeqList_, row, FALSE); LoadTradeSequenceRowToEditor(row);
+    }
+
+    void DeleteTradeSequenceRow() {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        std::vector<int> rows = SelectedRows(tradeSeqList_);
+        if (!seq || rows.empty()) return;
+        rows.erase(std::remove_if(rows.begin(), rows.end(), [&](int row) {
+            return row < 0 || row >= static_cast<int>(seq->size());
+        }), rows.end());
+        if (rows.empty()) return;
+        std::sort(rows.begin(), rows.end());
+
+        if (tradeEditorMode_ == 1) {
+            // Repair the one shared ACC CON workflow against all deleted MAIN refs before erasing rows.
+            EnsureSharedChildTradeSequence();
+            for (TradeSequenceStep& cs : childTradeSequence_) if (cs.target == 1) {
+                if (std::binary_search(rows.begin(), rows.end(), cs.mainRef)) {
+                    cs.mainRef = -1;
+                } else {
+                    cs.mainRef -= static_cast<int>(std::lower_bound(rows.begin(), rows.end(), cs.mainRef) - rows.begin());
+                }
+            }
+            SaveSharedChildTradeSequence();
+        }
+
+        for (auto it = rows.rbegin(); it != rows.rend(); ++it) seq->erase(seq->begin() + *it);
+        if (tradeEditorMode_ == 1) {
+            for (std::size_t i = 0; i < mainTradeSequence_.size(); ++i) mainTradeSequence_[i].mainRef = static_cast<int>(i);
+        } else if (tradeEditorMode_ == 2) {
+            NormalizeTradeGroups(*seq);
+        }
+        SaveEditorSequence();
+        RefreshTradeSequenceList();
+    }
+
+    void MoveTradeSequenceRow(int delta) {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        const int row = SelectedTradeSequenceIndex();
+        if (!seq || row < 0) return;
+        const int next = row + delta;
+        if (next < 0 || next >= static_cast<int>(seq->size())) return;
+        if (tradeEditorMode_ == 1) {
+            // Preserve shared ACC CON references by swapping ref IDs with MAIN content.
+            std::swap((*seq)[static_cast<std::size_t>(row)], (*seq)[static_cast<std::size_t>(next)]);
+            EnsureSharedChildTradeSequence();
+            for (TradeSequenceStep& cs : childTradeSequence_) if (cs.target == 1) {
+                if (cs.mainRef == row) cs.mainRef = next; else if (cs.mainRef == next) cs.mainRef = row;
+            }
+            for (std::size_t i = 0; i < seq->size(); ++i) (*seq)[i].mainRef = static_cast<int>(i);
+            SaveSharedChildTradeSequence();
+        } else {
+            std::swap((*seq)[static_cast<std::size_t>(row)], (*seq)[static_cast<std::size_t>(next)]);
+            NormalizeTradeGroups(*seq);
+        }
+        SaveEditorSequence(); RefreshTradeSequenceList();
+        ListView_SetItemState(tradeSeqList_, next, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        LoadTradeSequenceRowToEditor(next);
+    }
+
+    void SaveTradeSequenceRowFromEditor(bool refreshUi = true, int forcedRow = -1) {
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        const int row = forcedRow >= 0 ? forcedRow : SelectedTradeSequenceIndex();
+        if (!seq || row < 0 || row >= static_cast<int>(seq->size())) return;
+        TradeSequenceStep& step = (*seq)[static_cast<std::size_t>(row)];
+        if (tradeEditorMode_ == 1) {
+            step.target = 1; step.mainRef = row; step.kind = 0;
+            step.description = GetText(tradeSeqDesc_);
+            step.delayMs = std::clamp(_wtoi(GetText(tradeSeqDelay_).c_str()), 50, 60000);
+            step.repeat = std::clamp(_wtoi(GetText(tradeSeqRepeat_).c_str()), 1, 999);
+        } else {
+            const LRESULT targetSel = SendMessageW(tradeSeqTarget_, CB_GETCURSEL, 0, 0);
+            if (targetSel > 0) {
+                step.target = 1; step.mainRef = static_cast<int>(targetSel - 1); step.kind = 0;
+            } else {
+                step.target = 0; step.mainRef = -1;
+                step.kind = SendMessageW(tradeSeqKind_, CB_GETCURSEL, 0, 0) == 1 ? 1 : 0;
+                step.description = GetText(tradeSeqDesc_);
+                step.delayMs = std::clamp(_wtoi(GetText(tradeSeqDelay_).c_str()), 50, 60000);
+                step.repeat = std::clamp(_wtoi(GetText(tradeSeqRepeat_).c_str()), 1, 999);
+            }
+        }
+        SaveEditorSequence();
+        if (!refreshUi) return;
+        RefreshTradeSequenceList();
+        ListView_SetItemState(tradeSeqList_, row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+        LoadTradeSequenceRowToEditor(row);
+    }
+
+    Account* TradeSequenceCaptureAccount(TradeSequenceStep& step, ClickPoint*& pointOut) {
+        pointOut = nullptr;
+        if (tradeEditorMode_ == 1) {
+            Account* main = AccountByTradeRole(1); pointOut = &step.point; return main;
+        }
+        // A child-sequence row may reference MAIN. Do not require the donor CON to still
+        // exist just to capture a MAIN coordinate. Resolve the actual target first.
+        if (step.target == 1) {
+            if (step.mainRef < 0 || step.mainRef >= static_cast<int>(mainTradeSequence_.size())) return nullptr;
+            pointOut = &mainTradeSequence_[static_cast<std::size_t>(step.mainRef)].point;
+            return AccountByTradeRole(1);
+        }
+        Account* child = TradeEditorChild();
+        if (!child) return nullptr;
+        pointOut = &step.point; return child;
+    }
+
+    void BeginTradeSequenceCapture() {
+        // Freeze the exact row/target before arming F8. Saving the editor used to rebuild
+        // the ListView first, so drag/multi-selection could change the row used by capture.
+        const int row = SelectedTradeSequenceIndex();
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        if (!seq || row < 0 || row >= static_cast<int>(seq->size())) {
+            Log(L"BĐPT: hãy chọn đúng một dòng đang focus để lấy tọa độ chuỗi GD.");
+            return;
+        }
+        SaveTradeSequenceRowFromEditor(false, row);
+        seq = EditorSequence();
+        if (!seq || row >= static_cast<int>(seq->size())) return;
+
+        TradeSequenceStep& step = (*seq)[static_cast<std::size_t>(row)];
+        ClickPoint* point = nullptr;
+        Account* target = TradeSequenceCaptureAccount(step, point);
+        if (!target || !point) { Log(L"BĐPT: không xác định được cửa sổ để lấy tọa độ chuỗi GD."); return; }
+
+        captureSlot_ = ClickSlot::None;
+        captureMacroIndex_ = -1;
+        captureTradeSequenceIndex_ = row;
+        captureTradeSequenceMode_ = tradeEditorMode_;
+        captureTradeSequenceMainRef_ = (tradeEditorMode_ == 2 && step.target == 1) ? step.mainRef : -1;
+        capturePid_ = target->game.pid;
+        LogAccount(*target, L"BĐPT yêu cầu lấy tọa chuỗi GD dòng " + std::to_wstring(row + 1) + L" → đưa chuột vào đúng vị trí và F8.");
+    }
+
+    void TestTradeSequenceRow() {
+        SaveTradeSequenceRowFromEditor();
+        std::vector<TradeSequenceStep>* seq = EditorSequence();
+        const int row = SelectedTradeSequenceIndex();
+        if (!seq || row < 0 || row >= static_cast<int>(seq->size())) return;
+        TradeSequenceStep& stored = (*seq)[static_cast<std::size_t>(row)];
+        const TradeSequenceStep* effective = EffectiveEditorStep(stored);
+        Account* target = nullptr;
+        if (tradeEditorMode_ == 1 || stored.target == 1) target = AccountByTradeRole(1); else target = TradeEditorChild();
+        if (!target || !effective) { Log(L"BĐPT: TEST dòng không xác định được acc/MAIN reference."); return; }
+        POINT point{}; std::wstring error;
+        if (!ScaleClickPoint(target->game, effective->point, point, error) || !CoordinatorClick(*target, point, L"TEST CHUỖI GD dòng " + std::to_wstring(row + 1), error, false)) {
+            LogAccount(*target, L"TEST chuỗi GD FAIL: " + error); return;
+        }
+        LogAccount(*target, L"TEST chuỗi GD dòng " + std::to_wstring(row + 1) + L" PASS qua BĐPT.");
+    }
+
+    void BuildTradeEditorUi(HWND parent) {
+        auto addColumn = [&](int index, int width, const wchar_t* text) {
+            LVCOLUMNW c{}; c.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM; c.pszText = const_cast<wchar_t*>(text); c.cx = width; c.iSubItem = index;
+            ListView_InsertColumn(tradeSeqList_, index, &c);
+        };
+        const wchar_t* heading = tradeEditorMode_ == 1
+            ? L"CHUỖI GD MAIN — tọa MAIN dùng chung cho mọi giao dịch"
+            : L"CHUỖI GD ACC CON (DÙNG CHUNG) — mọi CON1..CON6 dùng đúng một workflow này";
+        MakeIn(parent, L"STATIC", heading, 0, 15, 10, 850, 23, 0);
+        tradeSeqList_ = MakeIn(parent, WC_LISTVIEWW, L"", LVS_REPORT | LVS_SHOWSELALWAYS | WS_BORDER, 15, 38, 850, 235, IDC_SEQ_LIST);
+        ListView_SetExtendedListViewStyle(tradeSeqList_, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+        SetWindowSubclass(tradeSeqList_, TradeSequenceListSubclassProc, 1, reinterpret_cast<DWORD_PTR>(this));
+        addColumn(0, 35, L"#"); addColumn(1, 100, L"ACC THỰC HIỆN"); addColumn(2, 85, L"Loại");
+        addColumn(3, 180, L"Mô tả"); addColumn(4, 160, L"Tọa độ"); addColumn(5, 60, L"Delay"); addColumn(6, 50, L"Lặp"); addColumn(7, 105, L"Nhóm lặp");
+        MakeIn(parent, L"STATIC", L"ACC:", 0, 15, 287, 38, 22, 0);
+        tradeSeqTarget_ = MakeIn(parent, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST | WS_VSCROLL, 55, 282, 210, 220, IDC_SEQ_TARGET);
+        MakeIn(parent, L"STATIC", L"Loại:", 0, 275, 287, 40, 22, 0);
+        tradeSeqKind_ = MakeIn(parent, WC_COMBOBOXW, L"", CBS_DROPDOWNLIST, 317, 282, 120, 150, IDC_SEQ_KIND);
+        SendMessageW(tradeSeqKind_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"CLICK"));
+        SendMessageW(tradeSeqKind_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"CHUYỂN ĐỒ"));
+        SendMessageW(tradeSeqKind_, CB_SETCURSEL, 0, 0);
+        MakeIn(parent, L"STATIC", L"Mô tả:", 0, 447, 287, 50, 22, 0);
+        tradeSeqDesc_ = MakeIn(parent, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 499, 282, 180, 27, IDC_SEQ_DESC);
+        MakeIn(parent, L"STATIC", L"Delay:", 0, 687, 287, 42, 22, 0);
+        tradeSeqDelay_ = MakeIn(parent, L"EDIT", L"500", WS_BORDER | ES_NUMBER | ES_CENTER, 731, 282, 55, 27, IDC_SEQ_DELAY);
+        MakeIn(parent, L"STATIC", L"Lặp:", 0, 793, 287, 32, 22, 0);
+        tradeSeqRepeat_ = MakeIn(parent, L"EDIT", L"1", WS_BORDER | ES_NUMBER | ES_CENTER, 827, 282, 38, 27, IDC_SEQ_REPEAT);
+        MakeIn(parent, L"BUTTON", L"+ THÊM", BS_PUSHBUTTON, 15, 323, 90, 30, IDC_SEQ_ADD);
+        MakeIn(parent, L"BUTTON", L"- XÓA", BS_PUSHBUTTON, 112, 323, 80, 30, IDC_SEQ_DELETE);
+        MakeIn(parent, L"BUTTON", L"LÊN", BS_PUSHBUTTON, 199, 323, 70, 30, IDC_SEQ_UP);
+        MakeIn(parent, L"BUTTON", L"XUỐNG", BS_PUSHBUTTON, 276, 323, 75, 30, IDC_SEQ_DOWN);
+        MakeIn(parent, L"BUTTON", L"LƯU DÒNG", BS_PUSHBUTTON, 360, 323, 105, 30, IDC_SEQ_SAVE);
+        MakeIn(parent, L"BUTTON", L"LẤY TỌA (F8)", BS_PUSHBUTTON, 474, 323, 125, 30, IDC_SEQ_CAPTURE);
+        MakeIn(parent, L"BUTTON", L"TEST DÒNG", BS_PUSHBUTTON, 608, 323, 105, 30, IDC_SEQ_TEST);
+        MakeIn(parent, L"BUTTON", L"ĐÓNG", BS_PUSHBUTTON, 775, 323, 90, 30, IDC_SEQ_CLOSE);
+        tradeRecordButton_ = MakeIn(parent, L"BUTTON", L"REC", BS_PUSHBUTTON, 15, 360, 92, 30, IDC_SEQ_REC);
+        MakeIn(parent, L"BUTTON", L"SAO CHÉP", BS_PUSHBUTTON, 115, 360, 105, 30, IDC_SEQ_COPY);
+        MakeIn(parent, L"BUTTON", L"DÁN", BS_PUSHBUTTON, 228, 360, 80, 30, IDC_SEQ_PASTE);
+        if (tradeEditorMode_ == 2) {
+            MakeIn(parent, L"STATIC", L"Lặp nhóm:", 0, 320, 365, 68, 22, 0);
+            tradeSeqGroupRepeat_ = MakeIn(parent, L"EDIT", L"2", WS_BORDER | ES_NUMBER | ES_CENTER, 390, 360, 45, 30, IDC_SEQ_GROUP_REPEAT);
+            MakeIn(parent, L"BUTTON", L"GOM DÒNG ĐÃ CHỌN", BS_PUSHBUTTON, 443, 360, 170, 30, IDC_SEQ_GROUP_SELECTED);
+            MakeIn(parent, L"BUTTON", L"BỎ NHÓM", BS_PUSHBUTTON, 621, 360, 110, 30, IDC_SEQ_UNGROUP);
+        }
+        tradeRecordStatus_ = MakeIn(parent, L"STATIC", L"REC: sẵn sàng • chọn nhiều dòng liên tiếp để GOM và lặp mini-sequence", SS_LEFT | SS_CENTERIMAGE, 15, 398, 850, 30, 0);
+        MakeIn(parent, L"STATIC", tradeEditorMode_ == 1
+            ? L"MAIN sequence là thư viện tọa dùng chung. ACC CON workflow tham chiếu MAIN #n; sửa MAIN một lần áp dụng mọi giao dịch."
+            : L"GOM 1/2/3/... dòng liên tiếp thành một nhóm; nhóm chạy đủ số lần rồi chuỗi lớn mới đi tiếp.", 0, 15, 435, 850, 23, 0);
+        PopulateTradeTargetCombo(); RefreshTradeSequenceList();
+    }
+
+    void OpenTradeSequenceEditor(int mode) {
+        Account* selected = SelectedAccount();
+        if (mode == 1 && (!selected || selected->profile.tradeRole != 1)) { Log(L"Chỉ acc MAIN mới mở CHUỖI GD MAIN."); return; }
+        if (mode == 2 && (!selected || selected->profile.tradeRole < 2)) { Log(L"Chọn một CON bất kỳ để mở CHUỖI GD ACC CON dùng chung."); return; }
+        if (tradeEditor_ && IsWindow(tradeEditor_)) DestroyWindow(tradeEditor_);
+        tradeEditorMode_ = mode;
+        tradeEditorChildPid_ = mode == 2 ? selected->game.pid : 0;
+        if (mode == 2) EnsureSharedChildTradeSequence();
+        WNDCLASSEXW wc{}; wc.cbSize = sizeof(wc); wc.lpfnWndProc = TradeEditorWndProc; wc.hInstance = instance_; wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1); wc.lpszClassName = L"ThanLongTradeSequenceEditorV03";
+        if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) { Log(L"Không đăng ký được cửa sổ chuỗi GD."); return; }
+        const wchar_t* title = mode == 1 ? L"Thần Long • CHUỖI GD MAIN (DÙNG CHUNG) v0.3 • REC"
+                                         : L"Thần Long • CHUỖI GD ACC CON (DÙNG CHUNG) v0.3 • REC + NHÓM LẶP";
+        tradeEditor_ = CreateWindowExW(WS_EX_TOOLWINDOW, wc.lpszClassName, title, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+                                       CW_USEDEFAULT, CW_USEDEFAULT, 900, 530, hwnd_, nullptr, instance_, this);
+        if (!tradeEditor_) { Log(L"Không mở được cửa sổ chuỗi GD."); return; }
+        BuildTradeEditorUi(tradeEditor_); ShowWindow(tradeEditor_, SW_SHOW); UpdateWindow(tradeEditor_);
+    }
+
+    LRESULT HandleTradeEditor(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+        switch (msg) {
+            case WM_NOTIFY: {
+                auto* hdr = reinterpret_cast<NMHDR*>(lp);
+                if (hdr && hdr->idFrom == IDC_SEQ_LIST && hdr->code == LVN_ITEMCHANGED) {
+                    const auto* n = reinterpret_cast<const NMLISTVIEW*>(hdr);
+                    if (!tradeSeqDragUpdating_ && (n->uChanged & LVIF_STATE) != 0 && (n->uNewState & LVIS_SELECTED) != 0)
+                        LoadTradeSequenceRowToEditor(n->iItem);
+                }
+                return 0;
+            }
+            case WM_COMMAND:
+                switch (LOWORD(wp)) {
+                    case IDC_SEQ_ADD: AddTradeSequenceRow(); return 0;
+                    case IDC_SEQ_DELETE: DeleteTradeSequenceRow(); return 0;
+                    case IDC_SEQ_UP: MoveTradeSequenceRow(-1); return 0;
+                    case IDC_SEQ_DOWN: MoveTradeSequenceRow(1); return 0;
+                    case IDC_SEQ_SAVE: SaveTradeSequenceRowFromEditor(); return 0;
+                    case IDC_SEQ_CAPTURE: BeginTradeSequenceCapture(); return 0;
+                    case IDC_SEQ_TEST: TestTradeSequenceRow(); return 0;
+                    case IDC_SEQ_REC: ToggleTradeRecorder(); return 0;
+                    case IDC_SEQ_COPY: CopySelectedTradeRows(); return 0;
+                    case IDC_SEQ_PASTE: PasteTradeRows(); return 0;
+                    case IDC_SEQ_GROUP_SELECTED: GroupSelectedTradeRows(); return 0;
+                    case IDC_SEQ_UNGROUP: UngroupSelectedTradeRows(); return 0;
+                    case IDC_SEQ_CLOSE: if (RecorderModeIsTrade(recorderMode_)) StopRecorder(true); DestroyWindow(hwnd); return 0;
+                    case IDC_SEQ_TARGET: if (HIWORD(wp) == CBN_SELCHANGE) SaveTradeSequenceRowFromEditor(); return 0;
+                    case IDC_SEQ_KIND:
+                        if (HIWORD(wp) == CBN_SELCHANGE && tradeEditorMode_ == 2 && SendMessageW(tradeSeqKind_, CB_GETCURSEL, 0, 0) == 1) SendMessageW(tradeSeqTarget_, CB_SETCURSEL, 0, 0);
+                        return 0;
+                }
+                break;
+            case WM_CLOSE: if (RecorderModeIsTrade(recorderMode_)) StopRecorder(true); DestroyWindow(hwnd); return 0;
+            case WM_NCDESTROY:
+                tradeEditor_ = nullptr; tradeSeqList_ = nullptr; tradeSeqTarget_ = nullptr; tradeSeqKind_ = nullptr; tradeSeqDesc_ = nullptr; tradeSeqDelay_ = nullptr; tradeSeqRepeat_ = nullptr; tradeSeqGroupRepeat_ = nullptr; tradeRecordButton_ = nullptr; tradeRecordStatus_ = nullptr;
+                captureTradeSequenceIndex_ = -1; captureTradeSequenceMode_ = 0; captureTradeSequenceMainRef_ = -1; tradeEditorMode_ = 0; tradeEditorChildPid_ = 0;
+                return DefWindowProcW(hwnd, msg, wp, lp);
+        }
+        return DefWindowProcW(hwnd, msg, wp, lp);
+    }
+
+    void ShowSellMacroEditor(bool show) {
+        sellMacroEditorVisible_ = show;
+        for (HWND h : sellMacroControls_) if (h) ShowWindow(h, show ? SW_SHOW : SW_HIDE);
+        if (logCaption_) SetWindowPos(logCaption_, nullptr, 18, show ? 882 : 742, 190, 20, SWP_NOZORDER);
+        if (log_) SetWindowPos(log_, nullptr, 18, show ? 902 : 764, 1005, show ? 60 : 159, SWP_NOZORDER);
+        if (show) { RefreshSellMacroList(); ClearSellMacroEditor(); }
+    }
+
+    void ToggleSellMacroEditor() {
+        if (sellMacroEditorVisible_ && recorderMode_ == RecorderMode::Sell) StopRecorder(true);
+        Account* a = SelectedAccount();
+        if (!a) { Log(L"CHUỖI CLICK BÁN ĐỒ: chưa chọn acc."); return; }
+        ShowSellMacroEditor(!sellMacroEditorVisible_);
+    }
+
+    void UpdateRoleActionButtons() {
+        Account* a = SelectedAccount();
+        const int role = a ? a->profile.tradeRole : 0;
+        if (sellSequenceButton_) ShowWindow(sellSequenceButton_, a ? SW_SHOW : SW_HIDE);
+        if (mainTradeSequenceButton_) ShowWindow(mainTradeSequenceButton_, role == 1 ? SW_SHOW : SW_HIDE);
+        if (childTradeSequenceButton_) {
+            ShowWindow(childTradeSequenceButton_, role >= 2 ? SW_SHOW : SW_HIDE);
+            if (role >= 2) SetWindowTextW(childTradeSequenceButton_, L"CHUỖI GD ACC CON");
+        }
+        if (tradeRendezvousCaptureButton_) ShowWindow(tradeRendezvousCaptureButton_, SW_SHOW);
+        if (tradeRendezvousLabel_) ShowWindow(tradeRendezvousLabel_, SW_SHOW);
+        if (!a && sellMacroEditorVisible_) ShowSellMacroEditor(false);
+    }
+
+    void PersistGlobalTradeSettings() {
+        if (mainSellThresholdEdit_) mainSellThreshold_ = std::clamp(_wtoi(GetText(mainSellThresholdEdit_).c_str()), 1, 90);
+        WriteIniInt(L"Global", L"TradeEnabled", tradeEnabled_ ? 1 : 0);
+        WriteIniInt(L"Global", L"ChildTriggerFreeSlots", 0);
+        WriteIniInt(L"Global", L"MainSellThreshold", mainSellThreshold_);
+        WriteIniInt(L"Global", L"TradeRendezvousMap", tradeRendezvous_.mapID);
+        WriteIniInt(L"Global", L"TradeRendezvousX", tradeRendezvous_.x);
+        WriteIniInt(L"Global", L"TradeRendezvousY", tradeRendezvous_.y);
+        WriteIniInt(L"Global", L"TradeRendezvousValid", tradeRendezvous_.valid ? 1 : 0);
+        WriteIniInt(L"Global", L"TradeRendezvousTolerance", tradeRendezvousTolerance_);
+        if (mainSellThresholdEdit_) SetText(mainSellThresholdEdit_, std::to_wstring(mainSellThreshold_));
+        FlushIni();
+    }
+
+    void UpdateConsolidationButton() {
+        if (!tradeEnable_) return;
+        SetWindowTextW(tradeEnable_, tradeEnabled_ ? L"DỒN ĐỒ: BẬT" : L"DỒN ĐỒ: TẮT");
+    }
+
+    void ToggleConsolidationMode() {
+        tradeEnabled_ = !tradeEnabled_;
+        if (!tradeEnabled_) {
+            if (tradeTxn_.phase != TradePhase::Idle) {
+                AbortTrade(L"người dùng TẮT DỒN ĐỒ", GetTickCount());
+            }
+            ReleaseTradeHolds(); // hard cleanup: no stale rendezvous HOLD may survive OFF.
+            SetTradeStatus(L"DỒN ĐỒ TẮT • scheduler GD bị chặn thật • các acc auto-train/bán đồ độc lập");
+            Log(L"DỒN ĐỒ: TẮT → vô hiệu hóa giao dịch MAIN↔CON; chỉ acc đã tick AUTO BÁN ĐỒ mới tự bán khi túi FULL.");
+        } else {
+            SetTradeStatus(L"DỒN ĐỒ BẬT • scheduler MAIN↔CON hoạt động");
+            Log(L"DỒN ĐỒ: BẬT → khôi phục điều phối MAIN↔CON; MAIN bán ở ngưỡng riêng, CON FULL ưu tiên giao dịch.");
+        }
+        WriteIniInt(L"Global", L"TradeEnabled", tradeEnabled_ ? 1 : 0);
+        FlushIni();
+        UpdateConsolidationButton();
+    }
+
+    void CopySellSequenceFromAnotherAccount() {
+        Account* target = SelectedAccount();
+        if (!target) { Log(L"LẤY CHUỖI BÁN: chưa chọn acc đích."); return; }
+
+        HMENU menu = CreatePopupMenu();
+        if (!menu) return;
+        constexpr UINT kBase = 7300;
+        std::vector<Account*> sources;
+        for (auto& item : accounts_) {
+            Account* source = item.get();
+            if (!source || source == target || source->profile.sellMacro.empty()) continue;
+            sources.push_back(source);
+            const std::wstring label = AccountTag(*source) + L" • " + std::to_wstring(source->profile.sellMacro.size()) + L" bước";
+            AppendMenuW(menu, MF_STRING, kBase + static_cast<UINT>(sources.size() - 1), label.c_str());
+        }
+        if (sources.empty()) {
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 1, L"Chưa có acc khác có chuỗi bán");
+        }
+
+        RECT rc{};
+        if (sellMacroList_) GetWindowRect(sellMacroList_, &rc);
+        else GetWindowRect(hwnd_, &rc);
+        const UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                        rc.left + 12, rc.top + 12, 0, hwnd_, nullptr);
+        DestroyMenu(menu);
+        if (cmd < kBase || cmd >= kBase + sources.size()) return;
+
+        Account* source = sources[cmd - kBase];
+        if (!source) return;
+        if (!target->profile.sellMacro.empty()) {
+            const std::wstring q = L"Acc đích đang có " + std::to_wstring(target->profile.sellMacro.size()) +
+                                   L" bước bán.\n\nThay toàn bộ bằng chuỗi của " + AccountTag(*source) + L"?";
+            if (MessageBoxW(hwnd_, q.c_str(), L"LẤY CHUỖI CLICK BÁN ĐỒ", MB_YESNO | MB_ICONQUESTION) != IDYES) return;
+        }
+        target->profile.sellMacro = source->profile.sellMacro;
+        SaveProfile(target->profile);
+        RefreshSellMacroList();
+        ClearSellMacroEditor();
+        LogAccount(*target, L"Đã lấy CHUỖI CLICK BÁN ĐỒ từ " + AccountTag(*source) +
+                            L" • " + std::to_wstring(target->profile.sellMacro.size()) + L" bước.");
+    }
+
+    void SetTradeStatus(const std::wstring& text) {
+        if (!tradeStatus_) return;
+        const std::wstring line = L"ĐIỀU PHỐI: " + text;
+        SetWindowTextW(tradeStatus_, line.c_str());
+    }
+
+    void ApplySelectedTradeRole() {
+        Account* selected = SelectedAccount();
+        if (!selected || !tradeRoleCombo_) return;
+        const LRESULT sel = SendMessageW(tradeRoleCombo_, CB_GETCURSEL, 0, 0);
+        if (sel == CB_ERR || sel < 0 || sel > 7) return;
+        const int newRole = static_cast<int>(sel);
+        if (newRole != 0) {
+            for (auto& item : accounts_) {
+                Account& other = *item;
+                if (&other == selected) continue;
+                if (other.profile.tradeRole == newRole) {
+                    other.profile.tradeRole = 0;
+                    other.tradeHeld = false;
+                    SaveProfile(other.profile);
+                    LogAccount(other, L"Vai trò " + TradeRoleLabel(newRole) + L" được chuyển sang acc khác → trả về KHÔNG.");
+                }
+            }
+        }
+        selected->profile.tradeRole = newRole;
+        if (newRole == 1) {
+            selected->profile.enableSell = true; // MAIN must sell immediately at/below threshold.
+            if (enableSell_) SendMessageW(enableSell_, BM_SETCHECK, BST_CHECKED, 0);
+        }
+        if (newRole >= 2) {
+            selected->profile.enableSell = false; // hard rule: child never sells.
+            selected->runtime.sellPhase = 0;
+            if (enableSell_) SendMessageW(enableSell_, BM_SETCHECK, BST_UNCHECKED, 0);
+        }
+        SaveProfile(selected->profile);
+        for (std::size_t i = 0; i < accounts_.size(); ++i) UpdateAccountRow(static_cast<int>(i), *accounts_[i]);
+        LoadSelectedProfileToUi();
+        LogAccount(*selected, L"Đặt vai trò giao dịch = " + TradeRoleLabel(newRole));
+    }
+
+    Account* AccountByTradeRole(int role) {
+        for (auto& a : accounts_) if (a->profile.tradeRole == role) return a.get();
+        return nullptr;
+    }
+
+    bool TradeStateReady(const Account& a) const {
+        if (!a.runtime.running || !a.snapshotValid || !IsWindow(a.game.window)) return false;
+        const Snapshot& s = a.snapshot;
+        const std::uint32_t need = ValidLifeState | ValidBagSpace | ValidMap | ValidPosition;
+        if ((s.validMask & need) != need) return false;
+        if (s.dead || !s.mapReady || s.waitingChangeMap) return false;
+        if (a.runtime.clientFreezeActive || a.runtime.revivePhase != 0 || a.runtime.sellPhase != 0 ||
+            a.runtime.trainRecoveryPhase != 0 || a.runtime.routeOwnershipResetPending) return false;
+        return true;
+    }
+
+    bool TradePairReadyForPreparation(const Account& main, const Account& child) const {
+        if (!main.runtime.running || !child.runtime.running) return false;
+        if (!main.snapshotValid || !child.snapshotValid) return false;
+        const Snapshot& ms = main.snapshot;
+        const Snapshot& cs = child.snapshot;
+        const std::uint32_t need = ValidLifeState | ValidBagSpace | ValidMap | ValidPosition | ValidAutoFight | ValidAutoPath | ValidRiding;
+        if ((ms.validMask & need) != need || (cs.validMask & need) != need) return false;
+        if (ms.dead || cs.dead || !ms.mapReady || ms.waitingChangeMap || !cs.mapReady || cs.waitingChangeMap) return false;
+        return IsWindow(main.game.window) && IsWindow(child.game.window);
+    }
+
+    void ResetTradeRendezvousTravel(Account& a) {
+        RuntimeState& rt = a.runtime;
+        rt.tradeTravelPhase = 0;
+        rt.tradeTravelTick = 0;
+        rt.tradeTravelReady = false;
+        ResetRobustTravel(rt);
+    }
+
+    bool TradeAccountAtRendezvous(const Account& a) const {
+        if (!tradeRendezvous_.valid || !a.snapshotValid) return false;
+        const Snapshot& s = a.snapshot;
+        const std::uint32_t need = ValidLifeState | ValidMap | ValidPosition | ValidAutoPath | ValidRiding;
+        if ((s.validMask & need) != need || s.dead || !s.mapReady || s.waitingChangeMap) return false;
+        State state{};
+        state.valid = true; state.mapReady = true; state.waitingMap = false;
+        state.mapID = s.mapID; state.x = s.x; state.y = s.y;
+        state.autoPathing = s.autoPathing != 0; state.riding = s.riding != 0;
+        Target target{tradeRendezvous_.mapID, tradeRendezvous_.x, tradeRendezvous_.y, tradeRendezvousTolerance_};
+        return AtTarget(state, target) && !s.autoPathing && !s.riding;
+    }
+
+    void BeginTradeRendezvousTravel(Account& a, DWORD now, const wchar_t* who) {
+        RuntimeState& rt = a.runtime;
+        ResetTradeRendezvousTravel(a);
+        rt.tradeTravelPhase = 4;
+        rt.tradeTravelTick = now;
+        rt.trainPositionMonitorArmed = false;
+        rt.lastTrainPositionCheckTick = 0;
+        rt.fightPhase = 0;
+        rt.fightAttempts = 0;
+
+        // The old train AutoPath belongs to the normal core and must not survive into
+        // a consolidation rendezvous. This StopPath is internal and does not touch F4 state.
+        if (a.bridge.Attached() && a.snapshotValid && (a.snapshot.validMask & ValidAutoPath) && a.snapshot.autoPathing) {
+            Response r{}; std::wstring ignored;
+            (void)a.bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
+        }
+        LogAccount(a, L"GD TỌA: HOLD " + std::wstring(who ? who : L"ACC") +
+                      L" • hủy AutoPath bãi cũ → v0.3 Travel Guard bắt buộc AutoFight OFF → cùng đi TỌA GD.");
+    }
+
+    bool HandleTradeRendezvousTravel(Account& a, DWORD now, const wchar_t* who) {
+        RuntimeState& rt = a.runtime;
+        const Snapshot& s = a.snapshot;
+        const std::wstring tag = who ? who : L"ACC";
+
+        if (!tradeRendezvous_.valid || !a.runtime.running || !a.snapshotValid || !IsWindow(a.game.window)) return false;
+        const std::uint32_t need = ValidLifeState | ValidMap | ValidPosition | ValidAutoPath | ValidRiding;
+        if ((s.validMask & need) != need || s.dead || !s.mapReady || s.waitingChangeMap) return false;
+
+        // Once ready, keep the first-arriving account parked at TỌA GD. Any stale/automatic
+        // path that reappears is stopped before the coordinator can advance the transaction.
+        if (rt.tradeTravelReady) {
+            if (s.autoPathing) {
+                Response r{}; std::wstring ignored;
+                if (a.bridge.Attached()) (void)a.bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
+                rt.status = L"GD HOLD • " + tag + L" đã tới TỌA GD • chặn AutoPath bãi cũ";
+                return true;
+            }
+            if (s.riding) {
+                (void)SendDecision(a, Action::Dismount, tradeRendezvous_, L"TỌA GD");
+                rt.status = L"GD HOLD • " + tag + L" xuống ngựa tại TỌA GD";
+                return true;
+            }
+            if (!TradeAccountAtRendezvous(a)) {
+                rt.tradeTravelReady = false;
+                rt.tradeTravelPhase = 4;
+                rt.tradeTravelTick = now;
+                ResetRobustTravel(rt);
+                rt.status = L"GD RELOCK • " + tag + L" lệch TỌA GD → quay lại";
+                return true;
+            }
+            rt.status = L"GD HOLD • " + tag + L" đã tới TỌA GD • chờ acc còn lại";
+            return true;
+        }
+
+        if (rt.tradeTravelPhase == 0) {
+            BeginTradeRendezvousTravel(a, now, who);
+            return true;
+        }
+
+        if (rt.tradeTravelPhase == 4) {
+            bool arrived = false;
+            (void)HandleRobustTravel(a, now, tradeRendezvous_, L"TỌA GD", arrived, tradeRendezvousTolerance_);
+            if (!arrived) {
+                rt.status = L"GD TỌA • " + tag + L" đang đi M" + std::to_wstring(tradeRendezvous_.mapID) +
+                            L" " + std::to_wstring(tradeRendezvous_.x) + L"," + std::to_wstring(tradeRendezvous_.y);
+                return true;
+            }
+            rt.tradeTravelPhase = 5;
+            rt.tradeTravelTick = now;
+            rt.status = L"GD TỌA • " + tag + L" đã tới • khóa path và verify";
+            return true;
+        }
+
+        if (rt.tradeTravelPhase == 5) {
+            if (s.autoPathing) {
+                Response r{}; std::wstring ignored;
+                if (a.bridge.Attached()) (void)a.bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
+                rt.tradeTravelTick = now;
+                rt.status = L"GD HOLD • " + tag + L" StopPath tại TỌA GD";
+                return true;
+            }
+            if (s.riding) {
+                (void)SendDecision(a, Action::Dismount, tradeRendezvous_, L"TỌA GD");
+                rt.tradeTravelTick = now;
+                return true;
+            }
+            if (!Elapsed(now, rt.tradeTravelTick, 450)) return true;
+
+            // v0.3: reuse the same fail-closed guard at the rendezvous itself. No separate
+            // trade stop-Auto state machine remains.
+            if ((s.validMask & ValidAutoFight) == 0 || s.autoFight) {
+                if (!EnsureAutoFightOffForTravel(a, now, L"TỌA GD")) {
+                    rt.status = L"GD HOLD • " + tag + L" chờ Travel Guard xác nhận AutoFight OFF";
+                    return true;
+                }
+            }
+            if (!TradeAccountAtRendezvous(a)) {
+                rt.tradeTravelPhase = 4; rt.tradeTravelTick = now; ResetRobustTravel(rt);
+                return true;
+            }
+            rt.tradeTravelReady = true;
+            rt.tradeTravelPhase = 0;
+            rt.status = L"GD HOLD • " + tag + L" ĐÃ TỚI TỌA GD";
+            LogAccount(a, L"GD TỌA PASS: " + tag + L" đã đứng tại TỌA GD; giữ HOLD chờ acc còn lại.");
+            return true;
+        }
+        return true;
+    }
+
+    bool TradeQueueContains(DWORD pid) const {
+        return std::find(tradeQueuePids_.begin(), tradeQueuePids_.end(), pid) != tradeQueuePids_.end();
+    }
+
+    Account* EarliestQueuedChild() {
+        Account* best = nullptr;
+        for (DWORD pid : tradeQueuePids_) {
+            Account* child = AccountByPid(pid);
+            if (!child || child->profile.tradeRole < 2 || child->profile.tradeRole > 7) continue;
+            if (!best || itemtrade_coordinator::EarlierWorkflowEntry(
+                    child->runtime.tradeWorkflowEntrySeq, child->profile.tradeRole - 1,
+                    best->runtime.tradeWorkflowEntrySeq, best->profile.tradeRole - 1)) {
+                best = child;
+            }
+        }
+        return best;
+    }
+
+    void RelockRendezvousToEarliestQueued(DWORD now) {
+        if (tradeTxn_.phase != TradePhase::Rendezvous) return;
+        Account* earliest = EarliestQueuedChild();
+        if (!earliest || earliest->game.pid == tradeTxn_.childPid) return;
+        Account* old = AccountByPid(tradeTxn_.childPid);
+        const int oldSlot = tradeTxn_.childSlot;
+        tradeTxn_.childPid = earliest->game.pid;
+        tradeTxn_.childSlot = earliest->profile.tradeRole - 1;
+        tradeTxn_.sequenceIndex = 0;
+        tradeTxn_.sequenceRepeatDone = 0;
+        tradeTxn_.sequenceGroupRepeatDone = 0;
+        tradeTxn_.sequencePass = 1;
+        tradeTxn_.sequenceDueTick = 0;
+        if (old) LogAccount(*old, L"FIFO RELOCK: nhường active rendezvous cho CON" +
+                                  std::to_wstring(tradeTxn_.childSlot) + L" vì CON này vào workflow trước.");
+        LogAccount(*earliest, L"FIFO RELOCK PASS: giữ đúng vé workflow #" +
+                              std::to_wstring(earliest->runtime.tradeWorkflowEntrySeq) +
+                              L" • active trước CON" + std::to_wstring(oldSlot) + L".");
+    }
+
+    void ReleaseTradeHold(Account& a) {
+        a.tradeHeld = false;
+        a.runtime.tradeWorkflowEntrySeq = 0;
+        ResetTradeRendezvousTravel(a);
+    }
+
+    void RemoveTradeQueuePid(DWORD pid) {
+        tradeQueuePids_.erase(std::remove(tradeQueuePids_.begin(), tradeQueuePids_.end(), pid), tradeQueuePids_.end());
+    }
+
+    void ReleaseTradeHolds() {
+        for (auto& item : accounts_) {
+            Account& a = *item;
+            if (!a.tradeHeld) continue;
+            ReleaseTradeHold(a);
+        }
+        tradeQueuePids_.clear();
+    }
+
+    void ReleaseTradeSequenceLease(const std::wstring& reason) {
+        if (!coordinatorSequenceLease_) return;
+        if (tradeTxn_.mainPid == 0 || coordinatorSequenceOwnerPid_ != tradeTxn_.mainPid) return;
+        ReleaseCoordinatorSequenceLease(reason);
+    }
+
+    void AbortTrade(const std::wstring& reason, DWORD now) {
+        Account* main = AccountByPid(tradeTxn_.mainPid);
+        Account* child = AccountByPid(tradeTxn_.childPid);
+        if (main) LogAccount(*main, L"GD ABORT: " + reason);
+        if (child) LogAccount(*child, L"GD ABORT: " + reason);
+        ReleaseTradeSequenceLease(L"giao dịch abort");
+        ReleaseTradeHolds();
+        tradeTxn_.phase = TradePhase::Idle;
+        tradeTxn_.mainPid = 0;
+        tradeTxn_.childPid = 0;
+        tradeTxn_.childSlot = 0;
+        tradeTxn_.sequenceIndex = 0; tradeTxn_.sequenceRepeatDone = 0; tradeTxn_.sequenceGroupRepeatDone = 0; tradeTxn_.sequencePass = 1; tradeTxn_.sequenceDueTick = 0; tradeTxn_.sequenceMainFreeBeforePass = -1; tradeTxn_.sequenceBagVerifyStartedTick = 0; tradeTxn_.sequenceBagStableSinceTick = 0; tradeTxn_.sequenceBagLastFree = -1;
+        tradeTxn_.cooldownUntil = now + 2500;
+        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + quyền chuột");
+    }
+
+    void FinishTrade(DWORD now) {
+        Account* main = AccountByPid(tradeTxn_.mainPid);
+        Account* child = AccountByPid(tradeTxn_.childPid);
+        const DWORD finishedChildPid = tradeTxn_.childPid;
+        const int finishedSlot = tradeTxn_.childSlot;
+
+        if (main) LogAccount(*main, L"GD xong với CON " + std::to_wstring(finishedSlot) +
+                                 L" • pass cuối MAIN nhận ≤8 slot; CON đang xếp hàng vẫn giữ TỌA GD.");
+        if (child) LogAccount(*child, L"GD ĐẠT ĐIỀU KIỆN MỚI • pass cuối làm MAIN nhận ≤8 slot"
+                                  L" • nhả HOLD để core quay bãi; slot queue giải phóng ngay.");
+
+        ReleaseTradeSequenceLease(L"chuỗi click giao dịch hoàn tất");
+        if (child) ReleaseTradeHold(*child);
+        RemoveTradeQueuePid(finishedChildPid);
+
+        // MAIN stays parked only while another queued CON still needs it. When the queue
+        // becomes empty, release MAIN exactly like old behavior so normal core resumes.
+        if (main && tradeQueuePids_.empty()) ReleaseTradeHold(*main);
+
+        tradeTxn_.phase = TradePhase::Idle;
+        tradeTxn_.mainPid = main ? main->game.pid : 0;
+        tradeTxn_.childPid = 0;
+        tradeTxn_.childSlot = 0;
+        tradeTxn_.sequenceIndex = 0; tradeTxn_.sequenceRepeatDone = 0; tradeTxn_.sequenceGroupRepeatDone = 0; tradeTxn_.sequencePass = 1; tradeTxn_.sequenceDueTick = 0; tradeTxn_.sequenceMainFreeBeforePass = -1; tradeTxn_.sequenceBagVerifyStartedTick = 0; tradeTxn_.sequenceBagStableSinceTick = 0; tradeTxn_.sequenceBagLastFree = -1;
+        tradeTxn_.cooldownUntil = now + 1500;
+        SetTradeStatus(L"HOÀN TẤT CON" + std::to_wstring(finishedSlot) + L" • còn xếp hàng " +
+                       std::to_wstring(tradeQueuePids_.size()) + L"/3");
+    }
+
+    bool ExecuteTradeSequenceTick(Account& main, Account& child, DWORD now) {
+        EnsureSharedChildTradeSequence();
+        std::vector<TradeSequenceStep>& seq = childTradeSequence_;
+        if (tradeTxn_.sequenceIndex >= seq.size()) {
+            // Honor the final configured click delay first. Then wait for MAIN bag space
+            // to become stable before applying the R10 <=8-slot heuristic.
+            if (tradeTxn_.sequenceDueTick != 0 && static_cast<LONG>(now - tradeTxn_.sequenceDueTick) < 0) return true;
+            if (!main.snapshotValid || (main.snapshot.validMask & ValidBagSpace) == 0) {
+                SetTradeStatus(L"CLICK LEASE • chờ MAIN FreeBagSpace hợp lệ sau pass GD");
+                return true;
+            }
+
+            const int observedFree = main.snapshot.freeBagSpace;
+            if (tradeTxn_.sequenceBagVerifyStartedTick == 0) {
+                tradeTxn_.sequenceBagVerifyStartedTick = now;
+                tradeTxn_.sequenceBagStableSinceTick = now;
+                tradeTxn_.sequenceBagLastFree = observedFree;
+                SetTradeStatus(L"CLICK LEASE • xác minh ổn định túi MAIN sau pass GD");
+                return true;
+            }
+            if (observedFree != tradeTxn_.sequenceBagLastFree) {
+                tradeTxn_.sequenceBagLastFree = observedFree;
+                tradeTxn_.sequenceBagStableSinceTick = now;
+                SetTradeStatus(L"CLICK LEASE • MAIN FreeBagSpace vừa đổi → reset cửa sổ ổn định");
+                return true;
+            }
+            const bool stableEnough = Elapsed(now, tradeTxn_.sequenceBagStableSinceTick, kTradeBagStableMs);
+            const bool verifyTimedOut = Elapsed(now, tradeTxn_.sequenceBagVerifyStartedTick, kTradeBagVerifyMaxMs);
+            if (!stableEnough && !verifyTimedOut) return true;
+
+            const int beforeFree = tradeTxn_.sequenceMainFreeBeforePass;
+            const int afterFree = tradeTxn_.sequenceBagLastFree;
+            const int receivedSlots = ReceivedSlots(beforeFree, afterFree);
+            if (DecidePass(beforeFree, afterFree) == PassDecision::RepeatSameChild) {
+                ++tradeTxn_.sequencePass;
+                tradeTxn_.sequenceIndex = 0;
+                tradeTxn_.sequenceRepeatDone = 0;
+                tradeTxn_.sequenceGroupRepeatDone = 0;
+                tradeTxn_.sequenceDueTick = now + 250;
+                tradeTxn_.sequenceMainFreeBeforePass = afterFree;
+                tradeTxn_.sequenceBagVerifyStartedTick = 0;
+                tradeTxn_.sequenceBagStableSinceTick = 0;
+                tradeTxn_.sequenceBagLastFree = -1;
+                SetTradeStatus(L"CLICK LEASE • CON" + std::to_wstring(tradeTxn_.childSlot) +
+                               L" • MAIN nhận " + std::to_wstring(receivedSlots) +
+                               L" slot (>8) sau khi túi ổn định • lặp lại toàn chuỗi GD lần " +
+                               std::to_wstring(tradeTxn_.sequencePass));
+                LogAccount(child, L"GD CÒN ĐỒ • MAIN nhận " + std::to_wstring(receivedSlots) +
+                                  L" slot/pass sau ổn định (>8) → GIỮ workflow/FIFO và chạy lại toàn bộ chuỗi GD; pass " +
+                                  std::to_wstring(tradeTxn_.sequencePass) + L".");
+                return true;
+            }
+            LogAccount(main, L"GD PASS CUỐI • MAIN nhận " + std::to_wstring(receivedSlots) +
+                             L" slot sau khi FreeBagSpace ổn định (≤8) → coi CON hiện tại đã hết đồ, chuyển CON kế tiếp.");
+            FinishTrade(now);
+            return true;
+        }
+        TradeSequenceStep& stored = seq[tradeTxn_.sequenceIndex];
+        const TradeSequenceStep* effective = &stored;
+        Account* target = &child;
+        if (stored.target == 1) {
+            effective = ResolveMainReference(stored);
+            target = &main;
+            if (!effective) { AbortTrade(L"MAIN reference hỏng tại bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1), now); return false; }
+        }
+        if (tradeTxn_.sequenceDueTick != 0 && static_cast<LONG>(now - tradeTxn_.sequenceDueTick) < 0) return true;
+        if (stored.kind == 1 && stored.target == 0 && main.snapshot.freeBagSpace <= mainSellThreshold_) {
+            AbortTrade(L"MAIN không còn sức chứa an toàn cho bước CHUYỂN ĐỒ", now); return false;
+        }
+        POINT point{}; std::wstring error;
+        if (!ScaleClickPoint(target->game, effective->point, point, error)) { AbortTrade(L"bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1) + L" sai tọa: " + error, now); return false; }
+        const std::wstring who = stored.target == 1 ? L"MAIN" : (L"CON" + std::to_wstring(tradeTxn_.childSlot));
+        if (UserMouseAutoClicksPaused(now)) {
+            SetTradeStatus(L"CHUỘT TAY • pause auto-click ALL 5s • GD giữ nguyên bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1));
+            return true;
+        }
+        SetTradeStatus(L"REQUEST → " + who + L" • bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1) + L"/" + std::to_wstring(seq.size()) + L" • chờ BĐPT cấp chuột");
+        if (!CoordinatorClick(*target, point, L"GD ACC CON dùng chung → " + TradeRoleLabel(child.profile.tradeRole) +
+                                              L" • bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1), error)) {
+            if (error.rfind(L"CHUỘT TAY", 0) == 0) {
+                SetTradeStatus(L"CHUỘT TAY • pause auto-click ALL 5s • GD giữ nguyên bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1));
+                return true;
+            }
+            AbortTrade(L"BĐPT click bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1) + L" FAIL: " + error, now); return false;
+        }
+        ++tradeTxn_.sequenceRepeatDone;
+        tradeTxn_.sequenceDueTick = GetTickCount() + static_cast<DWORD>(effective->delayMs);
+        int repeatLimit = effective->repeat;
+        if (stored.kind == 1 && stored.target == 0) {
+            const int capByMain = std::max(0, main.snapshot.freeBagSpace - mainSellThreshold_);
+            repeatLimit = std::min(repeatLimit, std::max(1, capByMain));
+        }
+        if (tradeTxn_.sequenceRepeatDone >= repeatLimit) {
+            tradeTxn_.sequenceRepeatDone = 0;
+            if (stored.groupId > 0) {
+                const std::size_t groupStart = TradeGroupStart(seq, tradeTxn_.sequenceIndex);
+                const std::size_t groupEnd = TradeGroupEnd(seq, tradeTxn_.sequenceIndex);
+                if (tradeTxn_.sequenceIndex < groupEnd) {
+                    ++tradeTxn_.sequenceIndex;
+                } else {
+                    ++tradeTxn_.sequenceGroupRepeatDone;
+                    const int groupLimit = std::max(1, seq[groupStart].groupRepeat);
+                    if (tradeTxn_.sequenceGroupRepeatDone < groupLimit) {
+                        tradeTxn_.sequenceIndex = groupStart;
+                        SetTradeStatus(L"NHÓM G" + std::to_wstring(stored.groupId) + L" • lặp " +
+                                       std::to_wstring(tradeTxn_.sequenceGroupRepeatDone + 1) + L"/" + std::to_wstring(groupLimit));
+                    } else {
+                        tradeTxn_.sequenceIndex = groupEnd + 1;
+                        tradeTxn_.sequenceGroupRepeatDone = 0;
+                    }
+                }
+            } else {
+                ++tradeTxn_.sequenceIndex;
+                tradeTxn_.sequenceGroupRepeatDone = 0;
+            }
+        }
+        return true;
+    }
+
+    void TickTradeCoordinator(DWORD now) {
+        // v0.6.1: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
+        // physical trade-click lease. The logical atomic SELL rule remains: once an account enters the background sell sequence,
+        // the trade workflow may not advance, enqueue new work, abort/release its lease,
+        // or run rendezvous click substeps until SELL has completed the full macro.
+        // If another sequence already owns the lease, allow that pre-existing owner to finish
+        // (this avoids deadlock); otherwise SELL has strict priority.
+        if (Account* seller = ActiveSellClickSequenceAccount()) {
+            if (!coordinatorSequenceLease_ || coordinatorSequenceOwnerPid_ == seller->game.pid) {
+                SetTradeStatus(L"BÁN ĐỒ ƯU TIÊN • " + AccountTag(*seller) +
+                               L" đang chạy callback nội bộ • workflow GD chờ • chuột rảnh");
+                return;
+            }
+        }
+
+        if (!tradeEnabled_) {
+            if (tradeTxn_.phase != TradePhase::Idle || !tradeQueuePids_.empty())
+                AbortTrade(L"DỒN ĐỒ đang TẮT", now);
+            SetTradeStatus(L"DỒN ĐỒ TẮT • AUTO TRAIN/BÁN ĐỒ ĐỘC LẬP");
+            return;
+        }
+        if (!tradeRendezvous_.valid) {
+            if (!tradeQueuePids_.empty()) AbortTrade(L"mất TỌA GD đã lưu", now);
+            SetTradeStatus(L"chưa GET TỌA GD • chọn acc đang đứng điểm GD rồi bấm TỌA GD • LẤY");
+            return;
+        }
+
+        Account* main = AccountByTradeRole(1);
+        if (!main) {
+            if (!tradeQueuePids_.empty() || tradeTxn_.phase != TradePhase::Idle) AbortTrade(L"mất MAIN", now);
+            SetTradeStatus(L"chưa chọn MAIN");
+            return;
+        }
+
+        // If an active transaction exists, its MAIN identity must remain stable.
+        if (tradeTxn_.phase != TradePhase::Idle && tradeTxn_.mainPid != main->game.pid) {
+            AbortTrade(L"MAIN bị đổi giữa workflow", now);
+            return;
+        }
+
+        // v0.5 World Flow recovery barrier: while traveling/rendezvous (not inside the
+        // atomic trade click Sequence), a held account that dies keeps its FIFO/hold slot.
+        // P2 revive and the life observer run outside this coordinator; when ALIVE returns,
+        // RuntimeState travel phases restart cleanly and World Flow resumes toward TỌA GD.
+        auto worldFlowLifeRecovery = [&](const Account* item) {
+            if (!item || !item->tradeHeld || tradeTxn_.phase == TradePhase::Sequence) return false;
+            const bool deadNow = item->snapshotValid && (item->snapshot.validMask & ValidLifeState) && item->snapshot.dead;
+            return deadNow || item->deathSessionLatched || item->runtime.revivePhase != 0;
+        };
+        if (worldFlowLifeRecovery(main)) {
+            SetTradeStatus(L"WORLD FLOW PAUSE • MAIN chết/đang Đầu thai • giữ FIFO/HOLD • LIFE P2 ưu tiên");
+            return;
+        }
+        for (DWORD pid : tradeQueuePids_) {
+            Account* queued = AccountByPid(pid);
+            if (!worldFlowLifeRecovery(queued)) continue;
+            const int slot = queued ? std::max(1, queued->profile.tradeRole - 1) : 0;
+            SetTradeStatus(L"WORLD FLOW PAUSE • CON" + std::to_wstring(slot) + L" chết/đang Đầu thai • giữ FIFO/HOLD");
+            return;
+        }
+
+        const bool mainBaseHealthy = main->runtime.running && main->snapshotValid && IsWindow(main->game.window) &&
+            (main->snapshot.validMask & (ValidLifeState | ValidBagSpace | ValidMap | ValidPosition)) ==
+                (ValidLifeState | ValidBagSpace | ValidMap | ValidPosition) &&
+            !main->snapshot.dead;
+        if (!mainBaseHealthy) {
+            if (!tradeQueuePids_.empty() || tradeTxn_.phase != TradePhase::Idle)
+                AbortTrade(L"MAIN dừng/mất state/chết trong workflow", now);
+            else SetTradeStatus(L"MAIN chưa ở state rảnh/an toàn");
+            return;
+        }
+        if (main->snapshot.freeBagSpace <= mainSellThreshold_) {
+            if (!tradeQueuePids_.empty() || tradeTxn_.phase != TradePhase::Idle)
+                AbortTrade(L"MAIN chạm ngưỡng bán ≤" + std::to_wstring(mainSellThreshold_) + L" ô", now);
+            else SetTradeStatus(L"MAIN còn ≤" + std::to_wstring(mainSellThreshold_) + L" ô → ưu tiên BÁN ĐỒ");
+            return;
+        }
+        // Preserve the old scheduler gate when there is no staged workflow yet: do not pull
+        // MAIN away from sell/revive/recovery/route-reset work merely because a CON becomes FULL.
+        if (tradeQueuePids_.empty() && tradeTxn_.phase == TradePhase::Idle && !main->tradeHeld && !TradeStateReady(*main)) {
+            SetTradeStatus(L"MAIN chưa ở state rảnh/an toàn");
+            return;
+        }
+
+        // Remove waiting children that can no longer participate. The active child remains
+        // fail-closed and is handled below so a broken in-flight transaction aborts cleanly.
+        for (std::size_t i = 0; i < tradeQueuePids_.size();) {
+            const DWORD pid = tradeQueuePids_[i];
+            if (pid == tradeTxn_.childPid && tradeTxn_.phase != TradePhase::Idle) { ++i; continue; }
+            Account* child = AccountByPid(pid);
+            const bool validRole = child && child->profile.tradeRole >= 2 && child->profile.tradeRole <= 7;
+            const bool heldPriorityRecovery = child && child->tradeHeld &&
+                (child->deathSessionLatched || child->runtime.revivePhase != 0 ||
+                 (child->snapshotValid && (child->snapshot.validMask & ValidLifeState) && child->snapshot.dead));
+            // A non-active queued traveler may die while another pair owns the atomic trade
+            // Sequence. Keep its FIFO/HOLD slot; P2/life recovery runs globally and that CON
+            // resumes rendezvous travel after ALIVE instead of being silently dropped.
+            if (validRole && heldPriorityRecovery) { ++i; continue; }
+            const bool alive = child && child->runtime.running && IsWindow(child->game.window) && child->snapshotValid &&
+                ((child->snapshot.validMask & ValidLifeState) == 0 || !child->snapshot.dead);
+            if (validRole && alive) { ++i; continue; }
+            if (child) {
+                LogAccount(*child, L"GD QUEUE: rời hàng đợi vì dừng/chết/đổi role • nhả HOLD cho core xử lý.");
+                ReleaseTradeHold(*child);
+            }
+            tradeQueuePids_.erase(tradeQueuePids_.begin() + static_cast<std::ptrdiff_t>(i));
+        }
+
+        std::wstring sequenceReason;
+        const bool sequenceReady = TradeSequenceReady(sequenceReason);
+
+        // Fill up to three travel/wait slots. Admission scan is deliberately CON1→CON6, so
+        // children that become FULL in the same scheduler tick enter by the smallest slot first.
+        // Once staged, vector order is strict FIFO by workflow-entry time and is NEVER re-sorted:
+        // e.g. an already-staged CON3 remains ahead of a CON1 that becomes FULL later. FULL is
+        // only the entry gate; later bag deltas do not kick a staged child out.
+        if (sequenceReady && tradeTxn_.phase != TradePhase::Sequence) {
+            for (int slot = 1; slot <= 6 && tradeQueuePids_.size() < kMaxQueuedChildren; ++slot) {
+                Account* child = AccountByTradeRole(slot + 1);
+                if (!child || TradeQueueContains(child->game.pid)) continue;
+                if (!ShouldAdmitFullChild(TradeStateReady(*child), child->snapshot.freeBagSpace,
+                                          tradeQueuePids_.size())) continue;
+
+                const bool firstQueued = tradeQueuePids_.empty();
+                tradeQueuePids_.push_back(child->game.pid);
+                child->runtime.tradeWorkflowEntrySeq = ++tradeWorkflowEntryCounter_;
+                child->tradeHeld = true;
+                const std::wstring childTag = L"CON" + std::to_wstring(slot);
+                BeginTradeRendezvousTravel(*child, now, childTag.c_str());
+
+                if (firstQueued) {
+                    // Only the first queued child needs to pull MAIN away from train. Adding
+                    // CON2/CON3 must never restart MAIN's rendezvous state.
+                    main->tradeHeld = true;
+                    BeginTradeRendezvousTravel(*main, now, L"MAIN");
+                }
+
+                LogAccount(*child, childTag + L" FULL → vào FIFO workflow vị trí " +
+                           std::to_wstring(tradeQueuePids_.size()) + L"/3 • vé #" +
+                           std::to_wstring(child->runtime.tradeWorkflowEntrySeq) +
+                           L" • đồng thời FULL thì ưu tiên CON số nhỏ; đã có vé rồi thì CON vào sau không được chen.");
+            }
+        }
+
+        if (!sequenceReady && tradeQueuePids_.empty() && tradeTxn_.phase == TradePhase::Idle) {
+            // Only surface the missing-sequence error when a FULL child actually exists.
+            for (int slot = 1; slot <= 6; ++slot) {
+                Account* child = AccountByTradeRole(slot + 1);
+                if (child && TradeStateReady(*child) && child->snapshot.freeBagSpace <= 0) {
+                    SetTradeStatus(L"CON" + std::to_wstring(slot) + L" FULL nhưng " + sequenceReason + L" • mở CHUỖI GD ACC CON");
+                    return;
+                }
+            }
+        }
+
+        // CLICK SEQUENCE LEASE protects only the still-coordinate-based trade macro.
+        // Route, AUTO start/stop, XN and revive are Bridge actions in v0.6.1, so queued
+        // travelers keep progressing without borrowing the real mouse.
+        if (!tradeQueuePids_.empty()) {
+            if (tradeTxn_.phase != TradePhase::Sequence) {
+                main->tradeHeld = true;
+                (void)HandleTradeRendezvousTravel(*main, now, L"MAIN");
+                for (DWORD pid : tradeQueuePids_) {
+                    Account* child = AccountByPid(pid);
+                    if (!child) continue;
+                    child->tradeHeld = true;
+                    const int slot = std::max(1, child->profile.tradeRole - 1);
+                    const std::wstring tag = L"CON" + std::to_wstring(slot);
+                    (void)HandleTradeRendezvousTravel(*child, now, tag.c_str());
+                }
+            } else {
+                for (DWORD pid : tradeQueuePids_) {
+                    // The active trade pair must stay parked at TỌA GD for click safety.
+                    // Only the other queued CON accounts are allowed to keep AutoPath moving.
+                    if (pid == tradeTxn_.childPid) continue;
+                    Account* child = AccountByPid(pid);
+                    if (!child) continue;
+                    child->tradeHeld = true;
+                    const int slot = std::max(1, child->profile.tradeRole - 1);
+                    const std::wstring tag = L"CON" + std::to_wstring(slot);
+                    (void)HandleTradeRendezvousTravel(*child, now, tag.c_str());
+                }
+            }
+        }
+
+        // R7 FIFO invariant: while still in Rendezvous (before any trade click), the
+        // active CON must be the account with the oldest immutable workflow-entry ticket.
+        // This fixes cases where a later traveler could remain selected while an earlier CON
+        // was already parked and waiting at the rendezvous.
+        RelockRendezvousToEarliestQueued(now);
+
+        Account* activeMain = tradeTxn_.phase == TradePhase::Idle ? nullptr : AccountByPid(tradeTxn_.mainPid);
+        Account* activeChild = tradeTxn_.phase == TradePhase::Idle ? nullptr : AccountByPid(tradeTxn_.childPid);
+
+        if (tradeTxn_.phase == TradePhase::Rendezvous) {
+            if (!activeMain || !activeChild || !TradeQueueContains(activeChild->game.pid) ||
+                !IsWindow(activeMain->game.window) || !IsWindow(activeChild->game.window)) {
+                AbortTrade(L"mất cửa sổ/acc/hàng đợi khi đi TỌA GD", now); return;
+            }
+            if (!activeMain->runtime.running || !activeChild->runtime.running ||
+                !activeMain->snapshotValid || !activeChild->snapshotValid) {
+                AbortTrade(L"MAIN/CON dừng hoặc mất snapshot khi đi TỌA GD", now); return;
+            }
+            const Snapshot& ms = activeMain->snapshot;
+            const Snapshot& cs = activeChild->snapshot;
+            if (((ms.validMask & ValidLifeState) && ms.dead) || ((cs.validMask & ValidLifeState) && cs.dead)) {
+                AbortTrade(L"MAIN/CON chết khi đi TỌA GD • nhả HOLD để core xử lý đầu thai", now); return;
+            }
+
+            const bool mainReady = activeMain->runtime.tradeTravelReady && TradeAccountAtRendezvous(*activeMain);
+            const bool childReady = activeChild->runtime.tradeTravelReady && TradeAccountAtRendezvous(*activeChild);
+            if (!mainReady || !childReady) {
+                SetTradeStatus(L"QUEUE " + std::to_wstring(tradeQueuePids_.size()) + L"/3 • MAIN " +
+                               std::wstring(mainReady ? L"ĐÃ TỚI" : L"ĐANG ĐI") + L" • CON" +
+                               std::to_wstring(tradeTxn_.childSlot) + L" " +
+                               std::wstring(childReady ? L"ĐÃ TỚI" : L"ĐANG ĐI") +
+                               L" • XN Lâu Lan watchdog chỉ chạy khi M5 bị kẹt cổng");
+                return;
+            }
+
+            if (!sequenceReady) { AbortTrade(L"chuỗi click GD chưa sẵn sàng: " + sequenceReason, now); return; }
+            // This is the exact boundary requested by the user: travel/queueing is NOT
+            // CLICK SEQUENCE LEASE begins only when both accounts are parked and the first
+            // actual trade-sequence click is about to run.
+            if (!AcquireCoordinatorSequenceLease(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
+                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ BĐPT cấp CLICK LEASE cho chuỗi giao dịch");
+                return;
+            }
+            tradeTxn_.phase = TradePhase::Sequence;
+            tradeTxn_.sequenceIndex = 0;
+            tradeTxn_.sequenceRepeatDone = 0;
+            tradeTxn_.sequenceGroupRepeatDone = 0;
+            tradeTxn_.sequencePass = 1;
+            tradeTxn_.sequenceDueTick = 0;
+            tradeTxn_.sequenceMainFreeBeforePass = activeMain->snapshot.freeBagSpace;
+            tradeTxn_.sequenceBagVerifyStartedTick = 0;
+            tradeTxn_.sequenceBagStableSinceTick = 0;
+            tradeTxn_.sequenceBagLastFree = -1;
+            SetTradeStatus(L"CLICK LEASE • bắt đầu chuỗi GD CON" + std::to_wstring(tradeTxn_.childSlot) +
+                           L" • đo slot MAIN nhận/pass; ≤8 thì đổi CON • queued " +
+                           std::to_wstring(tradeQueuePids_.size()) + L"/3");
+            LogAccount(*activeMain, L"BĐPT: MAIN + CON" + std::to_wstring(tradeTxn_.childSlot) +
+                                    L" đã tới TỌA GD → BẮT ĐẦU CLICK LEASE đúng tại chuỗi click.");
+            return;
+        }
+
+        if (tradeTxn_.phase == TradePhase::Sequence) {
+            if (!activeMain || !activeChild || !TradePairReadyForPreparation(*activeMain, *activeChild)) {
+                AbortTrade(L"mất acc/state trong chuỗi giao dịch", now); return;
+            }
+            if (activeMain->snapshot.autoPathing || activeChild->snapshot.autoPathing) {
+                for (Account* a : {activeMain, activeChild}) {
+                    if (!a || !a->snapshot.autoPathing || !a->bridge.Attached()) continue;
+                    Response r{}; std::wstring ignored;
+                    (void)a->bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
+                }
+                SetTradeStatus(L"CLICK LEASE • phát hiện AutoPath bật lại tại TỌA GD → StopPath trước khi click tiếp");
+                return;
+            }
+            if (!TradeAccountAtRendezvous(*activeMain) || !TradeAccountAtRendezvous(*activeChild)) {
+                AbortTrade(L"MAIN/CON rời TỌA GD giữa chuỗi • fail-closed để tránh click nhầm", now); return;
+            }
+            (void)ExecuteTradeSequenceTick(*activeMain, *activeChild, now);
+            return;
+        }
+
+        if (tradeTxn_.phase != TradePhase::Idle) {
+            AbortTrade(L"state giao dịch không hợp lệ", now); return;
+        }
+
+        // No click transaction is active. A queue slot may be refilled immediately, even
+        // during the existing post-trade cooldown, so the next FULL child can start travel
+        // as soon as the previous child has been released to run back to train.
+        if (tradeQueuePids_.empty()) {
+            if (main->tradeHeld) ReleaseTradeHold(*main);
+            SetTradeStatus(L"IDLE • chưa có CON FULL");
+            return;
+        }
+
+        if (tradeTxn_.cooldownUntil != 0 && static_cast<LONG>(now - tradeTxn_.cooldownUntil) < 0) {
+            SetTradeStatus(L"QUEUE " + std::to_wstring(tradeQueuePids_.size()) + L"/3 • chờ cooldown giữa 2 giao dịch");
+            return;
+        }
+
+        Account* nextChild = EarliestQueuedChild();
+        if (!nextChild || nextChild->profile.tradeRole < 2 || nextChild->profile.tradeRole > 7) {
+            if (nextChild) {
+                const DWORD badPid = nextChild->game.pid;
+                ReleaseTradeHold(*nextChild);
+                RemoveTradeQueuePid(badPid);
+            } else if (!tradeQueuePids_.empty()) {
+                tradeQueuePids_.erase(tradeQueuePids_.begin());
+            }
+            return;
+        }
+
+        tradeTxn_.mainPid = main->game.pid;
+        tradeTxn_.childPid = nextChild->game.pid;
+        tradeTxn_.childSlot = nextChild->profile.tradeRole - 1;
+        tradeTxn_.cooldownUntil = 0;
+        tradeTxn_.sequenceIndex = 0;
+        tradeTxn_.sequenceRepeatDone = 0;
+        tradeTxn_.sequenceGroupRepeatDone = 0;
+        tradeTxn_.sequencePass = 1;
+        tradeTxn_.sequenceDueTick = 0;
+        tradeTxn_.phase = TradePhase::Rendezvous;
+
+        SetTradeStatus(L"QUEUE " + std::to_wstring(tradeQueuePids_.size()) + L"/3 • tới lượt CON" +
+                       std::to_wstring(tradeTxn_.childSlot) + L" • chờ MAIN+CON cùng tới TỌA GD");
+    }
+
+    void ClearEditor() {
+        SetText(selected_, L"ACC ĐANG CHỈNH: chưa chọn");
+        SetText(live_, L"STATE: chưa có");
+        if (tradeRoleCombo_) SendMessageW(tradeRoleCombo_, CB_SETCURSEL, 0, 0);
+        SetText(targetName_, L"");
+        if (spotCombo_) SendMessageW(spotCombo_, CB_SETCURSEL, -1, 0);
+        SetText(targetText_, L"CHƯA CHỌN");
+        SetText(tolerance_, L"120");
+        SendMessageW(enableRevive_, BM_SETCHECK, BST_UNCHECKED, 0);
+        SendMessageW(enableConfirm_, BM_SETCHECK, BST_UNCHECKED, 0);
+        SetText(rotateDeathLimit_, std::to_wstring(kRotateDeathLimitDefault));
+        SetText(rotateDeathWindow_, std::to_wstring(kRotateDeathWindowMinDefault));
+        SetText(rotateNoFullBag_, std::to_wstring(kRotateNoFullBagMinDefault));
+        if (rotationList_) ListView_DeleteAllItems(rotationList_);
+        SendMessageW(enableFight_, BM_SETCHECK, BST_UNCHECKED, 0);
+        SendMessageW(enableSell_, BM_SETCHECK, BST_UNCHECKED, 0);
+        if (sellNpcCombo_) SendMessageW(sellNpcCombo_, CB_SETCURSEL, 0, 0);
+        SetText(sellNpcX_, L"");
+        SetText(sellNpcY_, L"");
+        SetText(sellNpcPosText_, L"CHƯA LẤY");
+        for (HWND h : pointLabels_) SetText(h, L"CHƯA LẤY");
+        RefreshSellMacroList();
+        ClearSellMacroEditor();
+        UpdateRoleActionButtons();
+    }
+
+    void LoadSelectedProfileToUi() {
+        Account* a = SelectedAccount();
+        if (!a) { ClearEditor(); return; }
+        ResolveProfileTarget(a->profile);
+        SetText(selected_, L"ACC ĐANG CHỈNH: " + AccountTag(*a));
+        if (tradeRoleCombo_) SendMessageW(tradeRoleCombo_, CB_SETCURSEL, a->profile.tradeRole, 0);
+        RefreshSpotCombo();
+        RefreshRotationList();
+        SetText(targetName_, a->profile.selectedSpot);
+        SetText(tolerance_, std::to_wstring(a->profile.tolerance));
+        SetText(rotateDeathLimit_, std::to_wstring(a->profile.rotateDeathLimit));
+        SetText(rotateDeathWindow_, std::to_wstring(a->profile.rotateDeathWindowMin));
+        SetText(rotateNoFullBag_, std::to_wstring(a->profile.rotateNoFullBagMin));
+        SendMessageW(enableRevive_, BM_SETCHECK, a->profile.enableRevive ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(enableConfirm_, BM_SETCHECK, a->profile.enableConfirm ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(enableFight_, BM_SETCHECK, a->profile.enableFight ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(enableSell_, BM_SETCHECK, a->profile.enableSell ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(sellNpcCombo_, CB_SETCURSEL, a->profile.sellNpcPreset, 0);
+        LoadSellNpcPositionToUi(*a);
+        if (a->profile.target.valid) {
+            SetText(targetText_, L"M" + std::to_wstring(a->profile.target.mapID) + L" • " +
+                                std::to_wstring(a->profile.target.x) + L"," + std::to_wstring(a->profile.target.y));
+        } else {
+            SetText(targetText_, L"CHƯA CHỌN");
+        }
+        for (int i = 0; i < 5; ++i) {
+            SetText(pointLabels_[static_cast<std::size_t>(i)], PointDescription(a->profile.points[static_cast<std::size_t>(i)]));
+        }
+        RefreshSellMacroList();
+        ClearSellMacroEditor();
+        UpdateRoleActionButtons();
+        UpdateSelectedLive();
+    }
+
+    void PersistSelectedEditor() {
+        Account* a = SelectedAccount();
+        if (!a) return;
+        int tol = _wtoi(GetText(tolerance_).c_str());
+        if (tol < 20) tol = 20;
+        if (tol > 2000) tol = 2000;
+        a->profile.tolerance = tol;
+        a->profile.enableRevive = SendMessageW(enableRevive_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+        a->profile.enableConfirm = SendMessageW(enableConfirm_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+        int deathLimit = _wtoi(GetText(rotateDeathLimit_).c_str());
+        if (deathLimit < kRotateDeathLimitMin) deathLimit = kRotateDeathLimitMin;
+        if (deathLimit > kRotateDeathLimitMax) deathLimit = kRotateDeathLimitMax;
+        int deathWindow = _wtoi(GetText(rotateDeathWindow_).c_str());
+        if (deathWindow < kRotateWindowMin) deathWindow = kRotateWindowMin;
+        if (deathWindow > kRotateWindowMax) deathWindow = kRotateWindowMax;
+        int noBagWindow = _wtoi(GetText(rotateNoFullBag_).c_str());
+        if (noBagWindow < kRotateWindowMin) noBagWindow = kRotateWindowMin;
+        if (noBagWindow > kRotateWindowMax) noBagWindow = kRotateWindowMax;
+        a->profile.rotateDeathLimit = deathLimit;
+        a->profile.rotateDeathWindowMin = deathWindow;
+        a->profile.rotateNoFullBagMin = noBagWindow;
+        SetText(rotateDeathLimit_, std::to_wstring(deathLimit));
+        SetText(rotateDeathWindow_, std::to_wstring(deathWindow));
+        SetText(rotateNoFullBag_, std::to_wstring(noBagWindow));
+        PersistRotationListFromUi(*a);
+        a->profile.enableFight = SendMessageW(enableFight_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+        a->profile.enableSell = SendMessageW(enableSell_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+        PersistSellNpcPositionEditor(*a);
+        const LRESULT sellSel = SendMessageW(sellNpcCombo_, CB_GETCURSEL, 0, 0);
+        if (sellSel != CB_ERR && sellSel >= 0 && sellSel < static_cast<LRESULT>(kSellNpcs.size())) a->profile.sellNpcPreset = static_cast<int>(sellSel);
+        SaveProfile(a->profile);
+        const int row = SelectedIndex();
+        if (row >= 0) UpdateAccountRow(row, *a);
+    }
+
+    void SaveTargetForSelected() {
+        Account* a = SelectedAccount();
+        if (!a) { Log(L"Chưa chọn acc"); return; }
+        PersistSelectedEditor();
+        std::wstring error;
+        if (!ReadSnapshot(*a, error, 1200)) { LogAccount(*a, L"Không đọc được state để lưu bãi: " + error); return; }
+        const Snapshot& s = a->snapshot;
+        if (!s.mapReady || s.waitingChangeMap ||
+            (s.validMask & (ValidMap | ValidPosition)) != (ValidMap | ValidPosition)) {
+            LogAccount(*a, L"State chưa ổn định, không lưu bãi.");
+            return;
+        }
+        std::wstring name = GetText(targetName_);
+        if (name.empty()) name = L"Bãi M" + std::to_wstring(s.mapID) + L" " + std::to_wstring(s.x) + L"," + std::to_wstring(s.y);
+        TargetProfile spot{name, s.mapID, s.x, s.y, true};
+        const int existing = FindSpotIndex(spots_, name);
+        if (existing >= 0) spots_[static_cast<std::size_t>(existing)] = spot;
+        else spots_.push_back(spot);
+        SaveSharedSpots(spots_);
+        a->profile.selectedSpot = name;
+        a->profile.target = spot;
+        a->profile.rotationSpots.clear();
+        a->profile.rotationSpots.push_back(name);
+        NormalizeRotationProfile(a->profile);
+        SaveProfile(a->profile);
+        RefreshSpotCombo();
+        LoadSelectedProfileToUi();
+        for (std::size_t i = 0; i < accounts_.size(); ++i) {
+            if (_wcsicmp(accounts_[i]->profile.selectedSpot.c_str(), name.c_str()) == 0) {
+                accounts_[i]->profile.target = spot;
+                SaveProfile(accounts_[i]->profile);
+                UpdateAccountRow(static_cast<int>(i), *accounts_[i]);
+            }
+        }
+        LogAccount(*a, L"Đã lưu/cập nhật bãi CHUNG: " + name + L" • M" + std::to_wstring(s.mapID) + L" • " +
+                       std::to_wstring(s.x) + L"," + std::to_wstring(s.y));
+    }
+
+    void UpdateTradeRendezvousLabel() {
+        if (!tradeRendezvousLabel_) return;
+        if (!tradeRendezvous_.valid) {
+            SetText(tradeRendezvousLabel_, L"CHƯA LẤY TỌA GD");
+            return;
+        }
+        SetText(tradeRendezvousLabel_, L"M" + std::to_wstring(tradeRendezvous_.mapID) + L" • " +
+                                      std::to_wstring(tradeRendezvous_.x) + L"," + std::to_wstring(tradeRendezvous_.y));
+    }
+
+    void CaptureTradeRendezvous() {
+        Account* source = SelectedAccount();
+        if (!source) source = AccountByTradeRole(1);
+        if (!source) { Log(L"TỌA GD: hãy chọn một acc hoặc gán MAIN trước."); return; }
+        std::wstring error;
+        if (!ReadSnapshot(*source, error, 1200)) { LogAccount(*source, L"TỌA GD: không đọc được state: " + error); return; }
+        const Snapshot& state = source->snapshot;
+        if (!state.mapReady || state.waitingChangeMap ||
+            (state.validMask & (ValidMap | ValidPosition)) != (ValidMap | ValidPosition)) {
+            LogAccount(*source, L"TỌA GD: state Map/X/Y chưa ổn định, không lưu.");
+            return;
+        }
+        tradeRendezvous_.name = L"TỌA GD";
+        tradeRendezvous_.mapID = state.mapID;
+        tradeRendezvous_.x = state.x;
+        tradeRendezvous_.y = state.y;
+        tradeRendezvous_.valid = true;
+        WriteIniInt(L"Global", L"TradeRendezvousMap", tradeRendezvous_.mapID);
+        WriteIniInt(L"Global", L"TradeRendezvousX", tradeRendezvous_.x);
+        WriteIniInt(L"Global", L"TradeRendezvousY", tradeRendezvous_.y);
+        WriteIniInt(L"Global", L"TradeRendezvousValid", 1);
+        WriteIniInt(L"Global", L"TradeRendezvousTolerance", tradeRendezvousTolerance_);
+        FlushIni();
+        UpdateTradeRendezvousLabel();
+        LogAccount(*source, L"Đã GET TỌA GD = M" + std::to_wstring(tradeRendezvous_.mapID) + L" • " +
+                            std::to_wstring(tradeRendezvous_.x) + L"," + std::to_wstring(tradeRendezvous_.y));
+    }
+
+    void BeginCapture(ClickSlot slot) {
+        Account* a = SelectedAccount();
+        if (!a) { Log(L"Chưa chọn acc để lấy tọa độ"); return; }
+        captureSlot_ = slot;
+        captureMacroIndex_ = -1;
+        captureTradeSequenceIndex_ = -1;
+        captureTradeSequenceMode_ = 0;
+        captureTradeSequenceMainRef_ = -1;
+        capturePid_ = a->game.pid;
+        const int index = static_cast<int>(slot);
+        LogAccount(*a, L"Đang chờ F8 để lấy điểm " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) + L".");
+        SetText(selected_, L"LẤY TỌA ĐỘ CHO " + AccountTag(*a) + L" • đưa chuột vào nút rồi F8");
+    }
+
+    void CaptureHotkeyPoint() {
+        const bool hasMode = captureSlot_ != ClickSlot::None || captureMacroIndex_ >= 0 ||
+                             captureTradeSequenceIndex_ >= 0;
+        if (!hasMode || capturePid_ == 0) return;
+        Account* captureAccount = AccountByPid(capturePid_);
+        if (!captureAccount || !IsWindow(captureAccount->game.window)) {
+            Log(L"Lấy tọa độ thất bại: acc/cửa sổ đã mất.");
+            captureSlot_ = ClickSlot::None; captureMacroIndex_ = -1; capturePid_ = 0;
+            captureTradeSequenceIndex_ = -1; captureTradeSequenceMode_ = 0; captureTradeSequenceMainRef_ = -1;
+            return;
+        }
+        POINT screen{};
+        if (!GetCursorPos(&screen)) return;
+        POINT client = screen;
+        if (!ScreenToClient(captureAccount->game.window, &client)) return;
+        RECT rc{};
+        if (!GetClientRect(captureAccount->game.window, &rc)) return;
+        const int width = rc.right - rc.left;
+        const int height = rc.bottom - rc.top;
+        if (client.x < 0 || client.y < 0 || client.x >= width || client.y >= height) {
+            LogAccount(*captureAccount, L"F8 bỏ qua: con trỏ không nằm trong client game của acc đích.");
+            return;
+        }
+        const ClickPoint captured{client.x, client.y, width, height, true};
+        if (captureTradeSequenceIndex_ >= 0) {
+            bool saved = false;
+            if (captureTradeSequenceMode_ == 1) {
+                if (captureTradeSequenceIndex_ < static_cast<int>(mainTradeSequence_.size())) {
+                    mainTradeSequence_[static_cast<std::size_t>(captureTradeSequenceIndex_)].point = captured;
+                    SaveMainTradeSequence();
+                    saved = true;
+                }
+            } else if (captureTradeSequenceMode_ == 2) {
+                if (captureTradeSequenceMainRef_ >= 0) {
+                    if (captureTradeSequenceMainRef_ < static_cast<int>(mainTradeSequence_.size())) {
+                        mainTradeSequence_[static_cast<std::size_t>(captureTradeSequenceMainRef_)].point = captured;
+                        SaveMainTradeSequence();
+                        saved = true;
+                    }
+                } else {
+                    EnsureSharedChildTradeSequence();
+                    if (captureTradeSequenceIndex_ < static_cast<int>(childTradeSequence_.size())) {
+                        childTradeSequence_[static_cast<std::size_t>(captureTradeSequenceIndex_)].point = captured;
+                        SaveSharedChildTradeSequence();
+                        saved = true;
+                    }
+                }
+            }
+
+            if (!saved) {
+                LogAccount(*captureAccount, L"F8 chuỗi GD thất bại: dòng/đích capture đã đổi hoặc không còn tồn tại.");
+            } else {
+                if (tradeEditor_ && IsWindow(tradeEditor_) && tradeEditorMode_ == captureTradeSequenceMode_) {
+                    RefreshTradeSequenceList();
+                    if (tradeSeqList_ && captureTradeSequenceIndex_ < ListView_GetItemCount(tradeSeqList_)) {
+                        ListView_SetItemState(tradeSeqList_, captureTradeSequenceIndex_,
+                                              LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+                        ListView_EnsureVisible(tradeSeqList_, captureTradeSequenceIndex_, FALSE);
+                        LoadTradeSequenceRowToEditor(captureTradeSequenceIndex_);
+                    }
+                }
+                LogAccount(*captureAccount, L"Đã lưu chuỗi GD dòng " + std::to_wstring(captureTradeSequenceIndex_ + 1) + L" qua F8 = " + PointDescription(captured));
+            }
+        } else if (captureMacroIndex_ >= 0) {
+            if (captureMacroIndex_ >= static_cast<int>(captureAccount->profile.sellMacro.size())) {
+                LogAccount(*captureAccount, L"F8 macro thất bại: dòng đã bị xóa.");
+            } else {
+                captureAccount->profile.sellMacro[static_cast<std::size_t>(captureMacroIndex_)].point = captured;
+                SaveProfile(captureAccount->profile);
+                LogAccount(*captureAccount, L"Đã lưu macro dòng " + std::to_wstring(captureMacroIndex_ + 1) + L" = " + PointDescription(captured));
+            }
+        } else {
+            const int index = static_cast<int>(captureSlot_);
+            if (index >= 0 && index < 5) {
+                captureAccount->profile.points[static_cast<std::size_t>(index)] = captured;
+                SaveProfile(captureAccount->profile);
+                LogAccount(*captureAccount, L"Đã lưu " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) + L" = " + PointDescription(captured));
+            }
+        }
+        LoadSelectedProfileToUi();
+        captureSlot_ = ClickSlot::None; captureMacroIndex_ = -1; capturePid_ = 0;
+        captureTradeSequenceIndex_ = -1; captureTradeSequenceMode_ = 0; captureTradeSequenceMainRef_ = -1;
+    }
+
+    bool PerformRealInputClickDirect(Account& a, const POINT& clientPoint, std::wstring& error, bool honorUserMouseGuard = true) {
+        if (!IsWindow(a.game.window) || !IsWindowVisible(a.game.window)) {
+            error = L"Cửa sổ game không tồn tại/không visible"; return false;
+        }
+        if (IsIconic(a.game.window)) {
+            error = L"Cửa sổ game đang minimized; không click để tránh sai mục tiêu"; return false;
+        }
+        POINT screen = clientPoint;
+        if (!ClientToScreen(a.game.window, &screen)) { error = L"ClientToScreen thất bại"; return false; }
+        const DWORD selfTid = GetCurrentThreadId();
+        bool attachedGame = false;
+        if (a.game.threadId != 0 && a.game.threadId != selfTid) {
+            attachedGame = AttachThreadInput(selfTid, a.game.threadId, TRUE) != FALSE;
+        }
+        (void)SetForegroundWindow(a.game.window);
+        (void)BringWindowToTop(a.game.window);
+        Sleep(kMouseSettleMs);
+        if (GetForegroundWindow() != a.game.window) {
+            if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+            error = L"Không đưa được đúng acc lên foreground; chặn click để tránh bấm nhầm"; return false;
+        }
+        autoInputInjectionActive_ = true;
+        autoExpectedCursorScreen_ = screen;
+        if (!SetCursorPos(screen.x, screen.y)) {
+            autoInputInjectionActive_ = false;
+            if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+            error = L"SetCursorPos thất bại"; return false;
+        }
+        Sleep(kMouseSettleMs);
+        if (honorUserMouseGuard && UserMouseAutoClicksPaused(GetTickCount())) {
+            autoInputInjectionActive_ = false;
+            if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+            error = L"CHUỘT TAY phát hiện trong lúc chuẩn bị click • hoãn 5s"; return false;
+        }
+        INPUT down{}; down.type = INPUT_MOUSE; down.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+        if (SendInput(1, &down, sizeof(INPUT)) != 1) {
+            autoInputInjectionActive_ = false;
+            if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+            error = L"SendInput LEFTDOWN thất bại"; return false;
+        }
+        Sleep(kMouseHoldMs);
+        INPUT up{}; up.type = INPUT_MOUSE; up.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+        if (SendInput(1, &up, sizeof(INPUT)) != 1) {
+            autoInputInjectionActive_ = false;
+            if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+            error = L"SendInput LEFTUP thất bại"; return false;
+        }
+        Sleep(kMouseAfterMs);
+        autoInputInjectionActive_ = false;
+        if (attachedGame) AttachThreadInput(selfTid, a.game.threadId, FALSE);
+        const DWORD clickedAt = GetTickCount();
+        // Deliberately keep game foreground and leave cursor at the click point: temporary mouse-lock mode requested for reliability.
+        return true;
+    }
+
+    bool AcquireCoordinatorSequenceLease(Account& owner, const std::wstring& reason) {
+        if (coordinatorRecording_) return false;
+        if (coordinatorSequenceLease_) return coordinatorSequenceOwnerPid_ == owner.game.pid;
+        if (coordinatorInputBusy_) return false;
+        coordinatorSequenceLease_ = true;
+        coordinatorSequenceOwnerPid_ = owner.game.pid;
+        coordinatorOwnerPid_ = owner.game.pid;
+        SetTradeStatus(L"CLICK LEASE • SEQUENCE → " + AccountTag(owner) + L" • " + reason);
+        LogAccount(owner, L"BĐPT GIỮ CLICK SEQUENCE LEASE đến khi chuỗi click kết thúc • " + reason);
+        return true;
+    }
+
+    void ReleaseCoordinatorSequenceLease(const std::wstring& reason) {
+        if (!coordinatorSequenceLease_) return;
+        Account* owner = AccountByPid(coordinatorSequenceOwnerPid_);
+        if (owner) LogAccount(*owner, L"BĐPT NHẢ CLICK SEQUENCE LEASE • " + reason);
+        coordinatorSequenceLease_ = false;
+        coordinatorSequenceOwnerPid_ = 0;
+        if (!coordinatorInputBusy_) {
+            coordinatorOwnerPid_ = 0;
+        }
+        SetTradeStatus(L"CLICK LEASE RELEASE • " + reason + L" • scheduler tiếp tục");
+    }
+
+    bool CoordinatorClick(Account& target, const POINT& clientPoint, const std::wstring& request, std::wstring& error, bool honorUserMouseGuard = true) {
+        if (coordinatorRecording_) {
+            error = L"BĐPT đang RECORDING thao tác tay; auto click phải chờ DỪNG REC";
+            return false;
+        }
+        if (coordinatorSequenceLease_) {
+            const bool activeTradePairTarget = tradeTxn_.phase == TradePhase::Sequence &&
+                (target.game.pid == tradeTxn_.mainPid || target.game.pid == tradeTxn_.childPid);
+            if (coordinatorSequenceOwnerPid_ != target.game.pid && !activeTradePairTarget) {
+                error = L"BĐPT đang giữ SEQUENCE LEASE cho PID " + std::to_wstring(coordinatorSequenceOwnerPid_) + L"; auto-click acc khác phải chờ lease";
+                return false;
+            }
+            if (coordinatorInputBusy_) {
+                error = L"BĐPT owner đang thực hiện click trước trong SEQUENCE LEASE";
+                return false;
+            }
+            coordinatorInputBusy_ = true;
+            coordinatorOwnerPid_ = target.game.pid;
+            SetTradeStatus(L"CLICK LEASE giữ nguyên → " + AccountTag(target) + L" • " + request);
+            const bool ok = PerformRealInputClickDirect(target, clientPoint, error, honorUserMouseGuard);
+            coordinatorInputBusy_ = false;
+            if (ok) LogAccount(target, L"BĐPT RESULT=OK • vẫn GIỮ CLICK LEASE cho chuỗi");
+            else LogAccount(target, L"BĐPT RESULT=FAIL • vẫn giữ lease đến khi workflow xử lý abort");
+            return ok;
+        }
+        if (coordinatorInputBusy_) {
+            error = L"BĐPT đang cấp quyền chuột cho PID " + std::to_wstring(coordinatorOwnerPid_) + L"; yêu cầu phải chờ";
+            return false;
+        }
+        coordinatorInputBusy_ = true;
+        coordinatorOwnerPid_ = target.game.pid;
+        SetTradeStatus(L"CLICK SERIALIZE • cấp quyền chuột → " + AccountTag(target) + L" • " + request);
+        LogAccount(target, L"BĐPT CẤP QUYỀN CHUỘT • CLICK SERIALIZE • " + request);
+        const bool ok = PerformRealInputClickDirect(target, clientPoint, error, honorUserMouseGuard);
+        if (ok) LogAccount(target, L"BĐPT nhận RESULT=OK • trả quyền chuột");
+        else LogAccount(target, L"BĐPT nhận RESULT=FAIL • " + error + L" • trả quyền chuột");
+        coordinatorOwnerPid_ = 0;
+        coordinatorInputBusy_ = false;
+        if (ok) SetTradeStatus(L"CLICK xong • route/FSM vẫn chạy song song"); else SetTradeStatus(L"CLICK FAIL: " + error);
+        return ok;
+    }
+
+    bool ClickSlotNow(Account& a, ClickSlot slot, const wchar_t* reason, bool verbose = true) {
+        if (a.runtime.running && a.runtime.clientFreezeActive) {
+            if (verbose) LogAccount(a, L"CLICK bị chặn: client/map đang FREEZE");
+            return false;
+        }
+        const int index = static_cast<int>(slot);
+        if (index < 0 || index >= 6) return false;
+        POINT point{};
+        std::wstring error;
+        if (!ScaleClickPoint(a.game, a.profile.points[static_cast<std::size_t>(index)], point, error)) {
+            if (verbose) LogAccount(a, L"CLICK " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) + L" FAIL: " + error);
+            return false;
+        }
+        if (!CoordinatorClick(a, point, reason && *reason ? std::wstring(reason) : L"CLICK SLOT", error, false)) {
+            if (verbose) LogAccount(a, L"REAL CLICK " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) + L" FAIL: " + error);
+            return false;
+        }
+        if (verbose) {
+            std::wstring line = L"REAL CLICK " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
+                                L" -> " + std::to_wstring(point.x) + L"," + std::to_wstring(point.y);
+            if (reason && *reason) line += L" • giữ chuột 140ms • KHÔNG restore";
+            LogAccount(a, line);
+        }
+        return true;
+    }
+
+    bool QueuePriorityAutoClick(Account& a, ClickSlot slot, const std::wstring& reason) {
+        RuntimeState& rt = a.runtime;
+        if (slot != ClickSlot::AutoMenu && slot != ClickSlot::Attack && slot != ClickSlot::StopAuto2) return false;
+        if (!rt.running || rt.clientFreezeActive || !a.snapshotValid || !IsWindow(a.game.window)) return false;
+        if (rt.priorityAutoCompletedSlot != ClickSlot::None && rt.priorityAutoCompletedSlot != slot) {
+            LogAccount(a, L"PRIORITY #3 AUTO: bỏ result cũ " + std::wstring(kClickLabels[static_cast<std::size_t>(rt.priorityAutoCompletedSlot)]) + L" do workflow đã đổi pha.");
+            rt.priorityAutoCompletedSlot = ClickSlot::None;
+            rt.priorityAutoCompletedOk = false;
+            rt.priorityAutoCompletedTick = 0;
+        }
+        if (rt.priorityAutoRequestSlot == slot) return true;
+        if (rt.priorityAutoRequestSlot != ClickSlot::None || rt.priorityAutoCompletedSlot != ClickSlot::None) return false;
+        rt.priorityAutoRequestSlot = slot;
+        rt.priorityAutoReason = reason;
+        rt.status = L"PRIORITY #3 AUTO NỘI BỘ • đã xếp hàng " +
+                    std::wstring(kClickLabels[static_cast<std::size_t>(slot)]);
+        return true;
+    }
+
+    bool ConsumePriorityAutoResult(Account& a, ClickSlot slot, bool& ok, DWORD& clickedAt) {
+        RuntimeState& rt = a.runtime;
+        if (rt.priorityAutoCompletedSlot != slot) return false;
+        ok = rt.priorityAutoCompletedOk;
+        clickedAt = rt.priorityAutoCompletedTick;
+        rt.priorityAutoCompletedSlot = ClickSlot::None;
+        rt.priorityAutoCompletedOk = false;
+        rt.priorityAutoCompletedTick = 0;
+        return true;
+    }
+
+    bool PriorityAutoClick(Account& a) {
+        RuntimeState& rt = a.runtime;
+        const ClickSlot slot = rt.priorityAutoRequestSlot;
+        if (slot == ClickSlot::None) return false;
+        if (!rt.running || rt.clientFreezeActive || !a.snapshotValid || !IsWindow(a.game.window)) return false;
+        const Snapshot& s = a.snapshot;
+        if (!s.mapReady || s.waitingChangeMap || ((s.validMask & ValidLifeState) && s.dead)) return false;
+
+        const int index = static_cast<int>(slot);
+        std::wstring error;
+        if (index < 0 || index >= static_cast<int>(a.profile.points.size())) {
+            rt.priorityAutoRequestSlot = ClickSlot::None;
+            rt.priorityAutoCompletedSlot = slot;
+            rt.priorityAutoCompletedOk = false;
+            rt.priorityAutoCompletedTick = GetTickCount();
+            LogAccount(a, L"PRIORITY #3 AUTO FAIL: slot không hợp lệ");
+            return false;
+        }
+
+        const Command command = slot == ClickSlot::StopAuto2
+            ? Command::StopAutoFight : Command::StartAutoFight;
+        Response response{};
+        const bool ok = a.bridge.Call(command, 0, 0, 0, response, error, 2200);
+        const DWORD clickedAt = GetTickCount();
+        rt.priorityAutoRequestSlot = ClickSlot::None;
+        rt.priorityAutoCompletedSlot = slot;
+        rt.priorityAutoCompletedOk = ok;
+        rt.priorityAutoCompletedTick = clickedAt;
+        if (ok) {
+            LogAccount(a, L"PRIORITY #3 AUTO NỘI BỘ PASS: " +
+                          std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
+                          L" • gọi TopIcon Lua action • KHÔNG foreground/SetCursorPos/SendInput.");
         } else {
             if (BridgeLooksUnresponsive(error)) EnterClientFreeze(a, L"Bridge timeout khi gọi AUTO nội bộ", clickedAt);
             LogAccount(a, L"PRIORITY #3 AUTO NỘI BỘ FAIL: " + error);
