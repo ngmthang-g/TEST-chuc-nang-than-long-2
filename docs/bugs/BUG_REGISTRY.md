@@ -1,8 +1,29 @@
 # BUG REGISTRY
 
-## BUG-003 — v0.6.1.1 geometry resolver assumes one Unity assembly
+## BUG-004 — v0.6.1.2 assumes the bag cell is a UIButton/UIRect callback object
 
 - Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: High
+- First observed: v0.6.1.2, user runtime 2026-08-20
+- Related feature: Auto Sell fixed item-cell action only
+- Evidence: EVID-006, EVID-007
+
+### Runtime evidence
+
+`BÁN NỀN FAIL callback item: Không có UIButton/UIRect callback tại tọa độ đã gán • geometry=149 • dừng fail-closed`
+
+The resolver and geometry enumeration succeeded for 149 controls. The active v0.6.1.2 selection model failed because the bag-grid cell is not represented by one of the enumerated custom `UIButton/UIRect` callback objects under that point.
+
+### Fix in v0.6.1.3
+
+- Keep the same manually assigned coordinate.
+- Replace only the active item-cell hit-test/callback with the client's own EventSystem point dispatcher: `TryClickUI(0, point)` followed by `EndUIDrag(point)`.
+- Verify the dispatch lifecycle with `_uiDragging`; cancel only a drag started by this action if release fails.
+- Preserve row 5, 90/adaptive count, delays, close UI, F4 and all other workflows.
+
+## BUG-003 — v0.6.1.1 geometry resolver assumes one Unity assembly
+
+- Status: FIXED / RUNTIME PASS FOR THE RESOLVER GATE
 - Severity: High
 - First observed: v0.6.1.1, user runtime 2026-08-20
 - Related feature: Auto Sell fixed item-cell hit-test only
@@ -24,6 +45,10 @@ CONFIRMED: v0.6.1.1 resolves all five classes only from `UnityEngine.CoreModule`
 - Resolve each class through an explicit ordered fallback.
 - Report the exact missing class list and assembly availability.
 - Preserve row 5, 90/adaptive count and every non-resolver action.
+
+### Runtime result
+
+The later v0.6.1.2 log reached `geometry=149`, proving this class/assembly resolver gate passed. The sale still failed for the separate BUG-004 control-ownership assumption.
 
 ## BUG-002 — v0.6.1 item-cell auto-enumeration does not complete the bag sale
 

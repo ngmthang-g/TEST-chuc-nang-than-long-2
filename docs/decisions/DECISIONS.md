@@ -1,9 +1,28 @@
 # DECISION REGISTRY
 
+## DEC-004 — Use the exact client EventSystem point dispatcher for Step 5
+
+- Date/version: 2026-08-20 / v0.6.1.3
+- Status: ACTIVE
+- Decision: dispatch one fixed-cell left click as `InputSyncManager.TryClickUI(0, point)` followed by `EndUIDrag(point)` on the existing game window thread.
+
+### Why
+
+Runtime proves 149 custom UI controls expose geometry but none owns the bag-cell point. Exact client metadata and native call sites instead prove that `InputSyncManager` already maps a screen point through Unity EventSystem and performs separate press/release phases.
+
+### Constraints
+
+- Resolve by class/method/field metadata; do not hardcode native RVAs.
+- Never call `TryClickUI` without the matching `EndUIDrag` for a successful press.
+- Do not overlap an existing InputSync drag.
+- Cancel only cleanup state created by this action when release fails.
+- Keep the coordinate, row 5, 90/adaptive count and fresh `FreeBagSpace` proof.
+- Do not change F4 or any non-item sell stage.
+
 ## DEC-003 — Resolve Unity geometry per class across assembly layouts
 
 - Date/version: 2026-08-20 / v0.6.1.2
-- Status: ACTIVE
+- Status: RETAINED FOR DIAGNOSTICS / SUPERSEDED FOR ACTIVE ITEM-CELL DISPATCH BY DEC-004
 - Decision: search CoreModule, UIModule and legacy UnityEngine.dll with an explicit class-specific order.
 
 ### Why
@@ -20,7 +39,7 @@ Runtime proves CoreModule exists but the v0.6.1.1 all-in-one class gate fails. `
 ## DEC-002 — Scoped fixed-slot internal callback for v0.6.1.1
 
 - Date/version: 2026-08-20 / v0.6.1.1
-- Status: ACTIVE FOR THIS HOTFIX
+- Status: SUPERSEDED BY DEC-004
 - Decision: keep semantic shop stages, but let one captured coordinate select the current live item-cell callback at every Step 5 tick.
 
 ### Why this exception exists

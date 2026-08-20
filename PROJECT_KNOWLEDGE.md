@@ -1,4 +1,4 @@
-# PROJECT KNOWLEDGE — v0.6.1.2 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.3 CURRENT
 
 ## Quy tắc dự án
 
@@ -17,10 +17,12 @@
 - v0.6.1.1: Windows MSVC x64 CI run 295 **BUILD PASS**, gồm scope audit và đủ năm nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL trên client thật.
 - User test v0.6.1.1 xác nhận item stage fail `6/6` với chi tiết `Thiếu RectTransform/Utility/Screen để hit-test ô cố định`. Đây là BUG-003: resolver ép năm class vào riêng CoreModule; lỗi xảy ra trước hit-test/callback nên không liên quan dòng 5.
 - v0.6.1.2: Windows MSVC x64 CI run 302 **BUILD PASS**, gồm scope audit và đủ sáu nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL.
+- User test v0.6.1.2 trả `Không có UIButton/UIRect callback ... geometry=149`. Resolver BUG-003 đã qua runtime, nhưng mô hình “ô túi là custom callback control” sai; đây là BUG-004.
+- v0.6.1.3 thay duy nhất active item action bằng cặp `InputSyncManager.TryClickUI(0, point) → EndUIDrag(point)` đã được xác minh từ đúng client-data. Build và live runtime đang chờ kiểm tra.
 
-## Kiến trúc action v0.6.1.2
+## Kiến trúc action v0.6.1.3
 
-Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010612` từ chối ghép EXE/DLL khác version.
+Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010613` từ chối ghép EXE/DLL khác version.
 
 Không có `CreateRemoteThread` trong controller/Bridge. Một mapping chỉ có một request in-flight; timeout không được ghi đè.
 
@@ -31,7 +33,7 @@ Resolver UI chia hai tầng:
 
 Executor được thử namespace ứng viên rồi quét toàn bộ class của Assembly-CSharp theo simple name; chỉ nhận class có `get_Instance()` và `ExecuteScriptFunction(3)`.
 
-Geometry resolver mở ba layout Unity: `UnityEngine.CoreModule`, `UnityEngine.UIModule` và monolithic `UnityEngine.dll`. Mỗi class có search order riêng; `RectTransformUtility` ưu tiên UIModule. Lỗi ghi danh sách class thiếu và trạng thái từng assembly.
+Geometry resolver cũ vẫn được giữ để bảo toàn/chẩn đoán, nhưng không còn là active item-cell dispatcher.
 
 ## Ưu tiên toàn cục
 
@@ -45,9 +47,9 @@ Ba action không dùng mouse guard vì không tạo mouse input. Mouse guard v�
 
 - Quyết định khi nào bán, đi NPC, quay bãi, retry hai pass và ngưỡng MAIN/CON giữ từ v0.5.
 - Bridge vẫn nhận dạng các semantic stage qua `Trang bị`; controller delay giữa các stage để không block game thread.
-- Riêng item stage dùng tọa độ dòng 5 (hoặc dòng cuối/duy nhất) để hit-test control live rồi gọi một callback nội bộ mỗi tick.
+- Riêng item stage dùng tọa độ dòng 5 (hoặc dòng cuối/duy nhất), đổi sang tọa độ Unity và gọi một click trái hoàn chỉnh qua `InputSyncManager`: press `TryClickUI`, xác minh `_uiDragging`, release `EndUIDrag`.
 - Vòng đầu 90 callback; sau sale hoàn tất, `FreeBagSpace` ổn định được lưu vào `sellStep5LearnedRepeat` cho vòng sau, cap 90.
-- Không cache control/RectTransform giữa hai click; không tạo physical mouse input.
+- Không dò/cache custom control tại điểm item; không tạo physical mouse input.
 - Completion vẫn chỉ được kết luận sau `FreeBagSpace > 0` ổn định 1,5 giây.
 
 ## Logic được bảo vệ
@@ -59,14 +61,14 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - Mã Kiêu Minh ID 373 là donor đã chứng minh. Dược Đại Phu ID 279 có thể dùng cây shop khác.
 - UI scorer phụ thuộc metadata/text của đúng client.
 - Game minimized có thể tự dừng update dù action không chiếm chuột.
-- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.2.
-- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. Knowledge base client khuyến nghị bước sau phải proof `System.Action -> MainThread.Execute` bất đồng bộ trước khi coi đây là boundary production ổn định; v0.6.1.2 vẫn không mở rộng sang thay kiến trúc đó khi chưa có CTS live proof.
+- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.3.
+- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. v0.6.1.3 không mở rộng kiến trúc ngoài item action; client-data chỉ được dùng để xác minh đúng dispatcher và cặp down/up.
 
 ## Test tiếp theo bắt buộc
 
-1. Dùng đúng cặp EXE/DLL v0.6.1.2.
+1. Dùng đúng cặp EXE/DLL v0.6.1.3.
 2. Test XN Lâu Lan trước. Nếu fail, log mới phải nêu `UIObject`, `instances`, control type hoặc candidate ambiguity cụ thể.
-3. Mở tab Trang bị, lấy dòng item F8 tại tâm ô trang bị thứ 2; chạy một PID và ghi log callback `1/90` tới `90/90`.
+3. Mở tab Trang bị, lấy dòng item F8 tại tâm ô trang bị thứ 2; chạy một PID và ghi log `InputSync click nội bộ ô cố định 1/90` tới `90/90`.
 4. Xác nhận chuột/foreground không đổi, UI đóng, `FreeBagSpace` ổn định và log lần sau dùng learned count.
 5. Test AUTO start/stop riêng; sell pass không tự động chứng minh AUTO pass.
 6. Chưa bật hàng loạt account trước khi một PID qua đủ các bước trên.
@@ -80,3 +82,4 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - `docs/history/VERSION_v0.6.1.md`.
 - `docs/history/VERSION_v0.6.1.1.md`.
 - `docs/history/VERSION_v0.6.1.2.md`.
+- `docs/history/VERSION_v0.6.1.3.md`.

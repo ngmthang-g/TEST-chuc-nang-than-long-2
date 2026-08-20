@@ -1,10 +1,15 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Thần Long Tool Logic Table v0.6.1.2</title>
+<title>Thần Long Tool Logic Table v0.6.1.3</title>
 <style>
 body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:#172033}h1,h2{margin:.3em 0}.box{background:white;border:1px solid #dce2eb;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 8px #0000000a}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9eef8;margin-right:6px;font-weight:600}table{border-collapse:collapse;width:100%;background:white;font-size:14px}th,td{border:1px solid #d7dde8;padding:9px;vertical-align:top}th{background:#edf2f8;position:sticky;top:0}tr:nth-child(even){background:#fafbfd}.new{font-weight:700;background:#f1f7ff!important}.removed{text-decoration:line-through;color:#7a4650}.mono{font-family:Consolas,monospace}ul{line-height:1.55}.ok{font-weight:700}</style></head><body>
-<h1>Thần Long Item Consolidator — Bảng logic v0.6.1.2</h1>
-<div class="box"><span class="tag">Version v0.6.1.2</span><span class="tag">Base trực tiếp: v0.6.1.1</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<h1>Thần Long Item Consolidator — Bảng logic v0.6.1.3</h1>
+<div class="box"><span class="tag">Version v0.6.1.3</span><span class="tag">Base trực tiếp: v0.6.1.2</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Client-data: InputSyncManager</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<div class="box"><h2>Hotfix duy nhất v0.6.1.3</h2><ul>
+<li><b>Bằng chứng:</b> v0.6.1.2 resolve được 149 geometry nhưng không có custom UIButton/UIRect callback tại điểm item.</li>
+<li><b>Sửa:</b> dùng đúng input UI của client: <span class="mono">TryClickUI(0, point)</span> để nhấn rồi <span class="mono">EndUIDrag(point)</span> để nhả/click; kiểm tra và dọn <span class="mono">_uiDragging</span> fail-closed.</li>
+<li><b>Giữ nguyên:</b> tọa độ tự gán, dòng 5, 90 lần đầu, learned FreeBagSpace lần sau, delay, đóng UI, F4 và mọi chức năng khác.</li>
+</ul></div>
 <div class="box"><h2>Hotfix duy nhất v0.6.1.2</h2><ul>
 <li><b>Bằng chứng:</b> item callback fail trước hit-test vì resolver ép RectTransform/Transform/GameObject/RectTransformUtility/Screen vào riêng CoreModule.</li>
 <li><b>Sửa:</b> resolve từng class qua CoreModule, UIModule và UnityEngine.dll; log chính xác class thiếu và assembly hiện có.</li>
@@ -33,6 +38,7 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <table><thead><tr><th>Nhóm/Priority</th><th>Logic</th><th>Trigger</th><th>Hành vi hiện tại</th><th>Tương tác/xung đột</th><th>Trạng thái</th><th>Version</th></tr></thead><tbody>
 <tr class="new"><td>Bridge resolver</td><td>Capability-lazy UI</td><td>Mọi action semantic UI</td><td>Discovery cơ bản tách khỏi Lua/Executor; lỗi nêu đúng component; báo capability B/T/R</td><td>XN/Sell Button không bị một dependency Rect/Lua kéo sập; AUTO vẫn cần Executor</td><td>HOTFIX</td><td>v0.6.1</td></tr>
 <tr class="new"><td>Bridge geometry</td><td>Multi-assembly class resolver</td><td>Fixed item hit-test</td><td>RectTransformUtility ưu tiên UIModule; core class ưu tiên CoreModule; tất cả fallback UnityEngine.dll</td><td>Fail-closed và nêu đúng class thiếu</td><td>HOTFIX</td><td>v0.6.1.2</td></tr>
+<tr class="new"><td>Bridge item input</td><td>InputSyncManager point click</td><td>Mỗi tick item tay nải</td><td>Nhấn trái TryClickUI → xác minh raycast/drag → nhả EndUIDrag; lỗi nhả thì hủy drag do lượt đó tạo</td><td>Không dò UIButton/UIRect tại điểm; không foreground/chuột Windows</td><td>HOTFIX ACTIVE</td><td>v0.6.1.3</td></tr>
 <tr class="new"><td>P1</td><td>XN cổng Lâu Lan</td><td>M5 + tool-owned cross-map route đã tiến + AutoPath hiện ON + đứng ≥3s</td><td>Tìm candidate duy nhất trong MessageBox rồi gọi callback nội bộ</td><td>Không foreground, không mouse guard, vẫn đợi map transition để verify</td><td>THAY INPUT</td><td>v0.6</td></tr>
 <tr class="new"><td>P2</td><td>ĐẦU THAI</td><td>Acc chết + đủ điều kiện revive, kể cả đang World Flow HOLD</td><td>Bridge check lại IsDeath rồi gọi UIButton.HandleClickEvent</td><td>Giữ FIFO/HOLD tới ALIVE; không mượn click lease</td><td>THAY INPUT</td><td>v0.6</td></tr>
 <tr class="new"><td>P3</td><td>AUTO nội bộ</td><td>Có request ĐÁNH QUÁI/DỪNG AUTO</td><td>TopIcon.AutoTrainClick/AutoStopClick; snapshot verify ON/OFF</td><td>Dưới P1/P2; không mở popup AUTO</td><td>THAY INPUT</td><td>v0.6</td></tr>
@@ -53,7 +59,7 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <tr><td>Train</td><td>Check AutoFight 1 phút</td><td>Train ổn định</td><td>OFF thì xếp P3 Đánh quái</td><td>Không đổi trigger</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Train</td><td>Check tọa 3 phút</td><td>Train ổn định</td><td>Lệch → Train Recovery</td><td>Không đổi trigger</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Sell</td><td>Auto Sell master/threshold</td><td>Checkbox + bag threshold</td><td>Trigger bán theo mode/role hiện có</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
-<tr class="new"><td>Sell</td><td>Semantic shop + fixed item callback</td><td>Đang ở phase bán tại NPC</td><td>ClickNPC → shop → sell tab → quick sell → equipment giữ semantic; item dùng hit-test tọa độ → callback → close</td><td>Mỗi nhịp một action; workflow GD chờ logic nhưng chuột rảnh</td><td>HOTFIX ITEM</td><td>v0.6.1.1</td></tr>
+<tr class="new"><td>Sell</td><td>Semantic shop + fixed item callback</td><td>Đang ở phase bán tại NPC</td><td>ClickNPC → shop → sell tab → quick sell → equipment giữ semantic; item dùng InputSync point press/release → close</td><td>Mỗi nhịp một action; workflow GD chờ logic nhưng chuột rảnh</td><td>HOTFIX ITEM</td><td>v0.6.1.3</td></tr>
 <tr class="new"><td>Sell</td><td>Adaptive Sell Step 5</td><td>Tới item stage</td><td>Dòng 5 nếu profile ≥5 dòng, nếu không dùng dòng cuối; 90 lần đầu, lần sau dùng FreeBagSpace đã học cap 90</td><td>Chỉ tọa độ/delay active; không chạy lại 4 click mở shop legacy</td><td>KHÔI PHỤC NỘI BỘ</td><td>v0.6.1.1</td></tr>
 <tr><td>Sell</td><td>Xác nhận bán xong</td><td>FreeBagSpace &gt;0 ổn định 1.5s</td><td>Kết thúc bán và quay bãi</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Trade</td><td>Hàng đợi CON</td><td>CON full khi dồn đồ</td><td>Tối đa 3 CON chờ; FIFO workflow ticket</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
@@ -69,5 +75,5 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <tr class="removed"><td>ĐÃ LOẠI</td><td>XN ra Map mỗi N giây</td><td>Timer interval</td><td>Không còn runtime, UI interval, config field hay scheduler pass</td><td>Được thay bởi M5 stall watchdog</td><td>LOẠI HOÀN TOÀN</td><td>v0.4</td></tr>
 <tr class="removed"><td>ĐÃ LOẠI</td><td>Background XN PostMessage</td><td>M5 stall watchdog v0.4</td><td>Không còn trong active controller/verifier/docs hiện tại; P1 dùng real foreground mouse click</td><td>Historical v0.4 archive chỉ để truy vết</td><td>LOẠI HOÀN TOÀN</td><td>v0.5</td></tr>
 </tbody></table>
-<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime v0.6.1.2:</b> geometry resolver mới chưa được runtime-pass. XN, revive, AUTO và auto-sell vẫn dùng callback nội bộ; chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
+<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime:</b> v0.6.1.2 đã runtime-pass resolver nhưng fail active item callback tại geometry=149. v0.6.1.3 đang RUNTIME UNTESTED; chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
 </body></html>
