@@ -8,3 +8,4 @@
 - v0.6.1 is a direct hotfix on v0.6 using user runtime evidence EVID-001. It does not import new donor code or alter v0.5 business-state logic.
 - The donor established the Executor's native action surface/RVA, not the managed namespace assumed by v0.6. v0.6.1 therefore uses validated metadata discovery and records uncertainty explicitly.
 - GitHub Actions Windows x64 plus `tools/verify_v061_logic.py` and all self-tests are the build acceptance gate. Only user live-client evidence may promote runtime status.
+- The checked-in v0.6.1 ZIP is the unmodified artifact from source commit `3cfa9347`, CI run `32388213200`, artifact `9413784891`; its GitHub digest and extracted binary hashes were independently rechecked before packaging.

@@ -16,6 +16,7 @@ workflow = read(".github/workflows/build.yml")
 scoring = read("src/background_ui_logic.h")
 knowledge = read("PROJECT_KNOWLEDGE.md")
 changelog = read("CHANGELOG.md")
+readme = read("README.md")
 
 assert version == "v0.6.1"
 assert "Thần Long Item Consolidator v0.6.1" in controller
@@ -112,5 +113,14 @@ assert "v0.6: **RUNTIME FAIL**" in knowledge
 assert "v0.6.1:" in knowledge and "**BUILD PASS**" in knowledge
 assert "**RUNTIME UNTESTED**" in knowledge
 assert "UNKNOWN" in changelog and "LIKELY" in changelog
+
+# Release package is traceable to the exact CI-produced source artifact. Runtime status
+# must remain untested until live-client evidence arrives.
+release_zip = ROOT / "release/ThanLongItemConsolidator-v0.6.1-win-x64.zip"
+release_hashes = read("release/SHA256SUMS_v0.6.1.txt")
+assert release_zip.is_file()
+assert "ThanLongItemConsolidator-v0.6.1-win-x64.zip" in readme
+assert "862b3690bb37d186462fbb3ea1d96308ed4e092d60f0d08586675c5441114949" in release_hashes
+assert "Runtime status: RUNTIME UNTESTED" in release_hashes
 
 print("v0.6.1 capability-lazy UI resolver audit PASS")

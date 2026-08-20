@@ -2,13 +2,15 @@
 
 Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor để nghiên cứu cơ chế callback UI nội bộ; không ghép nguyên remote worker của donor.
 
-## Trạng thái bản Windows x64
+## Tải bản Windows x64
 
 - v0.6.1 là hotfix cho lỗi runtime `Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor` do người dùng ghi nhận ở XN Lâu Lan và chuỗi bán nền.
+- [ThanLongItemConsolidator-v0.6.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1-win-x64.zip)
+- Hash EXE/DLL/ZIP và nguồn CI: [release/SHA256SUMS_v0.6.1.txt](release/SHA256SUMS_v0.6.1.txt).
 - v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
 - Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1 cố ý từ chối DLL cũ.
 
-CI/build không thay thế test thực chiến trên đúng client game; hãy thử từng action bằng nút `TEST` trước khi bật chu trình nhiều tài khoản.
+Gói v0.6.1 lấy nguyên từ Windows CI run 276: MSVC x64 build và toàn bộ self-test PASS. CI/build không thay thế test thực chiến trên đúng client game; hãy thử từng action bằng nút `TEST` trước khi bật chu trình nhiều tài khoản.
 
 ## Sửa lỗi resolver v0.6.1
 

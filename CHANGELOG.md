@@ -28,6 +28,7 @@
 ### Build / runtime
 - Local capability audit and all four pure logic self-test groups: PASS.
 - Windows MSVC x64 CI run 274 (`32387856270`) on source commit `e90e08c`: PASS, including artifact staging.
+- Release ZIP is the verified artifact from CI run 276 (`32388213200`), source commit `3cfa9347`, artifact `9413784891`; ZIP/EXE/DLL hashes are recorded in `release/SHA256SUMS_v0.6.1.txt`.
 - Runtime: **RUNTIME UNTESTED** until the user retests with the v0.6.1 EXE/DLL pair.
 
 ### Next version notes

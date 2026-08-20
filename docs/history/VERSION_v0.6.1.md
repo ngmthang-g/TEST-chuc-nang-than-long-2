@@ -41,7 +41,8 @@ No controller FSM, route gate, death timing, sell phase, trade macro, F4/F8 or p
 
 - Initial local capability audit and pure logic self-tests: PASS.
 - Windows MSVC x64 CI run 274 (`32387856270`), source commit `e90e08c`: PASS.
-- First source artifact `9413662253`: ZIP digest and both PE32+ x86-64 binaries verified locally; release packaging follows in a separate traceable commit.
+- Release artifact: CI run 276 (`32388213200`), source commit `3cfa9347`, artifact `9413784891`.
+- ZIP digest matches GitHub; EXE and DLL both inspect as PE32+ x86-64. Exact hashes are in `release/SHA256SUMS_v0.6.1.txt`.
 
 ## H. Runtime result
 
