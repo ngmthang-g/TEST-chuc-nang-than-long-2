@@ -45,6 +45,13 @@ int main() {
     assert(ShouldAutoSell(true, 0, true, 0, 6));
     assert(!ShouldAutoSell(true, 0, false, 0, 6));
 
+    assert(!HasVerifiedSellCompletion(0, 1, 0, true));
+    assert(!HasVerifiedSellCompletion(0, 1, 1, false));
+    assert(!HasVerifiedSellCompletion(0, 0, 1, true));
+    assert(!HasVerifiedSellCompletion(-1, 10, 10, true));
+    assert(HasVerifiedSellCompletion(0, 1, 1, true));
+    assert(HasVerifiedSellCompletion(6, 12, 6, true));
+
     // Runtime sequence validation helper used by TradeSequenceReady().
     std::vector<MockStep> noTransfer{{0, 0}, {0, 1}};
     std::vector<MockStep> mainTransferOnly{{1, 1}};

@@ -42,6 +42,12 @@ inline bool ShouldAutoSell(bool consolidationEnabled, int tradeRole, bool enable
     return freeBagSpace <= 0;
 }
 
+inline bool HasVerifiedSellCompletion(int initialFreeBagSpace, int currentFreeBagSpace,
+                                      int verifiedSold, bool exhausted) {
+    return initialFreeBagSpace >= 0 && currentFreeBagSpace > initialFreeBagSpace &&
+           verifiedSold > 0 && exhausted;
+}
+
 template <typename Sequence>
 inline bool HasChildTransferStep(const Sequence& sequence) {
     for (const auto& step : sequence) {

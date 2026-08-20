@@ -1,49 +1,41 @@
-# Thần Long Item Consolidator v0.6.1
+# Thần Long Item Consolidator v0.6.2
 
-Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor để nghiên cứu cơ chế callback UI nội bộ; không ghép nguyên remote worker của donor.
+Nền phát triển trực tiếp là source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor nghiên cứu callback nội bộ; không ghép nguyên remote worker của donor.
 
 ## Tải bản Windows x64
 
-- v0.6.1 là hotfix cho lỗi runtime `Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor` do người dùng ghi nhận ở XN Lâu Lan và chuỗi bán nền.
-- [ThanLongItemConsolidator-v0.6.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1-win-x64.zip)
-- Hash EXE/DLL/ZIP và nguồn CI: [release/SHA256SUMS_v0.6.1.txt](release/SHA256SUMS_v0.6.1.txt).
-- v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
-- Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1 cố ý từ chối DLL cũ.
+- [ThanLongItemConsolidator-v0.6.2-win-x64.zip](release/ThanLongItemConsolidator-v0.6.2-win-x64.zip)
+- Hash EXE/DLL/ZIP và nguồn CI: [release/SHA256SUMS_v0.6.2.txt](release/SHA256SUMS_v0.6.2.txt).
+- Giữ `ThanLongItemConsolidator_v0.6.2.exe` và `ThanLongCleanRouteBridge.dll` cùng thư mục. Protocol `0x00010602` cố ý từ chối DLL khác version.
+- Các ZIP v0.6/v0.6.1 vẫn được giữ trong `release/` để truy vết, không phải bản nên test tiếp.
 
-Gói v0.6.1 lấy nguyên từ Windows CI run 276: MSVC x64 build và toàn bộ self-test PASS. CI/build không thay thế test thực chiến trên đúng client game; hãy thử từng action bằng nút `TEST` trước khi bật chu trình nhiều tài khoản.
+## Bằng chứng runtime dẫn tới v0.6.2
 
-## Sửa lỗi resolver v0.6.1
+Trên đúng client của người dùng, v0.6.1 đã chứng minh:
 
-- Basic discovery chỉ cần `UIObject.instances` và ít nhất một control class. `UIButton`/`UIToggle` không còn bị chặn vì thiếu Lua Executor.
-- Namespace cũ vẫn là đường nhanh; nếu client đặt lớp ở namespace khác, Bridge quét metadata có giới hạn và chỉ nhận UIObject/Button/Toggle/Rect có đúng field/method cần dùng.
-- `UIRectTransform` mới tải `MonoBehaviourExecutor` khi chính nó được chọn.
-- AUTO Lua mới tải thêm `LuaSystemAPI_GUI`, `System.Object` và Executor.
-- Executor được thử nhiều namespace, sau đó quét metadata theo tên lớp và bắt buộc có đúng `get_Instance()` + `ExecuteScriptFunction(3)`.
-- Nếu vẫn lỗi, log trả chính xác component thiếu thay vì gộp bảy dependency thành một câu.
+- `Đầu thai`: **RUNTIME PASS**; Bridge kiểm tra `IsDeath` rồi gọi callback, chuỗi acc khác không mất index/repeat.
+- `Xác nhận ra map`: **RUNTIME PASS**; watchdog gọi callback MessageBox, không foreground/chuột, sau đó client chuyển map.
+- `AUTO`: **RUNTIME FAIL** ở lookup `TopIcon` (`Không tìm thấy Lua UI theo tên`).
+- Bán nền: các stage `ClickNPC → shop → Bán vật phẩm → Bán nhanh → Trang bị` và đóng UI chạy được, nhưng chọn item không ổn định. Logic cũ còn có thể coi một ô vừa trống là bán xong rồi quay bãi.
+- F4: người dùng báo không phản hồi dù phần `ToggleGlobalPause` trong source v0.6.1 vẫn giống v0.5; điểm hỏng cụ thể của `RegisterHotKey`/message delivery chưa được log cũ chứng minh.
 
-## Thay đổi chính
+## Sửa trong v0.6.2
 
-- `Xác nhận ra map`: vẫn giữ nguyên điều kiện watchdog Lâu Lan của v0.5, nhưng Bridge tìm nút đồng ý duy nhất bên trong `MessageBox` rồi gọi callback nội bộ. Không foreground cửa sổ, không di chuyển chuột.
-- `Đầu thai`: Bridge đọc lại `IsDeath=true`, tìm đúng control `Đầu thai` và gọi `UIButton.HandleClickEvent()`.
-- `AUTO → Đánh quái`: gọi trực tiếp Lua action `TopIcon.AutoTrainClick`; `Dừng AUTO` gọi `TopIcon.AutoStopClick`. Controller vẫn xác minh kết quả bằng snapshot AutoFight authoritative.
-- `Tự bán đồ`: bỏ macro tọa độ khỏi active auto-sell. Chuỗi mới tiến từng action nội bộ: `ClickNPC` → shop → Bán vật phẩm → Bán nhanh → Trang bị → từng item an toàn → đóng UI. Mỗi item được xác minh bằng `GetFreeBagSpace`; lỗi 3 lần thì bỏ qua, tối đa 90 callback.
-- Chuỗi giao dịch MAIN/CON vẫn dùng tọa độ và chuột thật. Đây là phần ngoài phạm vi thay đổi v0.6.1.
+- AUTO vẫn thử đúng Lua `TopIcon.AutoTrainClick/AutoStopClick` trước. Nếu `FindUI/MainFindUI` trả null, Bridge tìm `TopIcon` trong `UIObject.instances`. Nếu vẫn không có, controller chạy hai nhịp không block: callback `AUTO` root → đợi 650 ms → resolve mới và callback `Đánh quái` hoặc `Dừng`. Snapshot AutoFight vẫn là bằng chứng ON/OFF cuối cùng.
+- F4 giữ nguyên thân hàm pause/resume của v0.5 và `RegisterHotKey`; bổ sung edge polling `GetAsyncKeyState(VK_F4)` có latch để cứu trường hợp đăng ký/message bị mất mà không toggle hai lần.
+- Item bán được xếp theo control có handler item thật và thứ tự ô tự nhiên, thay vì địa chỉ pointer ngẫu nhiên.
+- Chạm giới hạn 90 callback không còn đồng nghĩa “hết item”. Không bán xác minh được món nào cũng là lỗi riêng; hai trường hợp đều giữ UI và dừng fail-closed.
+- Một ô trống không còn đủ để tự quay bãi. Chỉ kết thúc khi Bridge đã xác minh có item rời túi, đã cạn candidate hiện hành và `FreeBagSpace` tăng ổn định so với đầu phiên.
+- XN, Đầu thai, route ownership, Travel Guard, trade/FIFO/rotation và các logic v0.5 ngoài phạm vi được giữ nguyên.
 
-## Kiến trúc tích hợp
+## Kiến trúc và giới hạn
 
-v0.6.1 tiếp tục dùng Bridge DLL `WH_GETMESSAGE` vốn có của v0.5. Mỗi request chạy trên đúng message thread của cửa sổ game; controller không được ghi đè request đang bận. Không thêm `CreateRemoteThread` hoặc worker IL2CPP thứ hai.
+Bridge tiếp tục dùng `WH_GETMESSAGE` vốn có của v0.5; mỗi request chạy trên đúng window message thread, một request in-flight cho mỗi PID. Không thêm `CreateRemoteThread`, không fallback sang tọa độ cho XN/Đầu thai/AUTO/bán nền. Chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.
 
-Các điểm click XN/Đầu thai/AUTO cũ vẫn được đọc và lưu để tương thích file cấu hình, nhưng active runtime v0.6.1 không dùng chúng. Nút `TEST` tương ứng gọi action nội bộ; `LEGACY F8` chỉ giữ khả năng truy vết cấu hình cũ. Macro bán cũ cũng chỉ còn ở editor/INI, không điều khiển auto-sell.
+Build/CI chỉ chứng minh source biên dịch và self-test pass. v0.6.2 phải được test thực chiến từng action trên một PID trước khi bật nhiều account. Đặc biệt, đường bán hiện vẫn dựa vào callback control UI + `FreeBagSpace`; bước nâng cấp chuẩn sau là quét item instance và gửi từng sell request có shop state, không phải khôi phục click mù 90 ô.
 
 ## Build và kiểm tra
 
-Workflow Windows x64 chạy:
+Windows workflow chạy `tools/verify_v062_logic.py`, MSVC x64 build, route/rotation/trade tests và background UI scoring tests. Artifact có tên `ThanLongItemConsolidator-v0.6.2-win-x64`.
 
-1. `tools/verify_v061_logic.py`.
-2. Build controller + Bridge bằng MSVC.
-3. Route, rotation, trade coordinator self-tests.
-4. Background UI scoring self-test.
-
-Artifact: `ThanLongItemConsolidator-v0.6.1-win-x64` gồm EXE, Bridge DLL và tài liệu.
-
-Đọc [DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md](DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md) để xem diễn giải chi tiết donor 0.8.4 và quyết định chuyển đổi.
+Đọc [DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md](DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md) và [docs/history/VERSION_v0.6.2.md](docs/history/VERSION_v0.6.2.md) để xem ranh giới donor, bằng chứng và các quyết định fail-closed.

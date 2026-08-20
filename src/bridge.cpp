@@ -839,7 +839,8 @@ bool FindRoleControl(Role role, UiControl& selected, wchar_t* detail, std::size_
         candidates.clear();
         for (std::size_t i = 0; i < controls.size(); ++i) {
             UiControl& control = controls[i];
-            if (role == Role::ConfirmMap || role == Role::CloseTradeOrBag)
+            if (role == Role::ConfirmMap || role == Role::CloseTradeOrBag ||
+                role == Role::AutoRoot || role == Role::AutoTrain || role == Role::AutoStop)
                 (void)ReadAncestors(control);
             if (includeDescendants) CollectDescendantLabels(control);
             const int score = background_ui_logic::Score(control.labels, role);
@@ -931,6 +932,54 @@ bool InvokeControl(UiControl& control, wchar_t* detail, std::size_t cap) {
                               argsArray, detail, cap);
 }
 
+bool FindUiObjectInRegistry(const std::wstring& wantedKey, Il2CppObject*& ui,
+                            wchar_t* detail, std::size_t cap) {
+    ui = nullptr;
+    if (!EnsureUiDiscovery(detail, cap)) return false;
+    Il2CppObject* dictionary = nullptr;
+    g_api.field_static_get_value(g_ui.instances, &dictionary);
+    Il2CppObject* entries = nullptr;
+    std::int32_t count = 0;
+    std::uintptr_t capacity = 0;
+    if (!dictionary || !ReadLocal(dictionary, 0x18, entries) || !entries ||
+        !ReadLocal(dictionary, 0x20, count) || count < 0 || count > 32768 ||
+        !ReadLocal(entries, 0x18, capacity) || capacity > 32768) {
+        SetText(detail, cap, L"UIObject.instances không hợp lệ khi tìm UI theo tên");
+        return false;
+    }
+
+    std::vector<Il2CppObject*> matches;
+    for (std::uintptr_t i = 0; i < capacity; ++i) {
+        Il2CppObject* object = nullptr;
+        const std::size_t entry = 0x20 + static_cast<std::size_t>(i) * 0x18;
+        if (!ReadLocal(entries, entry + 0x10, object) || !object) continue;
+        std::uint8_t disposed = 1;
+        Il2CppClass* klass = nullptr;
+        if (!ReadLocal(object, 0x60, disposed) || disposed != 0 ||
+            !ReadLocal(object, 0, klass) || !klass) continue;
+        std::wstring name;
+        if (!StringGetter(object, klass, "get_Name", name) ||
+            background_ui_logic::Key(name) != wantedKey) continue;
+        std::int32_t active = 0;
+        wchar_t ignored[96]{};
+        if (!ScalarGetter(klass, "get_ActiveInHierarchy", object, active,
+                          ignored, _countof(ignored)) || !active) continue;
+        if (std::find(matches.begin(), matches.end(), object) == matches.end())
+            matches.push_back(object);
+    }
+    if (matches.size() == 1) {
+        ui = matches.front();
+        SetText(detail, cap, L"Đã resolve Lua UI qua UIObject.instances");
+        return true;
+    }
+    if (matches.size() > 1) {
+        SetText(detail, cap, L"Nhiều UIObject active trùng tên; fail-closed");
+        return false;
+    }
+    SetText(detail, cap, L"UIObject.instances không có UI active đúng tên");
+    return false;
+}
+
 bool FindUiByName(const char* uiName, Il2CppObject*& ui, wchar_t* detail, std::size_t cap) {
     ui = nullptr;
     Il2CppString* managedName = g_api.string_new(uiName);
@@ -946,7 +995,15 @@ bool FindUiByName(const char* uiName, Il2CppObject*& ui, wchar_t* detail, std::s
             return true;
         }
     }
-    SetText(detail, cap, L"Không tìm thấy Lua UI theo tên");
+    // Some client builds expose the active UI in UIObject.instances but FindUI/MainFindUI
+    // returns null for the same script name. Resolve the current object from that registry
+    // instead of assuming one fixed GUI API behavior.
+    std::wstring wanted;
+    for (const char* p = uiName; p && *p; ++p) wanted.push_back(static_cast<unsigned char>(*p));
+    wchar_t registryDetail[256]{};
+    if (FindUiObjectInRegistry(background_ui_logic::Key(wanted), ui,
+                               registryDetail, _countof(registryDetail))) return true;
+    SetText(detail, cap, L"Không tìm thấy Lua UI qua FindUI/MainFindUI hoặc UIObject.instances");
     return false;
 }
 
@@ -993,11 +1050,53 @@ bool Revive(Response& response, wchar_t* detail, std::size_t cap) {
     return InvokeRole(Role::Revive, response, detail, cap);
 }
 
-bool AutoFightAction(bool start, Response& response, wchar_t* detail, std::size_t cap) {
+bool AutoFightAction(bool start, bool menuAlreadyOpened, Response& response,
+                     wchar_t* detail, std::size_t cap) {
     Classes c{};
     if (!ResolveClasses(c, detail, cap) || !SafeForAction(c, detail, cap)) return false;
-    if (!InvokeLuaAction("TopIcon", start ? "AutoTrainClick" : "AutoStopClick", detail, cap)) return false;
-    response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
+    wchar_t directReason[512]{};
+    if (InvokeLuaAction("TopIcon", start ? "AutoTrainClick" : "AutoStopClick",
+                        directReason, _countof(directReason))) {
+        response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
+        SetText(detail, cap, start
+            ? L"TopIcon.AutoTrainClick nội bộ → StartAutoFight(Train)"
+            : L"TopIcon.AutoStopClick nội bộ → StartAutoFight(None)");
+        return true;
+    }
+
+    // Runtime fallback mirrors the two visible actions without foreground/mouse:
+    // first current AUTO root, then (after the controller's non-blocking wait) the
+    // current Đánh quái/Dừng control. Every pointer is re-resolved per request.
+    if (!menuAlreadyOpened) {
+        UiControl alreadyOpenTarget{};
+        wchar_t targetProbe[512]{};
+        if (FindRoleControl(start ? Role::AutoTrain : Role::AutoStop,
+                            alreadyOpenTarget, targetProbe, _countof(targetProbe))) {
+            if (!InvokeControl(alreadyOpenTarget, detail, cap)) return false;
+            response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
+            SetText(detail, cap, start
+                ? L"Menu AUTO đã mở; gọi callback nội bộ Đánh quái"
+                : L"Menu AUTO đã mở; gọi callback nội bộ Dừng");
+            return true;
+        }
+        if (!InvokeRole(Role::AutoRoot, response, detail, cap)) {
+            Append(detail, cap, L" • direct TopIcon: ");
+            Append(detail, cap, directReason);
+            return false;
+        }
+        response.resultCode = static_cast<std::int32_t>(ActionResult::MenuOpened);
+        SetText(detail, cap, L"Đã gọi callback AUTO root; chờ menu hiện để chọn action nội bộ");
+        return true;
+    }
+
+    if (!InvokeRole(start ? Role::AutoTrain : Role::AutoStop, response, detail, cap)) {
+        Append(detail, cap, L" • direct TopIcon: ");
+        Append(detail, cap, directReason);
+        return false;
+    }
+    SetText(detail, cap, start
+        ? L"Đã gọi callback nội bộ AUTO → Đánh quái"
+        : L"Đã gọi callback nội bộ AUTO → Dừng");
     return true;
 }
 
@@ -1132,6 +1231,12 @@ bool CollectSafeBagItems(std::vector<UiControl>& items, wchar_t* detail, std::si
         items.push_back(std::move(control));
     }
     std::sort(items.begin(), items.end(), [](const UiControl& a, const UiControl& b) {
+        const int scoreA = background_ui_logic::BagItemScore(a.labels);
+        const int scoreB = background_ui_logic::BagItemScore(b.labels);
+        if (scoreA != scoreB) return scoreA > scoreB;
+        const int indexA = background_ui_logic::NaturalItemIndex(a.labels);
+        const int indexB = background_ui_logic::NaturalItemIndex(b.labels);
+        if (indexA != indexB) return indexA < indexB;
         return reinterpret_cast<std::uintptr_t>(a.object) < reinterpret_cast<std::uintptr_t>(b.object);
     });
     return true;
@@ -1147,8 +1252,8 @@ bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
     response.value0 = currentFree;
     response.value1 = g_sell.sold;
     if (g_sell.callbacks >= 90) {
-        response.resultCode = static_cast<std::int32_t>(ActionResult::NoCandidate);
-        SetText(detail, cap, L"Bán nền dừng ở chặn an toàn 90 callback");
+        response.resultCode = static_cast<std::int32_t>(ActionResult::SafetyLimit);
+        SetText(detail, cap, L"Bán nền chạm chặn 90 callback; không coi là đã hết item");
         return true;
     }
 
@@ -1179,8 +1284,12 @@ bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
         return true;
     }
 
-    response.resultCode = static_cast<std::int32_t>(ActionResult::NoCandidate);
-    SetText(detail, cap, L"Bán nền: không còn ô trang bị an toàn chưa bị loại • đã bán=");
+    response.value1 = g_sell.sold;
+    response.resultCode = static_cast<std::int32_t>(
+        g_sell.sold > 0 ? ActionResult::NoCandidate : ActionResult::NoProgress);
+    SetText(detail, cap, g_sell.sold > 0
+        ? L"Bán nền: hết control trang bị sau khi có tiến triển • đã bán="
+        : L"Bán nền: đã thử control trang bị nhưng chưa xác minh bán được món nào • đã bán=");
     AppendInt(detail, cap, g_sell.sold);
     Append(detail, cap, L" • bỏ qua=");
     AppendInt(detail, cap, g_sell.skipped);
@@ -1257,9 +1366,11 @@ void ProcessRequest() {
             case Command::Revive:
                 ok = Revive(r, detail, _countof(detail)); break;
             case Command::StartAutoFight:
-                ok = AutoFightAction(true, r, detail, _countof(detail)); break;
+                ok = AutoFightAction(true, g_shared->request.arg0 != 0,
+                                     r, detail, _countof(detail)); break;
             case Command::StopAutoFight:
-                ok = AutoFightAction(false, r, detail, _countof(detail)); break;
+                ok = AutoFightAction(false, g_shared->request.arg0 != 0,
+                                     r, detail, _countof(detail)); break;
             case Command::BeginBackgroundSell:
                 ok = BeginBackgroundSell(g_shared->request.arg0, r, detail, _countof(detail)); break;
             case Command::AdvanceBackgroundSell:

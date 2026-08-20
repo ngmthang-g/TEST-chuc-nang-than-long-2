@@ -25,7 +25,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1 • INTERNAL BACKGROUND ACTIONS";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.2 • INTERNAL BACKGROUND ACTIONS";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -43,6 +43,7 @@ constexpr DWORD kAutoFightRecheckMs = 60000;
 constexpr DWORD kMountRetryWaitMs = 5000;
 constexpr DWORD kFootWalkMaxMs = 15000;
 constexpr DWORD kMountFightBoostMs = 10000;
+constexpr DWORD kPriorityAutoMenuWaitMs = 650;
 constexpr DWORD kPriorityAutoVerifyMs = 1300;
 constexpr int kTravelStopAttemptsBeforeReset = 2;
 constexpr int kUnderworldMapId = 87;
@@ -308,12 +309,13 @@ struct RuntimeState {
     bool tradeTravelReady = false;
     std::uint64_t tradeWorkflowEntrySeq = 0; // R7: immutable FIFO ticket while staged in workflow.
 
-    // Priority-AUTO request/result mailbox. v0.6.1 maps Attack/StopAuto2 to the exact
-    // TopIcon Lua actions inside the game; the legacy point slots remain config-compatible.
+    // Priority-AUTO request/result mailbox. v0.6.2 first resolves the exact TopIcon Lua
+    // action; if that UI name is unavailable it stages current AUTO root -> Đánh quái/Dừng.
     ClickSlot priorityAutoRequestSlot = ClickSlot::None;
     ClickSlot priorityAutoCompletedSlot = ClickSlot::None;
     bool priorityAutoCompletedOk = false;
     DWORD priorityAutoCompletedTick = 0;
+    DWORD priorityAutoMenuOpenedTick = 0;
     std::wstring priorityAutoReason{};
 
     // v0.3 shared AutoFight Travel Guard. Any StartPath must prove authoritative
@@ -343,7 +345,10 @@ struct RuntimeState {
     DWORD sellMacroNextTick = 0;
     DWORD sellMacroCompletionDueTick = 0; // R6: keep SELL sequence lease through final configured delay.
     int sellMacroPass = 0;
+    int sellInitialFreeBag = -1;
     int sellLastFreeBag = -1;
+    int sellVerifiedSold = 0;
+    bool sellExhausted = false;
     DWORD sellBagStableSince = 0;
     bool sellTriggeredByFullBag = false;
 
@@ -997,7 +1002,7 @@ struct Account {
     // Snapshot polling continues; normal route/death FSM resumes immediately after abort/release.
     bool tradeHeld = false;
 
-    // Legacy v0.5 adaptive macro value kept for config/runtime compatibility. v0.6.1's
+    // Legacy v0.5 adaptive macro value kept for config/runtime compatibility. v0.6.2's
     // internal seller instead verifies GetFreeBagSpace after each semantic item callback.
     int sellStep5LearnedRepeat = -1;
 };
@@ -1317,7 +1322,7 @@ private:
         rotateNoFullBag_ = Make(L"EDIT", L"15", WS_BORDER | ES_NUMBER | ES_CENTER, 530, 497, 45, 27, IDC_ROTATE_NO_BAG); addFont(rotateNoFullBag_);
         addFont(Make(L"STATIC", L"phút train thực • 1 bãi = không đổi • nhiều bãi = vòng lại bãi 1", 0, 580, 500, 443, 22, 0));
 
-        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6.1 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
+        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6.2 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
         addFont(Make(L"BUTTON", L"LẤY 5 CLICK CỦA ACC...", BS_PUSHBUTTON, 755, 526, 268, 27, IDC_COPY_CLICKS));
         const int rowY[5] = {552, 578, 604, 630, 656};
         const int pointIds[5] = {IDC_POINT_CONFIRM, IDC_POINT_REVIVE, IDC_POINT_AUTO, IDC_POINT_ATTACK, IDC_POINT_STOP_AUTO_2};
@@ -1373,15 +1378,19 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.2",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
         if (!RegisterHotKey(hwnd_, kCaptureHotkeyId, MOD_NOREPEAT, VK_F8)) {
             Log(L"CẢNH BÁO: không đăng ký được F8 global.");
         }
-        if (!RegisterHotKey(hwnd_, kPauseHotkeyId, MOD_NOREPEAT, VK_F4)) {
+        pauseHotkeyRegistered_ = RegisterHotKey(hwnd_, kPauseHotkeyId, MOD_NOREPEAT, VK_F4) != FALSE;
+        if (!pauseHotkeyRegistered_) {
             Log(L"CẢNH BÁO: không đăng ký được F4 global.");
+            Log(L"F4 FALLBACK ON • polling cạnh phím 250ms; giữ F4 ngắn nếu ứng dụng khác chiếm hotkey.");
+        } else {
+            Log(L"F4 GLOBAL ON • giữ nguyên pause/resume v0.5 + polling chống mất WM_HOTKEY.");
         }
         mouseHookOwner_ = this;
         mouseHook_ = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, instance_, 0);
@@ -3577,7 +3586,7 @@ private:
     }
 
     void TickTradeCoordinator(DWORD now) {
-        // v0.6.1: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
+        // v0.6.2: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
         // physical trade-click lease. The logical atomic SELL rule remains: once an account enters the background sell sequence,
         // the trade workflow may not advance, enqueue new work, abort/release its lease,
         // or run rendezvous click substeps until SELL has completed the full macro.
@@ -3732,7 +3741,7 @@ private:
         }
 
         // CLICK SEQUENCE LEASE protects only the still-coordinate-based trade macro.
-        // Route, AUTO start/stop, XN and revive are Bridge actions in v0.6.1, so queued
+        // Route, AUTO start/stop, XN and revive are Bridge actions in v0.6.2, so queued
         // travelers keep progressing without borrowing the real mouse.
         if (!tradeQueuePids_.empty()) {
             if (tradeTxn_.phase != TradePhase::Sequence) {
@@ -4312,10 +4321,12 @@ private:
             rt.priorityAutoCompletedSlot = ClickSlot::None;
             rt.priorityAutoCompletedOk = false;
             rt.priorityAutoCompletedTick = 0;
+            rt.priorityAutoMenuOpenedTick = 0;
         }
         if (rt.priorityAutoRequestSlot == slot) return true;
         if (rt.priorityAutoRequestSlot != ClickSlot::None || rt.priorityAutoCompletedSlot != ClickSlot::None) return false;
         rt.priorityAutoRequestSlot = slot;
+        rt.priorityAutoMenuOpenedTick = 0;
         rt.priorityAutoReason = reason;
         rt.status = L"PRIORITY #3 AUTO NỘI BỘ • đã xếp hàng " +
                     std::wstring(kClickLabels[static_cast<std::size_t>(slot)]);
@@ -4330,6 +4341,7 @@ private:
         rt.priorityAutoCompletedSlot = ClickSlot::None;
         rt.priorityAutoCompletedOk = false;
         rt.priorityAutoCompletedTick = 0;
+        rt.priorityAutoMenuOpenedTick = 0;
         return true;
     }
 
@@ -4340,6 +4352,9 @@ private:
         if (!rt.running || rt.clientFreezeActive || !a.snapshotValid || !IsWindow(a.game.window)) return false;
         const Snapshot& s = a.snapshot;
         if (!s.mapReady || s.waitingChangeMap || ((s.validMask & ValidLifeState) && s.dead)) return false;
+        const DWORD now = GetTickCount();
+        if (rt.priorityAutoMenuOpenedTick != 0 &&
+            !Elapsed(now, rt.priorityAutoMenuOpenedTick, kPriorityAutoMenuWaitMs)) return false;
 
         const int index = static_cast<int>(slot);
         std::wstring error;
@@ -4347,7 +4362,8 @@ private:
             rt.priorityAutoRequestSlot = ClickSlot::None;
             rt.priorityAutoCompletedSlot = slot;
             rt.priorityAutoCompletedOk = false;
-            rt.priorityAutoCompletedTick = GetTickCount();
+            rt.priorityAutoCompletedTick = now;
+            rt.priorityAutoMenuOpenedTick = 0;
             LogAccount(a, L"PRIORITY #3 AUTO FAIL: slot không hợp lệ");
             return false;
         }
@@ -4355,16 +4371,29 @@ private:
         const Command command = slot == ClickSlot::StopAuto2
             ? Command::StopAutoFight : Command::StartAutoFight;
         Response response{};
-        const bool ok = a.bridge.Call(command, 0, 0, 0, response, error, 2200);
+        const bool menuAlreadyOpened = rt.priorityAutoMenuOpenedTick != 0;
+        const bool ok = a.bridge.Call(command, menuAlreadyOpened ? 1 : 0, 0, 0,
+                                      response, error, 2200);
         const DWORD clickedAt = GetTickCount();
+        if (ok && response.resultCode == static_cast<std::int32_t>(ActionResult::MenuOpened)) {
+            rt.priorityAutoMenuOpenedTick = clickedAt;
+            rt.status = L"PRIORITY #3 AUTO NỘI BỘ • AUTO root đã mở • chờ chọn " +
+                        std::wstring(slot == ClickSlot::StopAuto2 ? L"Dừng" : L"Đánh quái");
+            LogAccount(a, L"PRIORITY #3 AUTO P1 PASS: callback AUTO root • chờ " +
+                          std::to_wstring(kPriorityAutoMenuWaitMs) +
+                          L"ms rồi resolve lại Đánh quái/Dừng • KHÔNG foreground/chuột.");
+            return true;
+        }
         rt.priorityAutoRequestSlot = ClickSlot::None;
         rt.priorityAutoCompletedSlot = slot;
         rt.priorityAutoCompletedOk = ok;
         rt.priorityAutoCompletedTick = clickedAt;
+        rt.priorityAutoMenuOpenedTick = 0;
         if (ok) {
             LogAccount(a, L"PRIORITY #3 AUTO NỘI BỘ PASS: " +
                           std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
-                          L" • gọi TopIcon Lua action • KHÔNG foreground/SetCursorPos/SendInput.");
+                          L" • " + std::wstring(response.detail) +
+                          L" • KHÔNG foreground/SetCursorPos/SendInput.");
         } else {
             if (BridgeLooksUnresponsive(error)) EnterClientFreeze(a, L"Bridge timeout khi gọi AUTO nội bộ", clickedAt);
             LogAccount(a, L"PRIORITY #3 AUTO NỘI BỘ FAIL: " + error);
@@ -4489,7 +4518,16 @@ private:
         if (command == Command::None) return;
         Response response{};
         std::wstring error;
-        const bool ok = a->bridge.Call(command, 0, 0, 0, response, error, 2200);
+        bool ok = a->bridge.Call(command, 0, 0, 0, response, error, 2200);
+        if (ok && response.resultCode == static_cast<std::int32_t>(ActionResult::MenuOpened) &&
+            (command == Command::StartAutoFight || command == Command::StopAutoFight)) {
+            // Manual TEST may block this controller window briefly; production P3 uses
+            // the non-blocking two-tick state above.
+            Sleep(kPriorityAutoMenuWaitMs);
+            Response second{};
+            ok = a->bridge.Call(command, 1, 0, 0, second, error, 2200);
+            if (ok) response = second;
+        }
         const int index = static_cast<int>(slot);
         LogAccount(*a, L"TEST NỘI BỘ " + std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
                        (ok ? L" PASS • không chiếm chuột • " + std::wstring(response.detail)
@@ -5504,7 +5542,7 @@ private:
     bool SellMacroConfigured(const Account& a, std::wstring& reason) const {
         (void)a;
         reason.clear();
-        // v0.6.1 no longer depends on recorded screen coordinates. The Bridge resolves
+        // v0.6.2 no longer depends on recorded screen coordinates. The Bridge resolves
         // semantic shop controls and bag items at runtime, then verifies bag progress.
         return true;
     }
@@ -5519,7 +5557,10 @@ private:
         rt.sellMacroNextTick = 0;
         rt.sellMacroCompletionDueTick = 0;
         rt.sellMacroPass = 0;
+        rt.sellInitialFreeBag = a.snapshot.freeBagSpace;
         rt.sellLastFreeBag = a.snapshot.freeBagSpace;
+        rt.sellVerifiedSold = 0;
+        rt.sellExhausted = false;
         rt.sellBagStableSince = 0;
         rt.sellTriggeredByFullBag = true;
         rt.trainPositionMonitorArmed = false;
@@ -5587,10 +5628,28 @@ private:
             rt.sellOpenAttempts = 0;
             rt.sellMacroNextTick = now;
             rt.sellLastFreeBag = response.value0;
+            rt.sellVerifiedSold = std::max(rt.sellVerifiedSold, response.value1);
+            if (response.resultCode == static_cast<std::int32_t>(ActionResult::SafetyLimit) ||
+                response.resultCode == static_cast<std::int32_t>(ActionResult::NoProgress)) {
+                rt.sellPhase = 10;
+                rt.status = response.resultCode == static_cast<std::int32_t>(ActionResult::SafetyLimit)
+                    ? L"BÁN NỀN chạm 90 callback nhưng chưa chứng minh hết đồ • giữ UI, chờ thủ công"
+                    : L"BÁN NỀN không xác minh bán được item nào • giữ UI, chờ thủ công";
+                LogAccount(a, rt.status + L" • " + std::wstring(response.detail));
+                return true;
+            }
             if (response.resultCode == static_cast<std::int32_t>(ActionResult::NoCandidate)) {
+                if (response.value1 <= 0) {
+                    rt.sellPhase = 10;
+                    rt.status = L"BÁN NỀN không có bằng chứng item rời túi • giữ UI, chờ thủ công";
+                    LogAccount(a, rt.status);
+                    return true;
+                }
+                rt.sellExhausted = true;
                 rt.sellMacroIndex = 5;
                 rt.sellMacroRepeatDone = 0;
-                rt.status = L"BÁN NỀN • hết item an toàn • bắt đầu đóng shop/tay nải";
+                rt.status = L"BÁN NỀN • đã bán xác minh " + std::to_wstring(response.value1) +
+                            L" item và hết control hiện hành • bắt đầu đóng shop/tay nải";
             } else {
                 ++rt.sellMacroRepeatDone;
                 rt.status = L"BÁN NỀN • callback " + std::to_wstring(rt.sellMacroRepeatDone) +
@@ -5613,10 +5672,8 @@ private:
                 ++rt.sellOpenAttempts;
                 rt.sellMacroNextTick = now;
                 if (rt.sellOpenAttempts >= 4) {
-                    rt.sellPhase = 7;
-                    rt.sellPhaseTick = now;
-                    rt.sellBagStableSince = 0;
-                    LogAccount(a, L"BÁN NỀN: không đóng hết UI sau 4 lần • vẫn chuyển sang verify túi");
+                    rt.sellPhase = 10;
+                    LogAccount(a, L"BÁN NỀN: không đóng hết UI sau 4 lần • dừng fail-closed, không tự chạy về bãi");
                 }
                 return true;
             }
@@ -5674,7 +5731,7 @@ private:
             rt.sellPhase = 6; rt.sellPhaseTick = now;
             rt.sellMacroIndex = 0; rt.sellMacroRepeatDone = 0; rt.sellMacroNextTick = 0; rt.sellMacroCompletionDueTick = 0;
             // ActiveSellClickSequenceAccount() still blocks the trade coordinator for
-            // logical atomicity, but no physical mouse lease is acquired in v0.6.1.
+            // logical atomicity, but no physical mouse lease is acquired in v0.6.2.
             rt.status = L"Đã ClickNPC nội bộ ID " + std::to_wstring(npc.npcID) +
                         L" • workflow GD chờ • chuột hoàn toàn rảnh";
             return true;
@@ -5690,7 +5747,12 @@ private:
                 rt.status = L"Không đọc được FreeBagSpace • không tự kết luận bán xong";
                 return true;
             }
-            if (s.freeBagSpace > 0) {
+            if (!HasVerifiedSellCompletion(rt.sellInitialFreeBag, s.freeBagSpace,
+                                           rt.sellVerifiedSold, rt.sellExhausted)) {
+                rt.status = L"BÁN NỀN chưa đủ proof hoàn tất • không tự đóng phiên/quay bãi";
+                return true;
+            }
+            if (s.freeBagSpace > rt.sellInitialFreeBag) {
                 if (rt.sellLastFreeBag != s.freeBagSpace) {
                     rt.sellLastFreeBag = s.freeBagSpace;
                     rt.sellBagStableSince = now;
@@ -5701,19 +5763,12 @@ private:
                     rt.crossMapSeenAutoPath = false; rt.crossMapRouteArmed = false; rt.crossMapRouteMoved = false; rt.stallSinceTick = 0; rt.confirmAttempts = 0;
                     ResetRobustTravel(rt);
                     rt.status = L"Đã nhận diện bán xong • quay về bãi train";
-                    LogAccount(a, L"BÁN NỀN XONG • FreeBagSpace=" + std::to_wstring(s.freeBagSpace) +
-                                  L" ổn định 1.5s • quay bãi train");
+                    LogAccount(a, L"BÁN NỀN XONG • sold verified=" +
+                                  std::to_wstring(rt.sellVerifiedSold) + L" • FreeBagSpace " +
+                                  std::to_wstring(rt.sellInitialFreeBag) + L"→" +
+                                  std::to_wstring(s.freeBagSpace) + L" ổn định 1.5s • quay bãi train");
                 }
                 return true;
-            }
-            if (Elapsed(now, rt.sellPhaseTick, 3500)) {
-                if (rt.sellMacroPass < 2) {
-                    rt.sellPhase = 5; rt.sellPhaseTick = now; rt.sellOpenAttempts = 0;
-                    rt.status = L"Túi vẫn full • mở NPC + chạy macro lại lần 2";
-                } else {
-                    rt.sellPhase = 10;
-                    rt.status = L"Macro bán 2 lần nhưng túi vẫn full • chờ thủ công";
-                }
             }
             return true;
         }
@@ -5735,10 +5790,9 @@ private:
         }
 
         if (rt.sellPhase == 10) {
-            if ((s.validMask & ValidBagSpace) && s.freeBagSpace > 0) {
-                rt.sellPhase = 8; rt.sellPhaseTick = now; ResetRobustTravel(rt);
-                rt.status = L"Túi đã có ô trống • quay về bãi train";
-            }
+            // Fail-closed: one manually-created free slot is not proof that the semantic
+            // sell transaction completed. Only Stop/Start (or a future explicit retry)
+            // may leave this phase.
             return true;
         }
         return true;
@@ -5963,7 +6017,7 @@ private:
 
     void Tick() {
 
-        // Snapshots + movement-observation run first, then v0.6.1 services semantic
+        // Snapshots + movement-observation run first, then v0.6.2 services semantic
         // background priorities before coordinate-based trade clicks.
         std::vector<bool> snapshotReady(accounts_.size(), false);
         for (std::size_t i = 0; i < accounts_.size(); ++i) {
@@ -5987,7 +6041,7 @@ private:
             }
         }
 
-        // v0.6.1 priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 TopIcon AUTO.
+        // v0.6.2 priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 semantic AUTO.
         // All three are internal Bridge callbacks and do not foreground a game window or move the cursor.
         if (!globalPaused_ && !coordinatorRecording_) {
             (void)RunPriorityLauLanGateConfirmPass(GetTickCount(), snapshotReady);
@@ -6099,6 +6153,23 @@ private:
             for (auto& item : accounts_) if (item->runtime.running) item->runtime.status = L"Tiếp tục sau F4";
             Log(L"F4 → TIẾP TỤC toàn bộ acc đang RUN.");
         }
+    }
+
+    void HandlePauseHotkeyPress() {
+        if (pauseKeyLatched_) return;
+        pauseKeyLatched_ = true;
+        ToggleGlobalPause();
+    }
+
+    void PollPauseHotkey() {
+        const SHORT state = GetAsyncKeyState(VK_F4);
+        const bool down = (state & 0x8000) != 0;
+        const bool pressedSinceLastPoll = (state & 0x0001) != 0;
+        if ((down || pressedSinceLastPoll) && !pauseKeyLatched_) {
+            pauseKeyLatched_ = true;
+            ToggleGlobalPause();
+        }
+        if (!down) pauseKeyLatched_ = false;
     }
 
     void PersistSelectedEditorSafeBeforeSwitch(int newIndex) {
@@ -6246,13 +6317,16 @@ private:
                     return 0;
                 }
                 if (static_cast<int>(wp) == kPauseHotkeyId) {
-                    ToggleGlobalPause();
+                    HandlePauseHotkeyPress();
                     return 0;
                 }
                 break;
             case WM_TIMER:
                 if (wp == kRecordTimer) { PollRecorder(); return 0; }
-                if (wp == kTimer) Tick();
+                if (wp == kTimer) {
+                    PollPauseHotkey();
+                    Tick();
+                }
                 return 0;
             case WM_CLOSE:
                 if (recorderMode_ != RecorderMode::None) StopRecorder(true);
@@ -6268,7 +6342,7 @@ private:
                 for (auto& a : accounts_) SaveProfile(a->profile);
                 FlushIni();
                 UnregisterHotKey(hwnd_, kCaptureHotkeyId);
-                UnregisterHotKey(hwnd_, kPauseHotkeyId);
+                if (pauseHotkeyRegistered_) UnregisterHotKey(hwnd_, kPauseHotkeyId);
                 if (mouseHook_) { UnhookWindowsHookEx(mouseHook_); mouseHook_ = nullptr; }
                 if (mouseHookOwner_ == this) mouseHookOwner_ = nullptr;
                 for (auto& a : accounts_) a->bridge.Close();
@@ -6351,6 +6425,8 @@ private:
     int captureTradeSequenceMode_ = 0;
     int captureTradeSequenceMainRef_ = -1;
     bool globalPaused_ = false;
+    bool pauseHotkeyRegistered_ = false;
+    bool pauseKeyLatched_ = false;
     bool rotationUiLoading_ = false;
 
     std::vector<TradeSequenceStep> mainTradeSequence_{};

@@ -6,9 +6,9 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-// v0.6.1 separates basic UI discovery from optional Lua/Executor capabilities.
+// v0.6.2 adds staged semantic AUTO fallback and fail-closed sell outcomes.
 // Controller + Bridge are always shipped together; mismatched versions fail attach.
-constexpr std::uint32_t kProtocolVersion = 0x00010601u;
+constexpr std::uint32_t kProtocolVersion = 0x00010602u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 
@@ -36,6 +36,9 @@ enum class ActionResult : std::int32_t {
     NoCandidate = 3,
     UiClosed = 4,
     NothingToClose = 5,
+    MenuOpened = 6,
+    SafetyLimit = 7,
+    NoProgress = 8,
 };
 
 enum SnapshotValid : std::uint32_t {

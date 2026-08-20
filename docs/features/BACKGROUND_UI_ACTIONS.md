@@ -14,7 +14,11 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6 Auto Sell: RUNTIME FAIL, BUG-001.
 - v0.6 Revive: UNKNOWN / not reported.
 - v0.6 AUTO: UNKNOWN / not reported.
-- v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
+- v0.6.1 Confirm: RUNTIME PASS.
+- v0.6.1 Revive: RUNTIME PASS.
+- v0.6.1 AUTO: RUNTIME FAIL at `TopIcon` name lookup.
+- v0.6.1 Auto Sell: RUNTIME PARTIAL/FAIL at item callbacks and completion proof.
+- v0.6.2: BUILD/RUNTIME UNTESTED until CI and live retest.
 
 ## Version timeline
 
@@ -30,13 +34,22 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Added metadata fallback and exact diagnostics.
 - Kept state machines, retry timing and mouse-free policy unchanged.
 
+### v0.6.2
+
+- AUTO lookup layers `FindUI/MainFindUI` → active `UIObject.instances` → current two-stage `AUTO` root and `Đánh quái/Dừng` controls.
+- Production two-stage fallback waits in controller state; it never sleeps the game callback thread and re-resolves every control.
+- F4 retains v0.5 behavior and gains a shared-latch state-polling delivery fallback.
+- Sell candidates prefer actionable item handler/logical cell order.
+- Sell safety ceiling/no-progress are not completion; one free slot cannot leave fail phase.
+
 ## Do-not-break rules
 
 - Resolve current controls for every action; never retain stale UI pointers.
 - Ambiguous equal-score candidates must fail closed.
 - Confirm must remain MessageBox-scoped.
 - Revive must recheck `IsDeath` immediately.
-- Sell must verify progress using fresh `FreeBagSpace` and retain the 3-failure/90-callback guards.
+- Sell must verify progress using fresh `FreeBagSpace`; 90 callbacks is a failure ceiling, never exhaustion proof.
+- Sell completion must include positive verified progress and a session-relative proof; phase 10 must not auto-resume from one free slot.
 - Button/Toggle paths must not require Lua Executor.
 
 ## Open architectural item

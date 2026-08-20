@@ -1,72 +1,75 @@
-# PROJECT KNOWLEDGE — v0.6.1 CURRENT
+# PROJECT KNOWLEDGE — v0.6.2 CURRENT
 
 ## Quy tắc dự án
 
 - Nền phát triển trực tiếp là v0.5.0; v0.8.4 chỉ là donor nghiên cứu.
-- Không thay logic ngoài phạm vi nếu không cần để tích hợp.
-- Callback trả OK không phải bằng chứng nghiệp vụ; luôn verify bằng snapshot tương ứng.
-- Mỗi version cập nhật README, changelog, source provenance, bảng logic, verifier và hồ sơ runtime/bug.
+- Không thay logic ngoài phạm vi nếu không cần tích hợp.
+- Callback trả OK không phải bằng chứng nghiệp vụ; phải verify bằng snapshot/state tương ứng.
+- BUILD PASS không được gọi là RUNTIME PASS.
+- Mỗi version cập nhật README, changelog, provenance, bảng logic, verifier và hồ sơ evidence/bug/decision.
 
-## Trạng thái hiện tại
+## Sự thật runtime đã biết
 
-- v0.6: **RUNTIME FAIL** đối với XN Lâu Lan và mở chuỗi bán nền. Cùng lỗi: `Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor`.
-- Điều runtime đã chứng minh: Bridge attach, snapshot, route và `ClickNPC` trước chuỗi UI vẫn hoạt động đủ để FSM đi tới đúng điểm lỗi. Log không chứng minh component cụ thể nào null.
-- BUG-001 root cause ở mức **CONFIRMED**: basic UI enumeration bị khóa bởi một readiness gate gộp cả dependency Lua/Executor không cần cho UIButton. `MonoBehaviourExecutor` là component **LIKELY** bị thiếu vì namespace của nó chỉ là giả định từ donor RVA, chưa có metadata proof trong v0.6.
-- v0.6.1: source audit + Windows MSVC x64 CI 274 **BUILD PASS**, nhưng vẫn **RUNTIME UNTESTED**. Hotfix chưa được gọi là runtime pass cho tới khi người dùng test lại.
+| Version/action | Trạng thái | Bằng chứng |
+|---|---|---|
+| v0.6 XN + mở bán | RUNTIME FAIL | readiness gate gộp, EVID-001 |
+| v0.6.1 XN Lâu Lan | RUNTIME PASS | callback nội bộ rồi map transition, EVID-002 |
+| v0.6.1 Đầu thai | RUNTIME PASS | `IsDeath` + UIButton callback; sequence khác giữ index/repeat, EVID-002 |
+| v0.6.1 AUTO | RUNTIME FAIL | `TopIcon` lookup trả `Không tìm thấy Lua UI theo tên`, EVID-002 |
+| v0.6.1 Auto Sell | RUNTIME PARTIAL/FAIL | mở stage và đóng UI được; item callback không bán ổn định; có đường kết thúc sai sau một món, EVID-002 |
+| v0.6.1 F4 | USER-REPORTED FAIL | thân hàm v0.5 vẫn còn; lỗi delivery cụ thể UNKNOWN, EVID-002 |
+| v0.6.2 | BUILD/RUNTIME UNTESTED cho tới CI/live test | không suy diễn từ source |
 
-## Kiến trúc action v0.6.1
+## Kiến trúc action v0.6.2
 
-Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010601` từ chối ghép EXE/DLL khác version.
+Controller vẫn giữ scheduler/FSM v0.5. `ThanLongCleanRouteBridge.dll` được nạp bằng `WH_GETMESSAGE` vào đúng message thread của từng game window. Protocol `0x00010602`; một request in-flight cho mỗi PID; timeout không được ghi đè.
 
-Không có `CreateRemoteThread` trong controller/Bridge. Một mapping chỉ có một request in-flight; timeout không được ghi đè.
+Không có `CreateRemoteThread` trong controller/Bridge.
 
-Resolver UI chia hai tầng:
+Resolver UI:
 
-1. `EnsureUiDiscovery`: `UIObject.instances` + các class control hiện có. Dùng namespace đã biết trước, rồi fallback quét metadata có giới hạn và kiểm tra method/field surface; dùng cho scan và UIButton/UIToggle.
-2. `EnsureUiLua`: chỉ gọi khi UIRect/Lua action thực sự cần `MonoBehaviourExecutor`, `System.Object`, `LuaSystemAPI_GUI`.
-
-Executor được thử namespace ứng viên rồi quét toàn bộ class của Assembly-CSharp theo simple name; chỉ nhận class có `get_Instance()` và `ExecuteScriptFunction(3)`.
+1. `EnsureUiDiscovery`: `UIObject.instances` + control classes hiện có, không phụ thuộc Executor.
+2. `EnsureUiLua`: chỉ tải Executor/System.Object/GUI API khi UIRect hoặc Lua action cần.
+3. AUTO lookup thử `FindUI/MainFindUI`, rồi exact active `UIObject.instances`, rồi mới fallback hai callback UI hiện hành.
 
 ## Ưu tiên toàn cục
 
-1. P1 XN Lâu Lan: điều kiện route ownership/stall của v0.5 giữ nguyên; action đổi sang MessageBox callback.
-2. P2 Đầu thai: giữ death lifecycle/World Flow FIFO; action đổi sang death-guarded UIButton callback.
-3. P3 AUTO: Attack/Stop request đổi sang `TopIcon.AutoTrainClick/AutoStopClick`.
+1. P1 XN Lâu Lan — runtime pass, giữ nguyên route/stall gate.
+2. P2 Đầu thai — runtime pass, giữ nguyên death lifecycle/World Flow FIFO.
+3. P3 AUTO — path 1 gọi `TopIcon.AutoTrainClick/AutoStopClick`; path 2 không block: `AUTO` root → 650 ms → resolve mới `Đánh quái/Dừng`. Snapshot `AutoFight` quyết định thành/bại.
 
-Ba action không dùng mouse guard vì không tạo mouse input. Mouse guard vẫn áp dụng cho chuỗi giao dịch tọa độ.
+## F4
 
-## Auto-sell
+Thân `ToggleGlobalPause` v0.6.2 giữ nguyên hành vi v0.5: toggle global pause, gửi StopPath cho acc RUN khi có thể, không tự đổi combat. `RegisterHotKey(F4)` vẫn là đường chính. Timer 250 ms đọc cạnh F4 bằng `GetAsyncKeyState`, dùng latch chung với `WM_HOTKEY` để phục hồi delivery và tránh toggle hai lần.
 
-- Quyết định khi nào bán, đi NPC, quay bãi, retry hai pass và ngưỡng MAIN/CON giữ từ v0.5.
-- Recorded sell macro không còn nằm trên active path.
-- Bridge nhận dạng từng semantic stage; controller delay giữa các stage để không block game thread.
-- Item phải thuộc cây bag/inventory và không thuộc product/shop list.
-- `FreeBagSpace` tăng mới tính sold; 3 lần không tiến triển thì skip; tối đa 90 callback.
+## Auto Sell
+
+- Trigger/mode/role và hành trình NPC vẫn thuộc FSM v0.5.
+- Active item path hiện vẫn là callback UI, không dùng macro tọa độ.
+- Candidate ưu tiên control có item-click handler và cell index tự nhiên; raw pointer order bị loại.
+- `FreeBagSpace` tăng mới tính là sold verified.
+- `SafetyLimit` (90 callback) và `NoProgress` là lỗi fail-closed, không phải hết đồ.
+- Hoàn tất cần đồng thời: sold verified > 0, Bridge báo exhausted sau scan hiện hành, FreeBag tăng so với đầu phiên và ổn định 1.5 giây.
+- Phase lỗi không tự thoát chỉ vì người dùng tạo một ô trống; Stop/Start mới reset runtime.
+
+Ranh giới: dữ liệu client đã chứng minh production semantic sell nên dùng fresh `GetItemsAtSite(Bag)` → item instance ID → current shop IDs → một sell request → RemoveItem/UpdateItemsList proof → rescan. v0.6.2 chưa tự nhận là đã triển khai packet loop đó; nó sửa lỗi live của callback bridge và completion gate trước.
 
 ## Logic được bảo vệ
 
-World Flow observation/recovery, route ownership, Travel Guard authoritative, mount recovery, rotation, F4/F8, trade FIFO/relock/pass/bag stabilization và trade macro giữ nguyên trừ nơi phải đổi từ AUTO physical sang AUTO nội bộ.
-
-## Rủi ro còn cần test thật
-
-- Mã Kiêu Minh ID 373 là donor đã chứng minh. Dược Đại Phu ID 279 có thể dùng cây shop khác.
-- UI scorer phụ thuộc metadata/text của đúng client.
-- Game minimized có thể tự dừng update dù action không chiếm chuột.
-- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.
-- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. Knowledge base client khuyến nghị bước sau phải proof `System.Action -> MainThread.Execute` bất đồng bộ trước khi coi đây là boundary production ổn định; v0.6.1 không mở rộng sang thay kiến trúc đó khi chưa có CTS live proof.
+XN/Revive đang pass, World Flow, route ownership, Travel Guard, mount recovery, trade/FIFO/relock/pass, rotation, F8, profile/INI và MAIN/CON coordinate trade không được đổi ngoài những điểm ghi rõ.
 
 ## Test tiếp theo bắt buộc
 
-1. Dùng đúng cặp EXE/DLL v0.6.1.
-2. Test XN Lâu Lan trước. Nếu fail, log mới phải nêu `UIObject`, `instances`, control type hoặc candidate ambiguity cụ thể.
-3. Test Mã Kiêu Minh ID 373. Ghi lại từng semantic stage và `FreeBagSpace`.
-4. Test AUTO start/stop riêng; đây là nhánh còn cần Lua Executor nên XN/Sell Button pass không tự động chứng minh AUTO pass.
-5. Chưa bật hàng loạt account trước khi một PID qua đủ các bước trên.
+1. Dùng đúng cặp EXE/DLL v0.6.2 trên một PID.
+2. Nhấn F4 hai lần khi tool không foreground; log phải lần lượt có `TẠM DỪNG` và `TIẾP TỤC` đúng một lần mỗi phím.
+3. Test AUTO bật và dừng. Nếu path 1 không resolve, log phải có P1 AUTO-root rồi PASS `AUTO → Đánh quái/Dừng`; snapshot phải đổi đúng ON/OFF.
+4. Test bán Mã Kiêu Minh. Ghi `callback`, `FreeBag`, `sold verified`, và kết quả `NoProgress/SafetyLimit/exhausted`; không được quay bãi sau chỉ một ô trống nếu chưa có exhaustion proof.
+5. Regression XN và Đầu thai; không bật nhiều account trước khi một PID qua đủ bốn nhóm.
 
 ## Knowledge index
 
-- `docs/bugs/BUG_REGISTRY.md` — BUG-001.
-- `docs/evidence/EVIDENCE_REGISTRY.md` — EVID-001.
-- `docs/decisions/DECISIONS.md` — DEC-001.
-- `docs/features/BACKGROUND_UI_ACTIONS.md`.
-- `docs/history/VERSION_v0.6.1.md`.
+- `docs/bugs/BUG_REGISTRY.md`
+- `docs/evidence/EVIDENCE_REGISTRY.md`
+- `docs/decisions/DECISIONS.md`
+- `docs/features/BACKGROUND_UI_ACTIONS.md`
+- `docs/history/VERSION_v0.6.2.md`

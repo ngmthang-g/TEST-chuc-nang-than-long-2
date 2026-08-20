@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## v0.6.2 — 2026-08-20
+
+### Runtime evidence from v0.6.1
+- Confirm at the Lâu Lan gate is **RUNTIME PASS**: the internal MessageBox callback was followed by the expected map transition without foreground/mouse input.
+- Revive/Đầu thai is **RUNTIME PASS**: `IsDeath` was rechecked, the internal UIButton callback ran, and other account sequences retained index/repeat.
+- AUTO is **RUNTIME FAIL** at the old `TopIcon` name lookup: `Không tìm thấy Lua UI theo tên`.
+- Auto Sell can open the semantic shop chain and close UI, but item callbacks are unreliable on the live layout. A separate controller defect could treat one newly-free slot as completion and return to train.
+- F4 is USER-REPORTED FAIL. Source comparison confirms the v0.5 `ToggleGlobalPause` body and registration call were still present in v0.6.1, so “F4 code was deleted” is rejected; the exact registration/message delivery failure remains UNKNOWN.
+
+### Fixed
+- Keep exact `TopIcon.AutoTrainClick/AutoStopClick` as AUTO path 1; add exact active-name lookup through `UIObject.instances` when `FindUI/MainFindUI` returns null.
+- Add non-blocking AUTO path 2: resolve/callback current `AUTO` root, wait 650 ms in the controller FSM, re-enumerate current controls, then callback `Đánh quái` or `Dừng`. No control pointer survives between stages.
+- Add semantic scores/tests for AUTO root/train/stop and reject generic unrelated `Dừng` controls without AUTO context.
+- Preserve the exact v0.5 pause/resume body and `RegisterHotKey`; add latched `GetAsyncKeyState(VK_F4)` edge polling so a lost/conflicted WM_HOTKEY still has a recovery path without double-toggle.
+- Rank sell item controls by actionable item handler and natural cell index rather than raw object address.
+- Split `SafetyLimit` and `NoProgress` from true candidate exhaustion. The 90-callback guard never means successful completion.
+- Record initial FreeBagSpace + verified sold count + exhaustion proof. A single free slot or manual bag change cannot leave sell-failure phase or trigger return-to-train.
+- Closing UI failure now remains fail-closed instead of advancing to bag verification.
+- Bump controller/Bridge protocol to `0x00010602`.
+
+### Preserved / limits
+- Confirm, Revive, route ownership, Travel Guard, death flow, trade/FIFO, rotation, profile data and legacy capture points are not redesigned.
+- No coordinate fallback and no `CreateRemoteThread` were added.
+- v0.6.2 source/build success is not runtime success. AUTO fallback, F4 delivery and corrected item ordering require a fresh one-PID live test.
+- The canonical future sell implementation remains fresh `GetItemsAtSite(Bag)` instance scan → one exact sell request → inventory proof → rescan. v0.6.2 hardens the current UI-callback bridge without claiming that packet-level implementation is complete.
+
 ## v0.6.1 — 2026-08-20
 
 ### Requested / runtime evidence

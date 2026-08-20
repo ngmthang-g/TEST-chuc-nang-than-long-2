@@ -2,6 +2,7 @@
 
 #include <cwctype>
 #include <initializer_list>
+#include <limits>
 #include <string>
 
 namespace background_ui_logic {
@@ -17,6 +18,9 @@ enum class Role {
     TreatmentConfirm,
     TreatmentAck,
     CloseTradeOrBag,
+    AutoRoot,
+    AutoTrain,
+    AutoStop,
 };
 
 struct Labels {
@@ -130,6 +134,34 @@ inline int Score(const Labels& labels, Role role) {
             if (text == L"dong" || text == L"close" || text == L"x") return 820 + contextBonus;
             return Has(all, {L"btnclose", L"buttonclose", L"closebutton", L"shopclose", L"storeclose", L"bagclose", L"inventoryclose", L"packageclose"}) ? 700 + contextBonus : 0;
         }
+        case Role::AutoRoot: {
+            const bool submenu = Has(all, {L"phuban", L"nhiemvu", L"quest", L"thietlap",
+                                           L"setting", L"dung", L"stop", L"pk", L"danhquai",
+                                           L"autofight", L"autoattack", L"autobattle"});
+            if (submenu) return -1000;
+            if (text == L"auto") return 940;
+            if (name == L"auto" || name == L"btnauto" || name == L"buttonauto") return 840;
+            return Has(all, {L"openautomenu", L"automenu", L"btnopenauto", L"mainauto", L"buttonauto"}) ? 660 : 0;
+        }
+        case Role::AutoTrain: {
+            if (Has(all, {L"phuban", L"nhiemvu", L"quest", L"thietlap", L"setting",
+                          L"dung", L"stop", L"pk"})) return -1000;
+            const bool autoContext = Has(parents, {L"topicon", L"automenu", L"autopopup"}) ||
+                                     Has(name + handler, {L"autotrainclick", L"fightmonster",
+                                                          L"autoattack", L"autobattle"});
+            if (text == L"danhquai" && autoContext) return 940;
+            if (Has(all, {L"danhquai"}) && autoContext) return 820;
+            return Has(all, {L"autofight", L"fightmonster", L"monsterfight", L"autoattack",
+                             L"autobattle", L"rangerauto", L"btnfightmonster"}) ? 650 : 0;
+        }
+        case Role::AutoStop: {
+            if (Has(all, {L"danhquai", L"phuban", L"nhiemvu", L"quest", L"thietlap",
+                          L"setting", L"pk"})) return -1000;
+            const bool autoContext = Has(parents, {L"topicon", L"automenu", L"autopopup"}) ||
+                                     Has(name + handler, {L"stopauto", L"autostop", L"stopfight", L"dungauto"});
+            if ((text == L"dung" || text == L"stop") && autoContext) return 940;
+            return Has(all, {L"stopauto", L"autostop", L"stopfight", L"dungdanh", L"dungauto"}) ? 800 : 0;
+        }
     }
     return 0;
 }
@@ -141,6 +173,35 @@ inline bool SafeBagItem(const Labels& labels) {
     if (!Has(name, {L"item", L"slot", L"cell", L"griditem", L"bagitem", L"packitem"})) return false;
     if (!Has(parents, {L"bag", L"inventory", L"package", L"itempack", L"packitem", L"bagitem", L"itemgrid", L"itemlist"})) return false;
     return !Has(combined, {L"buyitem", L"productitem", L"shoplistitem", L"npcitem"});
+}
+
+inline int BagItemScore(const Labels& labels) {
+    if (!SafeBagItem(labels)) return 0;
+    const std::wstring name = Key(labels.name);
+    const std::wstring handler = Key(labels.handler);
+    const std::wstring parents = Key(labels.ancestors);
+    int score = 100;
+    if (Has(handler, {L"itemclick", L"clickitem", L"bagitem", L"griditem"})) score += 500;
+    if (Has(name, {L"bagitem", L"griditem", L"packitem", L"itemcell", L"itemslot"})) score += 300;
+    if (Has(parents, {L"equipment", L"trangbi", L"equiptab"})) score += 120;
+    if (Has(name + handler, {L"icon", L"label", L"text", L"count", L"quantity", L"durability"})) score -= 250;
+    return score > 0 ? score : 1;
+}
+
+inline int NaturalItemIndex(const Labels& labels) {
+    const std::wstring key = Key(labels.name);
+    if (key.empty()) return std::numeric_limits<int>::max();
+    std::size_t end = key.size();
+    while (end > 0 && !std::iswdigit(key[end - 1])) --end;
+    if (end == 0) return std::numeric_limits<int>::max();
+    std::size_t begin = end;
+    while (begin > 0 && std::iswdigit(key[begin - 1])) --begin;
+    int value = 0;
+    for (std::size_t i = begin; i < end; ++i) {
+        if (value > 100000) return value;
+        value = value * 10 + static_cast<int>(key[i] - L'0');
+    }
+    return value;
 }
 
 } // namespace background_ui_logic
