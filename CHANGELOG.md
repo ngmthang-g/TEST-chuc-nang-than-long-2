@@ -22,6 +22,13 @@
 - F4/F8, AUTO, Revive, Confirm, travel, train, rotation, trade coordinator and physical MAIN/CON trade code are unchanged except version text/build wiring.
 - Runtime remains **UNTESTED** until the user tests the matching v0.6.1.1 EXE/DLL pair.
 
+### Build / runtime
+
+- Windows MSVC x64 CI run 295 (`32402322381`) on source commit `930ceee7`: PASS.
+- Scope audit plus route, rotation, trade coordinator, background UI scoring and fixed-slot sell self-tests: PASS.
+- Release ZIP is the unmodified CI artifact `9418953183`; hashes are recorded in `release/SHA256SUMS_v0.6.1.1.txt`.
+- Runtime: **RUNTIME UNTESTED** until the user tests the matching v0.6.1.1 EXE/DLL pair.
+
 ## v0.6.1 — 2026-08-20
 
 ### Requested / runtime evidence

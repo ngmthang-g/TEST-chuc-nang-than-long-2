@@ -6,12 +6,13 @@ Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. S
 
 - v0.6.1.1 là hotfix hẹp trên đúng source v0.6.1: chỉ thay bước callback item tay nải đang lỗi.
 - [ThanLongItemConsolidator-v0.6.1.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1.1-win-x64.zip)
+- [ThanLongItemConsolidator_Source_v0.6.1.1.zip](release/ThanLongItemConsolidator_Source_v0.6.1.1.zip)
 - Hash EXE/DLL/ZIP và nguồn CI: [release/SHA256SUMS_v0.6.1.1.txt](release/SHA256SUMS_v0.6.1.1.txt).
 - Bản v0.6.1 gốc vẫn nằm tại [release/ThanLongItemConsolidator-v0.6.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1-win-x64.zip) để đối chiếu.
 - v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
 - Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1.1 cố ý từ chối DLL cũ.
 
-CI/build không thay thế test thực chiến trên đúng client game. Hãy thử một PID và kiểm tra log đủ 90 callback trước khi bật chu trình nhiều tài khoản.
+Gói v0.6.1.1 lấy nguyên từ Windows CI run 295 (`32402322381`): MSVC x64 build và toàn bộ self-test PASS. CI/build không thay thế test thực chiến trên đúng client game; hãy thử một PID và kiểm tra log đủ 90 callback trước khi bật chu trình nhiều tài khoản.
 
 ## Hotfix ô trang bị cố định
 
@@ -20,7 +21,7 @@ CI/build không thay thế test thực chiến trên đúng client game. Hãy th
 - Profile v0.5 đủ 5 dòng dùng dòng 5. Nếu profile chỉ còn một dòng thì dùng chính dòng đó; với 2–4 dòng dùng dòng cuối.
 - Vòng bán đầu gọi ô cố định 90 lần. Sau khi đóng UI và `FreeBagSpace` ổn định 1,5 giây, vòng bán sau dùng đúng số ô trống đã học, tối đa 90. Giá trị học chỉ sống trong phiên chạy tool như v0.5.
 - Delay của dòng tọa độ vẫn là delay giữa từng callback. Cột `Lặp` cũ không quyết định vòng đầu trong hotfix này vì yêu cầu đã cố định là 90.
-- Nên lấy F8 tại tâm ô trang bị thứ 2 sau khi đã mở đúng tab Trang bị. `TEST DÒNG` cũ vẫn là test chuột legacy; chuỗi AUTO BÁN mới mới là đường callback nội bộ.
+- Nên lấy F8 tại tâm ô trang bị thứ 2 sau khi đã mở đúng tab Trang bị. `TEST DÒNG` cũ vẫn là test chuột legacy; chuỗi AUTO BÁN mới là đường callback nội bộ.
 
 ## Sửa lỗi resolver v0.6.1
 
@@ -55,6 +56,6 @@ Workflow Windows x64 chạy:
 4. Background UI scoring self-test.
 5. Fixed-slot selection/adaptive-count self-test.
 
-Artifact: `ThanLongItemConsolidator-v0.6.1.1-win-x64` gồm EXE, Bridge DLL và tài liệu.
+CI run 295 (`32402322381`) đã PASS toàn bộ các bước trên. Artifact `ThanLongItemConsolidator-v0.6.1.1-win-x64` gồm EXE, Bridge DLL và tài liệu.
 
 Đọc [DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md](DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md) để xem diễn giải chi tiết donor 0.8.4 và quyết định chuyển đổi.

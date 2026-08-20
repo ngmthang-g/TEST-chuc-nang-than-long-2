@@ -37,5 +37,6 @@ No route, shop-opening stage, close-UI stage, AUTO, Revive, Confirm, F4, F8, tra
 
 - Pure fixed-slot selection/count tests: added.
 - Static scope verifier: added.
-- Windows x64 CI: pending until the source commit is published.
+- Windows x64 CI run 295 (`32402322381`): PASS, including MSVC Release build, scope audit, five self-test groups and artifact staging.
+- Binary artifact `9418953183` came from source commit `930ceee7d857254770da32b74aff658c42047237`, tree `9f09f444df035f41f6700774e47e6572a8ae8aeb`.
 - Live client: RUNTIME UNTESTED.

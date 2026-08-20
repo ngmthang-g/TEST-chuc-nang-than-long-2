@@ -14,7 +14,7 @@
 - BUG-001 root cause ở mức **CONFIRMED**: basic UI enumeration bị khóa bởi một readiness gate gộp cả dependency Lua/Executor không cần cho UIButton. `MonoBehaviourExecutor` là component **LIKELY** bị thiếu vì namespace của nó chỉ là giả định từ donor RVA, chưa có metadata proof trong v0.6.
 - v0.6.1: source audit + Windows MSVC x64 CI 274 **BUILD PASS**, nhưng vẫn **RUNTIME UNTESTED**. Hotfix chưa được gọi là runtime pass cho tới khi người dùng test lại.
 - User runtime sau đó xác nhận chuỗi bán v0.6.1 đi đúng tới tab Trang bị nhưng bước item không giữ hành vi một ô lặp/dồn đồ của v0.5. Đây là BUG-002.
-- v0.6.1.1: fixed-slot source/tests hoàn thành; Windows CI và live runtime chưa được nâng trạng thái cho tới khi có kết quả thật.
+- v0.6.1.1: Windows MSVC x64 CI run 295 **BUILD PASS**, gồm scope audit và đủ năm nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL trên client thật.
 
 ## Kiến trúc action v0.6.1.1
 

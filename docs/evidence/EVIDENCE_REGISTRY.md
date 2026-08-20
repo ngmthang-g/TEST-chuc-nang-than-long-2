@@ -1,5 +1,21 @@
 # EVIDENCE REGISTRY
 
+## EVID-003 — v0.6.1.1 build acceptance
+
+- Type: CI / STATIC + PURE LOGIC TESTS
+- Date/version: 2026-08-20 / v0.6.1.1
+- Confidence: High for source integrity and build acceptance; no live-client claim
+
+### Observation
+
+GitHub Actions run 295 (`32402322381`) built the exact source tree `9f09f444df035f41f6700774e47e6572a8ae8aeb` with MSVC x64. Scope audit, route, rotation, shared trade coordinator, background UI scoring and fixed-slot sell self-tests all passed. Artifact `9418953183` was downloaded, ZIP-tested and verified as PE32+ x86-64 for both EXE and Bridge DLL.
+
+### Does not prove
+
+- That the user's live client exposes the item control geometry expected by the Bridge.
+- That 90 live callback invocations sell 90 items on that exact client.
+- Runtime success before the user retests the matching EXE/DLL pair.
+
 ## EVID-002 — v0.6.1 reaches Equipment tab but item stage is wrong
 
 - Type: USER_RUNTIME / DESCRIPTION + SCREENSHOTS
