@@ -1,4 +1,4 @@
-# PROJECT KNOWLEDGE — v0.6.1 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.1 CURRENT
 
 ## Quy tắc dự án
 
@@ -13,10 +13,12 @@
 - Điều runtime đã chứng minh: Bridge attach, snapshot, route và `ClickNPC` trước chuỗi UI vẫn hoạt động đủ để FSM đi tới đúng điểm lỗi. Log không chứng minh component cụ thể nào null.
 - BUG-001 root cause ở mức **CONFIRMED**: basic UI enumeration bị khóa bởi một readiness gate gộp cả dependency Lua/Executor không cần cho UIButton. `MonoBehaviourExecutor` là component **LIKELY** bị thiếu vì namespace của nó chỉ là giả định từ donor RVA, chưa có metadata proof trong v0.6.
 - v0.6.1: source audit + Windows MSVC x64 CI 274 **BUILD PASS**, nhưng vẫn **RUNTIME UNTESTED**. Hotfix chưa được gọi là runtime pass cho tới khi người dùng test lại.
+- User runtime sau đó xác nhận chuỗi bán v0.6.1 đi đúng tới tab Trang bị nhưng bước item không giữ hành vi một ô lặp/dồn đồ của v0.5. Đây là BUG-002.
+- v0.6.1.1: fixed-slot source/tests hoàn thành; Windows CI và live runtime chưa được nâng trạng thái cho tới khi có kết quả thật.
 
-## Kiến trúc action v0.6.1
+## Kiến trúc action v0.6.1.1
 
-Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010601` từ chối ghép EXE/DLL khác version.
+Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010611` từ chối ghép EXE/DLL khác version.
 
 Không có `CreateRemoteThread` trong controller/Bridge. Một mapping chỉ có một request in-flight; timeout không được ghi đè.
 
@@ -38,10 +40,11 @@ Ba action không dùng mouse guard vì không tạo mouse input. Mouse guard v�
 ## Auto-sell
 
 - Quyết định khi nào bán, đi NPC, quay bãi, retry hai pass và ngưỡng MAIN/CON giữ từ v0.5.
-- Recorded sell macro không còn nằm trên active path.
-- Bridge nhận dạng từng semantic stage; controller delay giữa các stage để không block game thread.
-- Item phải thuộc cây bag/inventory và không thuộc product/shop list.
-- `FreeBagSpace` tăng mới tính sold; 3 lần không tiến triển thì skip; tối đa 90 callback.
+- Bridge vẫn nhận dạng các semantic stage qua `Trang bị`; controller delay giữa các stage để không block game thread.
+- Riêng item stage dùng tọa độ dòng 5 (hoặc dòng cuối/duy nhất) để hit-test control live rồi gọi một callback nội bộ mỗi tick.
+- Vòng đầu 90 callback; sau sale hoàn tất, `FreeBagSpace` ổn định được lưu vào `sellStep5LearnedRepeat` cho vòng sau, cap 90.
+- Không cache control/RectTransform giữa hai click; không tạo physical mouse input.
+- Completion vẫn chỉ được kết luận sau `FreeBagSpace > 0` ổn định 1,5 giây.
 
 ## Logic được bảo vệ
 
@@ -57,11 +60,12 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 
 ## Test tiếp theo bắt buộc
 
-1. Dùng đúng cặp EXE/DLL v0.6.1.
+1. Dùng đúng cặp EXE/DLL v0.6.1.1.
 2. Test XN Lâu Lan trước. Nếu fail, log mới phải nêu `UIObject`, `instances`, control type hoặc candidate ambiguity cụ thể.
-3. Test Mã Kiêu Minh ID 373. Ghi lại từng semantic stage và `FreeBagSpace`.
-4. Test AUTO start/stop riêng; đây là nhánh còn cần Lua Executor nên XN/Sell Button pass không tự động chứng minh AUTO pass.
-5. Chưa bật hàng loạt account trước khi một PID qua đủ các bước trên.
+3. Mở tab Trang bị, lấy dòng item F8 tại tâm ô trang bị thứ 2; chạy một PID và ghi log callback `1/90` tới `90/90`.
+4. Xác nhận chuột/foreground không đổi, UI đóng, `FreeBagSpace` ổn định và log lần sau dùng learned count.
+5. Test AUTO start/stop riêng; sell pass không tự động chứng minh AUTO pass.
+6. Chưa bật hàng loạt account trước khi một PID qua đủ các bước trên.
 
 ## Knowledge index
 
@@ -70,3 +74,4 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - `docs/decisions/DECISIONS.md` — DEC-001.
 - `docs/features/BACKGROUND_UI_ACTIONS.md`.
 - `docs/history/VERSION_v0.6.1.md`.
+- `docs/history/VERSION_v0.6.1.1.md`.

@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## v0.6.1.1 — 2026-08-20
+
+### Requested / confirmed
+
+- User runtime confirms the internal shop chain reaches and selects `Trang bị`; only the following item-cell stage is wrong.
+- Source comparison confirms v0.6.1 did **not** retain active v0.5 adaptive Step 5. It kept only an unused learned-repeat field while replacing coordinate Step 5 with item-control name/ancestor enumeration.
+
+### Fixed — item stage only
+
+- Keep `ClickNPC → shop → Bán vật phẩm → Bán nhanh → Trang bị` and close-UI actions unchanged.
+- Use one captured item coordinate: v0.5 row 5 when present, otherwise the last configured row (including a one-row profile).
+- Normalize the client point, resolve the current live control under it via Unity RectTransform hit-testing, and invoke exactly one `UIButton`/`UIRect` callback per Bridge request.
+- Resolve again after every sale so the collapsing inventory never reuses a cached transient pointer.
+- First session uses 90 callbacks; later sessions use stable post-sale `FreeBagSpace`, capped at 90 and retained for the current tool process as in v0.5.
+- Keep the configured row delay between callbacks. No foreground switch, cursor movement or Windows mouse injection occurs in this stage.
+- Bump the EXE/DLL protocol to `0x00010611`.
+
+### Protected
+
+- F4/F8, AUTO, Revive, Confirm, travel, train, rotation, trade coordinator and physical MAIN/CON trade code are unchanged except version text/build wiring.
+- Runtime remains **UNTESTED** until the user tests the matching v0.6.1.1 EXE/DLL pair.
+
 ## v0.6.1 — 2026-08-20
 
 ### Requested / runtime evidence

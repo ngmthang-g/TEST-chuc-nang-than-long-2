@@ -1,10 +1,15 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Thần Long Tool Logic Table v0.6.1</title>
+<title>Thần Long Tool Logic Table v0.6.1.1</title>
 <style>
 body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:#172033}h1,h2{margin:.3em 0}.box{background:white;border:1px solid #dce2eb;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 8px #0000000a}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9eef8;margin-right:6px;font-weight:600}table{border-collapse:collapse;width:100%;background:white;font-size:14px}th,td{border:1px solid #d7dde8;padding:9px;vertical-align:top}th{background:#edf2f8;position:sticky;top:0}tr:nth-child(even){background:#fafbfd}.new{font-weight:700;background:#f1f7ff!important}.removed{text-decoration:line-through;color:#7a4650}.mono{font-family:Consolas,monospace}ul{line-height:1.55}.ok{font-weight:700}</style></head><body>
-<h1>Thần Long Item Consolidator — Bảng logic v0.6.1</h1>
-<div class="box"><span class="tag">Version v0.6.1</span><span class="tag">Base trực tiếp: v0.6</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<h1>Thần Long Item Consolidator — Bảng logic v0.6.1.1</h1>
+<div class="box"><span class="tag">Version v0.6.1.1</span><span class="tag">Base trực tiếp: v0.6.1</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<div class="box"><h2>Hotfix duy nhất v0.6.1.1</h2><ul>
+<li><b>Giữ nguyên:</b> ClickNPC → shop → Bán vật phẩm → Bán nhanh → Trang bị và đóng UI.</li>
+<li><b>Thay riêng item:</b> tọa độ dòng 5/dòng cuối chọn control live dưới ô trang bị thứ 2; Bridge gọi một callback nội bộ mỗi tick, không foreground/chuột.</li>
+<li><b>Adaptive:</b> vòng đầu 90 callback; sau sale hoàn tất dùng FreeBagSpace ổn định của lần trước, cap 90. Runtime hiện UNTESTED.</li>
+</ul></div>
 <div class="box"><h2>Runtime v0.6 → hotfix v0.6.1</h2><ul>
 <li><b>Bằng chứng:</b> XN Lâu Lan và mở chuỗi bán nền cùng fail tại lỗi readiness gộp <span class="mono">UIObject/UIButton/UIToggle/UIRect/Executor</span>. v0.6 là RUNTIME FAIL cho hai nhánh này.</li>
 <li><b>Sửa:</b> basic discovery chỉ cần <span class="mono">UIObject.instances</span> + control class hiện có; Button/Toggle không còn phụ thuộc Executor. Rect/Lua resolve dependency lười; Executor có metadata fallback và method validation.</li>
@@ -42,8 +47,8 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <tr><td>Train</td><td>Check AutoFight 1 phút</td><td>Train ổn định</td><td>OFF thì xếp P3 Đánh quái</td><td>Không đổi trigger</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Train</td><td>Check tọa 3 phút</td><td>Train ổn định</td><td>Lệch → Train Recovery</td><td>Không đổi trigger</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Sell</td><td>Auto Sell master/threshold</td><td>Checkbox + bag threshold</td><td>Trigger bán theo mode/role hiện có</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
-<tr class="new"><td>Sell</td><td>Semantic background sell</td><td>Đang ở phase bán tại NPC</td><td>ClickNPC → shop → sell tab → quick sell → equipment → item callbacks → close</td><td>Mỗi nhịp một action; workflow GD chờ logic nhưng chuột rảnh</td><td>THAY MACRO ACTIVE</td><td>v0.6</td></tr>
-<tr class="removed"><td>ĐÃ LOẠI ACTIVE</td><td>Adaptive Sell Step 5</td><td>Macro tọa độ cũ</td><td>INI/editor còn để tương thích nhưng auto-sell không đọc repeat học được</td><td>Thay bằng FreeBagSpace feedback sau từng item</td><td>LEGACY</td><td>v0.6</td></tr>
+<tr class="new"><td>Sell</td><td>Semantic shop + fixed item callback</td><td>Đang ở phase bán tại NPC</td><td>ClickNPC → shop → sell tab → quick sell → equipment giữ semantic; item dùng hit-test tọa độ → callback → close</td><td>Mỗi nhịp một action; workflow GD chờ logic nhưng chuột rảnh</td><td>HOTFIX ITEM</td><td>v0.6.1.1</td></tr>
+<tr class="new"><td>Sell</td><td>Adaptive Sell Step 5</td><td>Tới item stage</td><td>Dòng 5 nếu profile ≥5 dòng, nếu không dùng dòng cuối; 90 lần đầu, lần sau dùng FreeBagSpace đã học cap 90</td><td>Chỉ tọa độ/delay active; không chạy lại 4 click mở shop legacy</td><td>KHÔI PHỤC NỘI BỘ</td><td>v0.6.1.1</td></tr>
 <tr><td>Sell</td><td>Xác nhận bán xong</td><td>FreeBagSpace &gt;0 ổn định 1.5s</td><td>Kết thúc bán và quay bãi</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Trade</td><td>Hàng đợi CON</td><td>CON full khi dồn đồ</td><td>Tối đa 3 CON chờ; FIFO workflow ticket</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
 <tr><td>Trade</td><td>FIFO/Re-lock</td><td>Nhiều CON chờ</td><td>Vé vào workflow sớm hơn ưu tiên; relock trước sequence</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
@@ -58,5 +63,5 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <tr class="removed"><td>ĐÃ LOẠI</td><td>XN ra Map mỗi N giây</td><td>Timer interval</td><td>Không còn runtime, UI interval, config field hay scheduler pass</td><td>Được thay bởi M5 stall watchdog</td><td>LOẠI HOÀN TOÀN</td><td>v0.4</td></tr>
 <tr class="removed"><td>ĐÃ LOẠI</td><td>Background XN PostMessage</td><td>M5 stall watchdog v0.4</td><td>Không còn trong active controller/verifier/docs hiện tại; P1 dùng real foreground mouse click</td><td>Historical v0.4 archive chỉ để truy vết</td><td>LOẠI HOÀN TOÀN</td><td>v0.5</td></tr>
 </tbody></table>
-<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime v0.6.1:</b> resolver hotfix chưa được runtime-pass. XN, revive, AUTO và auto-sell vẫn dùng callback nội bộ; chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
+<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime v0.6.1.1:</b> fixed-slot hotfix chưa được runtime-pass. XN, revive, AUTO và auto-sell vẫn dùng callback nội bộ; chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
 </body></html>

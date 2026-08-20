@@ -3,10 +3,12 @@
 #include <cstddef>
 #include <climits>
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
 #include "background_ui_logic.h"
+#include "fixed_slot_sell_logic.h"
 #include "protocol.h"
 
 using namespace cleanroute;
@@ -96,6 +98,8 @@ struct Api {
     std::size_t (__cdecl* image_get_class_count)(const Il2CppImage*) = nullptr;
     Il2CppClass* (__cdecl* image_get_class)(const Il2CppImage*, std::size_t) = nullptr;
     const char* (__cdecl* class_get_name)(Il2CppClass*) = nullptr;
+    const MethodInfo* (__cdecl* class_get_methods)(Il2CppClass*, void**) = nullptr;
+    const char* (__cdecl* method_get_name)(const MethodInfo*) = nullptr;
     bool uiDiscoveryExportsLoaded = false;
     bool uiLuaExportsLoaded = false;
 
@@ -131,6 +135,8 @@ struct Api {
         (void)Resolve(module, "il2cpp_image_get_class_count", image_get_class_count);
         (void)Resolve(module, "il2cpp_image_get_class", image_get_class);
         (void)Resolve(module, "il2cpp_class_get_name", class_get_name);
+        (void)Resolve(module, "il2cpp_class_get_methods", class_get_methods);
+        (void)Resolve(module, "il2cpp_method_get_name", method_get_name);
         uiDiscoveryExportsLoaded = true;
         return true;
     }
@@ -162,6 +168,14 @@ const Il2CppImage* Image() {
     if (!domain) return nullptr;
     const Il2CppAssembly* assembly = g_api.domain_assembly_open(domain, "Assembly-CSharp");
     if (!assembly) assembly = g_api.domain_assembly_open(domain, "Assembly-CSharp.dll");
+    return assembly ? g_api.assembly_get_image(assembly) : nullptr;
+}
+
+const Il2CppImage* ImageForAssembly(const char* name, const char* dllName) {
+    Il2CppDomain* domain = g_api.domain_get ? g_api.domain_get() : nullptr;
+    if (!domain) return nullptr;
+    const Il2CppAssembly* assembly = g_api.domain_assembly_open(domain, name);
+    if (!assembly && dllName) assembly = g_api.domain_assembly_open(domain, dllName);
     return assembly ? g_api.assembly_get_image(assembly) : nullptr;
 }
 
@@ -213,14 +227,15 @@ bool InvokeObject(const MethodInfo* method, void* instance, Il2CppObject*& out, 
     return InvokeObjectArgs(method, instance, nullptr, out, detail, cap);
 }
 
-bool InvokeScalar(const MethodInfo* method, void* instance, std::int64_t& out, wchar_t* detail, std::size_t cap) {
+bool InvokeScalarArgs(const MethodInfo* method, void* instance, void** args,
+                      std::int64_t& out, wchar_t* detail, std::size_t cap) {
     out = 0;
     if (!method) { SetText(detail, cap, L"Scalar method chưa resolve"); return false; }
     const Il2CppType* rt = g_api.method_get_return_type(method);
     char* tn = rt ? g_api.type_get_name(rt) : nullptr;
     if (!tn) { SetText(detail, cap, L"Không đọc được return type"); return false; }
     void* exc = nullptr;
-    Il2CppObject* boxed = g_api.runtime_invoke(method, instance, nullptr, &exc);
+    Il2CppObject* boxed = g_api.runtime_invoke(method, instance, args, &exc);
     if (exc || !boxed) { g_api.free_fn(tn); SetText(detail, cap, L"Scalar getter lỗi/null"); return false; }
     void* raw = g_api.object_unbox(boxed);
     if (!raw) { g_api.free_fn(tn); SetText(detail, cap, L"Không unbox scalar"); return false; }
@@ -233,6 +248,11 @@ bool InvokeScalar(const MethodInfo* method, void* instance, std::int64_t& out, w
     g_api.free_fn(tn);
     if (!ok) SetText(detail, cap, L"Return type scalar chưa hỗ trợ");
     return ok;
+}
+
+bool InvokeScalar(const MethodInfo* method, void* instance, std::int64_t& out,
+                  wchar_t* detail, std::size_t cap) {
+    return InvokeScalarArgs(method, instance, nullptr, out, detail, cap);
 }
 
 bool ScalarGetter(Il2CppClass* klass, const char* name, void* instance, std::int32_t& out,
@@ -492,6 +512,13 @@ struct UiRuntime {
     Il2CppClass* executor = nullptr;
     Il2CppClass* guiApi = nullptr;
     Il2CppClass* systemObject = nullptr;
+    const Il2CppImage* coreImage = nullptr;
+    Il2CppClass* unityRectTransform = nullptr;
+    Il2CppClass* unityTransform = nullptr;
+    Il2CppClass* unityGameObject = nullptr;
+    Il2CppClass* rectTransformUtility = nullptr;
+    Il2CppClass* unityScreen = nullptr;
+    bool geometryReady = false;
     FieldInfo* instances = nullptr;
     std::vector<std::pair<Il2CppClass*, UiKind>> kindCache{};
 };
@@ -683,6 +710,231 @@ bool ObjectGetter(Il2CppObject* object, Il2CppClass* klass, const char* name,
     wchar_t ignored[128]{};
     const MethodInfo* getter = FindMethod(klass, name, 0);
     return getter && InvokeObject(getter, object, output, ignored, _countof(ignored));
+}
+
+bool EnsureUiGeometry(wchar_t* detail, std::size_t cap) {
+    if (g_ui.geometryReady) return true;
+    if (!EnsureUiDiscovery(detail, cap)) return false;
+    g_ui.coreImage = ImageForAssembly("UnityEngine.CoreModule", "UnityEngine.CoreModule.dll");
+    if (!g_ui.coreImage) {
+        SetText(detail, cap, L"Không mở được UnityEngine.CoreModule để hit-test tọa độ");
+        return false;
+    }
+    g_ui.unityRectTransform = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "RectTransform");
+    g_ui.unityTransform = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "Transform");
+    g_ui.unityGameObject = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "GameObject");
+    g_ui.rectTransformUtility = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "RectTransformUtility");
+    g_ui.unityScreen = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "Screen");
+    if (!g_ui.unityRectTransform || !g_ui.unityTransform || !g_ui.unityGameObject ||
+        !g_ui.rectTransformUtility || !g_ui.unityScreen) {
+        SetText(detail, cap, L"Thiếu RectTransform/Utility/Screen để hit-test ô cố định");
+        return false;
+    }
+    g_ui.geometryReady = true;
+    return true;
+}
+
+bool StartsWith(const char* value, const char* prefix) {
+    if (!value || !prefix) return false;
+    while (*prefix) {
+        if (*value++ != *prefix++) return false;
+    }
+    return true;
+}
+
+bool AssignableObject(Il2CppClass* base, Il2CppObject* object) {
+    if (!base || !object) return false;
+    Il2CppClass* actual = g_api.object_get_class(object);
+    return actual && g_api.class_is_assignable_from(base, actual);
+}
+
+bool NormalizeRectTransformObject(Il2CppObject* candidate, Il2CppObject*& rectTransform) {
+    rectTransform = nullptr;
+    if (!candidate) return false;
+    if (AssignableObject(g_ui.unityRectTransform, candidate)) {
+        rectTransform = candidate;
+        return true;
+    }
+    if (!AssignableObject(g_ui.unityGameObject, candidate)) return false;
+    Il2CppClass* actual = g_api.object_get_class(candidate);
+    Il2CppObject* transform = nullptr;
+    wchar_t ignored[128]{};
+    const MethodInfo* getter = actual ? FindMethod(actual, "get_transform", 0) : nullptr;
+    if (!getter || !InvokeObject(getter, candidate, transform, ignored, _countof(ignored)) ||
+        !AssignableObject(g_ui.unityRectTransform, transform)) return false;
+    rectTransform = transform;
+    return true;
+}
+
+bool GetterMayExposeRectTransform(const MethodInfo* method) {
+    if (!method || StaticMethod(method) || g_api.method_get_param_count(method) != 0) return false;
+    const Il2CppType* returnType = g_api.method_get_return_type(method);
+    Il2CppClass* returnClass = returnType ? g_api.class_from_type(returnType) : nullptr;
+    return returnClass &&
+        (g_api.class_is_assignable_from(g_ui.unityRectTransform, returnClass) ||
+         g_api.class_is_assignable_from(g_ui.unityTransform, returnClass) ||
+         g_api.class_is_assignable_from(g_ui.unityGameObject, returnClass));
+}
+
+bool ResolveRectTransform(Il2CppObject* object, Il2CppClass* klass,
+                          Il2CppObject*& rectTransform) {
+    rectTransform = nullptr;
+    if (!object || !klass) return false;
+    if (NormalizeRectTransformObject(object, rectTransform)) return true;
+
+    if (g_api.class_get_methods && g_api.method_get_name) {
+        for (Il2CppClass* current = klass; current; current = g_api.class_get_parent(current)) {
+            void* iterator = nullptr;
+            int inspected = 0;
+            while (const MethodInfo* method = g_api.class_get_methods(current, &iterator)) {
+                if (++inspected > 512) break;
+                const char* name = g_api.method_get_name(method);
+                if (!StartsWith(name, "get_") || !GetterMayExposeRectTransform(method)) continue;
+                Il2CppObject* candidate = nullptr;
+                wchar_t ignored[128]{};
+                if (InvokeObject(method, object, candidate, ignored, _countof(ignored)) &&
+                    NormalizeRectTransformObject(candidate, rectTransform)) return true;
+            }
+        }
+    }
+
+    // Named fallbacks keep the feature usable if method enumeration exports are
+    // stripped while still invoking only getters with a validated Unity return type.
+    const char* getters[] = {
+        "get_RectTransform", "get_CoreRectTransform", "get_Transform",
+        "get_CoreTransform", "get_GameObject", "get_CoreGameObject"
+    };
+    for (const char* name : getters) {
+        const MethodInfo* method = FindMethod(klass, name, 0);
+        if (!GetterMayExposeRectTransform(method)) continue;
+        Il2CppObject* candidate = nullptr;
+        wchar_t ignored[128]{};
+        if (InvokeObject(method, object, candidate, ignored, _countof(ignored)) &&
+            NormalizeRectTransformObject(candidate, rectTransform)) return true;
+    }
+    return false;
+}
+
+struct UnityVector2 { float x = 0.0f; float y = 0.0f; };
+struct UnityRectValue { float x = 0.0f; float y = 0.0f; float width = 0.0f; float height = 0.0f; };
+
+bool ReadRectArea(Il2CppObject* rectTransform, float& area) {
+    area = 0.0f;
+    Il2CppClass* klass = rectTransform ? g_api.object_get_class(rectTransform) : nullptr;
+    const MethodInfo* getter = klass ? FindMethod(klass, "get_rect", 0) : nullptr;
+    if (!getter) return false;
+    Il2CppObject* boxed = nullptr;
+    wchar_t ignored[128]{};
+    if (!InvokeObject(getter, rectTransform, boxed, ignored, _countof(ignored)) || !boxed) return false;
+    const void* raw = g_api.object_unbox(boxed);
+    if (!raw) return false;
+    const UnityRectValue value = *reinterpret_cast<const UnityRectValue*>(raw);
+    area = std::fabs(value.width * value.height);
+    return std::isfinite(area) && area > 0.0f;
+}
+
+bool BuildUnityScreenPoint(int normalizedX, int normalizedY, UnityVector2& point,
+                           const MethodInfo*& contains, wchar_t* detail, std::size_t cap) {
+    contains = nullptr;
+    if (!EnsureUiGeometry(detail, cap)) return false;
+    if (normalizedX < 0 || normalizedX >= fixed_slot_sell_logic::kCoordinateScale ||
+        normalizedY < 0 || normalizedY >= fixed_slot_sell_logic::kCoordinateScale) {
+        SetText(detail, cap, L"Tọa độ chuẩn hóa ô trang bị nằm ngoài client");
+        return false;
+    }
+    std::int32_t width = 0, height = 0;
+    if (!StaticScalar(g_ui.unityScreen, "get_width", width, detail, cap) || width <= 0 ||
+        !StaticScalar(g_ui.unityScreen, "get_height", height, detail, cap) || height <= 0) {
+        SetText(detail, cap, L"Không đọc được Unity Screen.width/height");
+        return false;
+    }
+    contains = ExactMethod(
+        g_ui.rectTransformUtility, "RectangleContainsScreenPoint", 3, true,
+        "UnityEngine.RectTransform", "UnityEngine.Vector2", "UnityEngine.Camera");
+    if (!contains) {
+        SetText(detail, cap, L"Không resolve đúng RectTransformUtility.RectangleContainsScreenPoint(3)");
+        return false;
+    }
+    point.x = static_cast<float>(static_cast<double>(normalizedX) * width /
+                                 fixed_slot_sell_logic::kCoordinateScale);
+    const double topY = static_cast<double>(normalizedY) * height /
+                        fixed_slot_sell_logic::kCoordinateScale;
+    point.y = static_cast<float>(height - 1.0 - topY);
+    return true;
+}
+
+bool RectContainsScreenPoint(Il2CppObject* rectTransform, const UnityVector2& screenPoint,
+                             const MethodInfo* contains) {
+    UnityVector2 point = screenPoint;
+    Il2CppObject* camera = nullptr;
+    void* args[] = {&rectTransform, &point, &camera};
+    std::int64_t result = 0;
+    wchar_t ignored[192]{};
+    return InvokeScalarArgs(contains, nullptr, args, result, ignored, _countof(ignored)) && result != 0;
+}
+
+int UiDepth(Il2CppObject* object) {
+    int depth = 0;
+    std::vector<Il2CppObject*> seen;
+    while (object && depth < 64) {
+        if (std::find(seen.begin(), seen.end(), object) != seen.end()) break;
+        seen.push_back(object);
+        Il2CppClass* klass = g_api.object_get_class(object);
+        Il2CppObject* parent = nullptr;
+        if (!klass || !ObjectGetter(object, klass, "get_Parent", parent) || !parent) break;
+        object = parent;
+        ++depth;
+    }
+    return depth;
+}
+
+bool EnumerateControls(std::vector<UiControl>& controls, wchar_t* detail, std::size_t cap);
+
+bool FindControlAtNormalizedPoint(int normalizedX, int normalizedY, UiControl& selected,
+                                  wchar_t* detail, std::size_t cap) {
+    if (!EnsureUiGeometry(detail, cap)) return false;
+    UnityVector2 screenPoint{};
+    const MethodInfo* contains = nullptr;
+    if (!BuildUnityScreenPoint(normalizedX, normalizedY, screenPoint, contains, detail, cap)) return false;
+    std::vector<UiControl> controls;
+    if (!EnumerateControls(controls, detail, cap)) return false;
+    struct Hit {
+        UiControl control{};
+        float area = 0.0f;
+        int depth = 0;
+    };
+    std::vector<Hit> hits;
+    int geometryCount = 0;
+    for (UiControl& control : controls) {
+        if (control.kind == UiKind::Toggle) continue;
+        if (control.kind == UiKind::Rect && control.labels.handler.empty()) continue;
+        Il2CppObject* rectTransform = nullptr;
+        if (!ResolveRectTransform(control.object, control.klass, rectTransform)) continue;
+        ++geometryCount;
+        if (!RectContainsScreenPoint(rectTransform, screenPoint, contains)) continue;
+        float area = 3.4e38f;
+        (void)ReadRectArea(rectTransform, area);
+        const int depth = UiDepth(control.object);
+        hits.push_back({std::move(control), area, depth});
+    }
+    std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) {
+        if (std::fabs(a.area - b.area) > 0.5f) return a.area < b.area;
+        if (a.depth != b.depth) return a.depth > b.depth;
+        return reinterpret_cast<std::uintptr_t>(a.control.object) <
+               reinterpret_cast<std::uintptr_t>(b.control.object);
+    });
+    if (hits.empty()) {
+        SetText(detail, cap, L"Không có UIButton/UIRect callback tại tọa độ đã gán • geometry=");
+        AppendInt(detail, cap, geometryCount);
+        return false;
+    }
+    if (hits.size() > 1 && std::fabs(hits[0].area - hits[1].area) <= 0.5f &&
+        hits[0].depth == hits[1].depth && hits[0].control.object != hits[1].control.object) {
+        SetText(detail, cap, L"Hai callback UI đồng hạng tại tọa độ item; fail-closed");
+        return false;
+    }
+    selected = std::move(hits.front().control);
+    return true;
 }
 
 bool ClassifyControl(Il2CppClass* klass, UiKind& kind) {
@@ -1001,12 +1253,6 @@ bool AutoFightAction(bool start, Response& response, wchar_t* detail, std::size_
     return true;
 }
 
-struct FailedSellItem {
-    std::wstring key;
-    int failures = 0;
-    bool skipped = false;
-};
-
 struct BackgroundSellState {
     bool active = false;
     int stage = 0;
@@ -1014,8 +1260,7 @@ struct BackgroundSellState {
     int sold = 0;
     int callbacks = 0;
     int skipped = 0;
-    std::wstring pendingKey{};
-    std::vector<FailedSellItem> failures{};
+    bool pendingCallback = false;
 };
 
 BackgroundSellState g_sell;
@@ -1029,34 +1274,10 @@ bool ReadFreeBagSpace(const Classes& c, int& freeSpace, wchar_t* detail, std::si
     return true;
 }
 
-FailedSellItem& FailureFor(const std::wstring& key) {
-    for (FailedSellItem& item : g_sell.failures) if (item.key == key) return item;
-    g_sell.failures.push_back({key, 0, false});
-    return g_sell.failures.back();
-}
-
-std::wstring SellItemKey(const UiControl& control) {
-    wchar_t pointer[32]{};
-    wsprintfW(pointer, L"%p", control.object);
-    return std::wstring(pointer) + L"|" + background_ui_logic::Key(control.labels.name) + L"|" +
-           background_ui_logic::Key(control.labels.handler) + L"|" +
-           background_ui_logic::Key(control.labels.text);
-}
-
 void RegisterPendingSellResult(int currentFree) {
-    if (g_sell.pendingKey.empty()) return;
-    FailedSellItem& failed = FailureFor(g_sell.pendingKey);
-    if (currentFree > g_sell.lastFree) {
-        g_sell.sold += currentFree - g_sell.lastFree;
-        failed.failures = 0;
-    } else {
-        ++failed.failures;
-        if (failed.failures >= 3 && !failed.skipped) {
-            failed.skipped = true;
-            ++g_sell.skipped;
-        }
-    }
-    g_sell.pendingKey.clear();
+    if (!g_sell.pendingCallback) return;
+    if (currentFree > g_sell.lastFree) g_sell.sold += currentFree - g_sell.lastFree;
+    g_sell.pendingCallback = false;
 }
 
 bool BeginBackgroundSell(int npcID, Response& response, wchar_t* detail, std::size_t cap) {
@@ -1121,23 +1342,8 @@ bool AdvanceBackgroundSell(Response& response, wchar_t* detail, std::size_t cap)
     return false;
 }
 
-bool CollectSafeBagItems(std::vector<UiControl>& items, wchar_t* detail, std::size_t cap) {
-    items.clear();
-    std::vector<UiControl> controls;
-    if (!EnumerateControls(controls, detail, cap)) return false;
-    for (UiControl& control : controls) {
-        const std::wstring name = background_ui_logic::Key(control.labels.name);
-        if (!background_ui_logic::Has(name, {L"item", L"slot", L"cell"})) continue;
-        if (!ReadAncestors(control) || !background_ui_logic::SafeBagItem(control.labels)) continue;
-        items.push_back(std::move(control));
-    }
-    std::sort(items.begin(), items.end(), [](const UiControl& a, const UiControl& b) {
-        return reinterpret_cast<std::uintptr_t>(a.object) < reinterpret_cast<std::uintptr_t>(b.object);
-    });
-    return true;
-}
-
-bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
+bool SellFixedBagSlot(int normalizedX, int normalizedY, Response& response,
+                      wchar_t* detail, std::size_t cap) {
     if (!g_sell.active || g_sell.stage < 4) { SetText(detail, cap, L"UI bán nền chưa tới bước Trang bị"); return false; }
     Classes c{};
     if (!ResolveClasses(c, detail, cap) || !SafeForAction(c, detail, cap)) return false;
@@ -1148,42 +1354,23 @@ bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
     response.value1 = g_sell.sold;
     if (g_sell.callbacks >= 90) {
         response.resultCode = static_cast<std::int32_t>(ActionResult::NoCandidate);
-        SetText(detail, cap, L"Bán nền dừng ở chặn an toàn 90 callback");
+        SetText(detail, cap, L"Bán nền dừng ở chặn an toàn 90 callback ô cố định");
         return true;
     }
 
-    std::vector<UiControl> items;
-    if (!CollectSafeBagItems(items, detail, cap)) return false;
-    for (UiControl& item : items) {
-        const std::wstring key = SellItemKey(item);
-        FailedSellItem& failed = FailureFor(key);
-        if (failed.skipped) continue;
-        ++g_sell.callbacks;
-        if (!InvokeControl(item, detail, cap)) {
-            ++failed.failures;
-            if (failed.failures >= 3 && !failed.skipped) {
-                failed.skipped = true;
-                ++g_sell.skipped;
-            }
-            continue;
-        }
-        g_sell.pendingKey = key;
-        g_sell.lastFree = currentFree;
-        response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
-        SetText(detail, cap, L"Bán nền: callback ô trang bị ");
-        AppendInt(detail, cap, g_sell.callbacks);
-        Append(detail, cap, L"/90 • đã bán xác minh=");
-        AppendInt(detail, cap, g_sell.sold);
-        Append(detail, cap, L" • bỏ qua=");
-        AppendInt(detail, cap, g_sell.skipped);
-        return true;
-    }
-
-    response.resultCode = static_cast<std::int32_t>(ActionResult::NoCandidate);
-    SetText(detail, cap, L"Bán nền: không còn ô trang bị an toàn chưa bị loại • đã bán=");
+    UiControl item{};
+    if (!FindControlAtNormalizedPoint(normalizedX, normalizedY, item, detail, cap)) return false;
+    if (!InvokeControl(item, detail, cap)) return false;
+    ++g_sell.callbacks;
+    g_sell.pendingCallback = true;
+    g_sell.lastFree = currentFree;
+    response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
+    SetText(detail, cap, L"Bán nền: callback nội bộ ô cố định ");
+    AppendInt(detail, cap, g_sell.callbacks);
+    Append(detail, cap, L"/90 • FreeBag trước click=");
+    AppendInt(detail, cap, currentFree);
+    Append(detail, cap, L" • đã bán xác minh=");
     AppendInt(detail, cap, g_sell.sold);
-    Append(detail, cap, L" • bỏ qua=");
-    AppendInt(detail, cap, g_sell.skipped);
     return true;
 }
 
@@ -1265,7 +1452,8 @@ void ProcessRequest() {
             case Command::AdvanceBackgroundSell:
                 ok = AdvanceBackgroundSell(r, detail, _countof(detail)); break;
             case Command::SellNextBagItem:
-                ok = SellNextBagItem(r, detail, _countof(detail)); break;
+                ok = SellFixedBagSlot(g_shared->request.arg0, g_shared->request.arg1,
+                                      r, detail, _countof(detail)); break;
             case Command::CloseBackgroundSell:
                 ok = CloseBackgroundSell(r, detail, _countof(detail)); break;
             default:

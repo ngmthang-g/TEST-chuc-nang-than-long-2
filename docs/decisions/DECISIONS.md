@@ -1,5 +1,23 @@
 # DECISION REGISTRY
 
+## DEC-002 — Scoped fixed-slot internal callback for v0.6.1.1
+
+- Date/version: 2026-08-20 / v0.6.1.1
+- Status: ACTIVE FOR THIS HOTFIX
+- Decision: keep semantic shop stages, but let one captured coordinate select the current live item-cell callback at every Step 5 tick.
+
+### Why this exception exists
+
+The client knowledge base recommends instance-ID sale packets and normally rejects blind coordinate fallback. The user explicitly requested a one-fix v0.6.1 hotfix that restores the already understood v0.5 collapsing-cell behavior, without introducing item policy or packet-sale changes. The coordinate therefore selects a managed UI callback; it never produces Windows mouse input.
+
+### Constraints
+
+- Resolve fresh on every click.
+- One callback per Bridge request.
+- 90 first, then learned stable free space capped at 90.
+- Ambiguous or missing hit fails closed.
+- Do not change F4 or any non-item sell stage.
+
 ## DEC-001 — Resolve UI capabilities lazily
 
 - Date/version: 2026-08-20 / v0.6.1

@@ -15,6 +15,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6 Revive: UNKNOWN / not reported.
 - v0.6 AUTO: UNKNOWN / not reported.
 - v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
+- v0.6.1.1: fixed-slot item callback source complete; Windows CI/live runtime pending.
 
 ## Version timeline
 
@@ -30,13 +31,20 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Added metadata fallback and exact diagnostics.
 - Kept state machines, retry timing and mouse-free policy unchanged.
 
+### v0.6.1.1
+
+- Preserved the working semantic shop chain through Equipment tab.
+- Replaced only automatic bag-item name/ancestor enumeration with one manually captured fixed-cell hit-test.
+- Invokes one current live callback per scheduler tick; no physical mouse input.
+- Restored adaptive Step 5 lifetime: 90 callbacks initially, then stable post-sale `FreeBagSpace` for later sessions, capped at 90.
+
 ## Do-not-break rules
 
 - Resolve current controls for every action; never retain stale UI pointers.
 - Ambiguous equal-score candidates must fail closed.
 - Confirm must remain MessageBox-scoped.
 - Revive must recheck `IsDeath` immediately.
-- Sell must verify progress using fresh `FreeBagSpace` and retain the 3-failure/90-callback guards.
+- Sell completion must still be verified using stable fresh `FreeBagSpace`; the fixed-slot hotfix retains the 90-callback ceiling.
 - Button/Toggle paths must not require Lua Executor.
 
 ## Open architectural item

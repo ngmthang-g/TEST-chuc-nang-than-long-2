@@ -1,5 +1,29 @@
 # BUG REGISTRY
 
+## BUG-002 — v0.6.1 item-cell auto-enumeration does not complete the bag sale
+
+- Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: High
+- First observed: v0.6.1, user runtime 2026-08-20
+- Last known-good behavior: v0.5 coordinate Step 5 (physical mouse)
+- Related feature: Auto Sell item stage only
+- Evidence: EVID-002
+
+### Confirmed scope
+
+The user reports that `ClickNPC → shop → Bán vật phẩm → Bán nhanh → Trang bị` succeeds. The failure begins only when v0.6.1 attempts to discover/callback bag-item controls. v0.6.1 source confirms that active Step 5 no longer consumes the recorded item coordinate or learned repeat.
+
+### Fix in v0.6.1.1
+
+Keep all working semantic stages. Replace only `CollectSafeBagItems` selection with a fresh coordinate-to-live-control hit-test and internal callback. Restore the v0.5 adaptive count lifetime: 90 first, then stable `FreeBagSpace`, capped at 90.
+
+### Runtime verification required
+
+1. Capture the center of equipment cell 2 in the active item row.
+2. Confirm cursor and foreground never move during all callbacks.
+3. Confirm the first session reaches 90 callbacks, closes UI and learns stable free space.
+4. Confirm the next session logs and uses the learned count.
+
 ## BUG-001 — Aggregate UI readiness blocks every internal control action
 
 - Status: FIXED-BUILD-PASS / RUNTIME UNTESTED
