@@ -47,7 +47,7 @@
 - `tools/verify_v062_logic.py` statically protects all changes and unchanged runtime boundaries.
 - MSVC x64 must compile controller, Bridge and four test executables.
 - Background UI tests cover AUTO roles, unrelated Stop rejection and natural bag-cell ordering.
-- Final Windows package is the unchanged artifact from CI run 282 (`32394836115`) on source commit `a1f81d84af4488d79db1eaf1a656280b2ade0945`: PASS; artifact `9416247108`; ZIP SHA-256 `53057686ad6857d244f0feba566fb00b4d5263872bd813d036470a13b29d8079`.
+- Final Windows package is the unchanged artifact from CI run 286 (`32395877990`) on source commit `5a944d60d61885f6b8264935baf46025252f369e`: PASS; artifact `9416630961`; ZIP SHA-256 `ce5dc76b0455eee0986094d9afeab9f03044adfb01a6441383853ea1da395274`.
 - CI PASS is build evidence only. Live status remains RUNTIME UNTESTED until one-PID retest.
 
 ## Required live log sequence

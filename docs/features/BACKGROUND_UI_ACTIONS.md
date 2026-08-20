@@ -18,7 +18,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6.1 Revive: RUNTIME PASS.
 - v0.6.1 AUTO: RUNTIME FAIL at `TopIcon` name lookup.
 - v0.6.1 Auto Sell: RUNTIME PARTIAL/FAIL at item callbacks and completion proof.
-- v0.6.2: BUILD PASS (final package from Windows CI run 282), RUNTIME UNTESTED until live retest.
+- v0.6.2: BUILD PASS (final package from Windows CI run 286), RUNTIME UNTESTED until live retest.
 
 ## Version timeline
 

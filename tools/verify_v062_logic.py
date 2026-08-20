@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -128,7 +129,7 @@ assert "v0.6.1 XN Lâu Lan | RUNTIME PASS" in knowledge
 assert "v0.6.1 Đầu thai | RUNTIME PASS" in knowledge
 assert "v0.6.1 AUTO | RUNTIME FAIL" in knowledge
 assert "v0.6.2 | BUILD PASS / RUNTIME UNTESTED" in knowledge
-assert "Windows CI run 282" in knowledge and "a1f81d8" in knowledge
+assert "Windows CI run 286" in knowledge and "5a944d6" in knowledge
 assert "F4 is USER-REPORTED FAIL" in changelog
 assert "v0.6.2" in readme
 
@@ -139,13 +140,20 @@ assert (ROOT / "release/ThanLongItemConsolidator-v0.6.1-win-x64.zip").is_file()
 # The checked-in release must be the exact artifact already verified by Windows CI.
 release_zip = ROOT / "release/ThanLongItemConsolidator-v0.6.2-win-x64.zip"
 release_hashes = ROOT / "release/SHA256SUMS_v0.6.2.txt"
-expected_zip_sha256 = "53057686ad6857d244f0feba566fb00b4d5263872bd813d036470a13b29d8079"
+expected_zip_sha256 = "ce5dc76b0455eee0986094d9afeab9f03044adfb01a6441383853ea1da395274"
+expected_exe_sha256 = "32b6dc1ff070325373dba99b0f6a79dcfd3666a7e3be2aecd4ea9f3e2efead18"
+expected_dll_sha256 = "d5c972eeae4bf13f0889c2430c1fcc8d8f7aa0b07d593bb0ddf63c93eecd2929"
 assert release_zip.is_file()
 assert release_hashes.is_file()
 assert hashlib.sha256(release_zip.read_bytes()).hexdigest() == expected_zip_sha256
+with zipfile.ZipFile(release_zip) as package:
+    assert hashlib.sha256(package.read("ThanLongItemConsolidator_v0.6.2.exe")).hexdigest() == expected_exe_sha256
+    assert hashlib.sha256(package.read("ThanLongCleanRouteBridge.dll")).hexdigest() == expected_dll_sha256
 hash_manifest = release_hashes.read_text(encoding="utf-8")
 assert expected_zip_sha256 in hash_manifest
-assert "Source commit: a1f81d84af4488d79db1eaf1a656280b2ade0945" in hash_manifest
+assert expected_exe_sha256 in hash_manifest
+assert expected_dll_sha256 in hash_manifest
+assert "Source commit: 5a944d60d61885f6b8264935baf46025252f369e" in hash_manifest
 assert "Runtime status: v0.6.2 RUNTIME UNTESTED" in hash_manifest
 
 print("v0.6.2 AUTO/F4/sell fail-closed audit PASS")
