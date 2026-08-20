@@ -93,7 +93,11 @@ struct Api {
     const Il2CppImage* (__cdecl* get_corlib)() = nullptr;
     Il2CppObject* (__cdecl* array_new)(Il2CppClass*, std::uintptr_t) = nullptr;
     Il2CppString* (__cdecl* string_new)(const char*) = nullptr;
-    bool uiExportsLoaded = false;
+    std::size_t (__cdecl* image_get_class_count)(const Il2CppImage*) = nullptr;
+    Il2CppClass* (__cdecl* image_get_class)(const Il2CppImage*, std::size_t) = nullptr;
+    const char* (__cdecl* class_get_name)(Il2CppClass*) = nullptr;
+    bool uiDiscoveryExportsLoaded = false;
+    bool uiLuaExportsLoaded = false;
 
     bool Load(wchar_t* detail, std::size_t cap) {
         if (module) return true;
@@ -111,17 +115,42 @@ struct Api {
         return true;
     }
 
-    bool LoadUi(wchar_t* detail, std::size_t cap) {
+    bool LoadUiDiscovery(wchar_t* detail, std::size_t cap) {
         if (!Load(detail, cap)) return false;
-        if (uiExportsLoaded) return true;
-#define NEED_UI(symbol) do { if (!Resolve(module, "il2cpp_" #symbol, symbol)) { SetText(detail, cap, L"Thiếu IL2CPP UI export bắt buộc"); return false; } } while (0)
-        NEED_UI(class_is_assignable_from);
-        NEED_UI(field_static_get_value);
-        NEED_UI(get_corlib);
-        NEED_UI(array_new);
-        NEED_UI(string_new);
-#undef NEED_UI
-        uiExportsLoaded = true;
+        if (uiDiscoveryExportsLoaded) return true;
+        if (!Resolve(module, "il2cpp_class_is_assignable_from", class_is_assignable_from)) {
+            SetText(detail, cap, L"UI discovery thiếu export class_is_assignable_from");
+            return false;
+        }
+        if (!Resolve(module, "il2cpp_field_static_get_value", field_static_get_value)) {
+            SetText(detail, cap, L"UI discovery thiếu export field_static_get_value");
+            return false;
+        }
+        // These exports are optional: known namespaces remain the fast path, while
+        // metadata enumeration lets the same verified class surface survive a namespace move.
+        (void)Resolve(module, "il2cpp_image_get_class_count", image_get_class_count);
+        (void)Resolve(module, "il2cpp_image_get_class", image_get_class);
+        (void)Resolve(module, "il2cpp_class_get_name", class_get_name);
+        uiDiscoveryExportsLoaded = true;
+        return true;
+    }
+
+    bool LoadUiLua(wchar_t* detail, std::size_t cap) {
+        if (!LoadUiDiscovery(detail, cap)) return false;
+        if (uiLuaExportsLoaded) return true;
+        if (!Resolve(module, "il2cpp_get_corlib", get_corlib)) {
+            SetText(detail, cap, L"Lua callback thiếu export get_corlib");
+            return false;
+        }
+        if (!Resolve(module, "il2cpp_array_new", array_new)) {
+            SetText(detail, cap, L"Lua callback thiếu export array_new");
+            return false;
+        }
+        if (!Resolve(module, "il2cpp_string_new", string_new)) {
+            SetText(detail, cap, L"Lua callback thiếu export string_new");
+            return false;
+        }
+        uiLuaExportsLoaded = true;
         return true;
     }
 };
@@ -453,7 +482,8 @@ bool ClickNpc(int npcID, wchar_t* detail, std::size_t cap) {
 enum class UiKind { Button, Toggle, Rect };
 
 struct UiRuntime {
-    bool ready = false;
+    bool discoveryReady = false;
+    bool luaReady = false;
     const Il2CppImage* image = nullptr;
     Il2CppClass* uiObject = nullptr;
     Il2CppClass* button = nullptr;
@@ -500,26 +530,123 @@ FieldInfo* FindField(Il2CppClass* klass, const char* name) {
     return nullptr;
 }
 
-bool EnsureUiRuntime(wchar_t* detail, std::size_t cap) {
-    if (g_ui.ready) return true;
-    if (!g_api.LoadUi(detail, cap)) return false;
+bool IsExecutorClass(Il2CppClass* klass) {
+    return klass && ExactMethod(klass, "get_Instance", 0, true) &&
+           ExactMethod(klass, "ExecuteScriptFunction", 3, false);
+}
+
+bool IsUiObjectClass(Il2CppClass* klass) {
+    return klass && FindField(klass, "instances");
+}
+
+bool IsButtonClass(Il2CppClass* klass) {
+    return klass && ExactMethod(klass, "HandleClickEvent", 0, false);
+}
+
+bool IsToggleClass(Il2CppClass* klass) {
+    return klass &&
+           (ExactMethod(klass, "set_Selected", 1, false, "System.Boolean") ||
+            ExactMethod(klass, "HandleSelectEvent", 1, false, "System.Boolean"));
+}
+
+bool IsRectClass(Il2CppClass* klass) {
+    return klass && ExactMethod(klass, "get_PointerClickHandler", 0, false);
+}
+
+void FindUiClassesByMetadata(const Il2CppImage* image) {
+    if (!image || !g_api.image_get_class_count || !g_api.image_get_class || !g_api.class_get_name)
+        return;
+    const std::size_t count = g_api.image_get_class_count(image);
+    if (count == 0 || count > 65536) return;
+    for (std::size_t i = 0; i < count; ++i) {
+        Il2CppClass* klass = g_api.image_get_class(image, i);
+        const char* name = klass ? g_api.class_get_name(klass) : nullptr;
+        if (!name) continue;
+        if (!g_ui.uiObject && Eq(name, "UIObject") && IsUiObjectClass(klass)) g_ui.uiObject = klass;
+        else if (!g_ui.button && Eq(name, "UIButton") && IsButtonClass(klass)) g_ui.button = klass;
+        else if (!g_ui.toggle && Eq(name, "UIToggle") && IsToggleClass(klass)) g_ui.toggle = klass;
+        else if (!g_ui.rect && Eq(name, "UIRectTransform") && IsRectClass(klass)) g_ui.rect = klass;
+        else if (!g_ui.executor && Eq(name, "MonoBehaviourExecutor") && IsExecutorClass(klass))
+            g_ui.executor = klass;
+        if (g_ui.uiObject && g_ui.button && g_ui.toggle && g_ui.rect && g_ui.executor) return;
+    }
+}
+
+Il2CppClass* FindExecutorClass(const Il2CppImage* image) {
+    if (!image) return nullptr;
+    const char* namespaces[] = {
+        "FGStudio.LuaSystem", "FGStudio.LuaSystem.Base", "FGStudio.LuaSystem.GUI",
+        "FGStudio.Engine.Utilities", ""
+    };
+    for (const char* nameSpace : namespaces) {
+        Il2CppClass* klass = g_api.class_from_name(image, nameSpace, "MonoBehaviourExecutor");
+        if (IsExecutorClass(klass)) return klass;
+    }
+    if (!g_api.image_get_class_count || !g_api.image_get_class || !g_api.class_get_name)
+        return nullptr;
+    const std::size_t count = g_api.image_get_class_count(image);
+    if (count == 0 || count > 65536) return nullptr;
+    for (std::size_t i = 0; i < count; ++i) {
+        Il2CppClass* klass = g_api.image_get_class(image, i);
+        if (klass && Eq(g_api.class_get_name(klass), "MonoBehaviourExecutor") &&
+            IsExecutorClass(klass)) return klass;
+    }
+    return nullptr;
+}
+
+void AppendMissing(wchar_t* detail, std::size_t cap, const wchar_t* component) {
+    if (!detail[0]) SetText(detail, cap, L"Thiếu component:");
+    Append(detail, cap, L" ");
+    Append(detail, cap, component);
+}
+
+bool EnsureUiDiscovery(wchar_t* detail, std::size_t cap) {
+    if (g_ui.discoveryReady) return true;
+    if (!g_api.LoadUiDiscovery(detail, cap)) return false;
     g_ui.image = Image();
-    if (!g_ui.image) { SetText(detail, cap, L"Không mở được Assembly-CSharp cho UI nội bộ"); return false; }
+    if (!g_ui.image) { SetText(detail, cap, L"UI discovery: không mở được Assembly-CSharp"); return false; }
     g_ui.uiObject = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.Base", "UIObject");
     g_ui.button = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.GUI", "UIButton");
     g_ui.toggle = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.GUI", "UIToggle");
     g_ui.rect = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.GUI", "UIRectTransform");
-    g_ui.executor = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem", "MonoBehaviourExecutor");
-    g_ui.guiApi = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.API", "LuaSystemAPI_GUI");
-    const Il2CppImage* corlib = g_api.get_corlib();
-    g_ui.systemObject = corlib ? g_api.class_from_name(corlib, "System", "Object") : nullptr;
+    // A matching name is not enough. Drop only the invalid capability, then let the
+    // metadata fallback find a same-named class with the required surface elsewhere.
+    if (g_ui.uiObject && !IsUiObjectClass(g_ui.uiObject)) g_ui.uiObject = nullptr;
+    if (g_ui.button && !IsButtonClass(g_ui.button)) g_ui.button = nullptr;
+    if (g_ui.toggle && !IsToggleClass(g_ui.toggle)) g_ui.toggle = nullptr;
+    if (g_ui.rect && !IsRectClass(g_ui.rect)) g_ui.rect = nullptr;
+    FindUiClassesByMetadata(g_ui.image);
     g_ui.instances = g_ui.uiObject ? FindField(g_ui.uiObject, "instances") : nullptr;
-    if (!g_ui.uiObject || !g_ui.button || !g_ui.toggle || !g_ui.rect || !g_ui.executor ||
-        !g_ui.guiApi || !g_ui.systemObject || !g_ui.instances) {
-        SetText(detail, cap, L"Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor");
+    const bool anyControlClass = g_ui.button || g_ui.toggle || g_ui.rect;
+    if (!g_ui.uiObject || !g_ui.instances || !anyControlClass) {
+        detail[0] = 0;
+        if (!g_ui.uiObject) AppendMissing(detail, cap, L"UIObject(validated)");
+        if (!g_ui.instances) AppendMissing(detail, cap, L"UIObject.instances");
+        if (!anyControlClass) AppendMissing(detail, cap, L"mọi control class Button/Toggle/Rect(validated)");
         return false;
     }
-    g_ui.ready = true;
+    g_ui.discoveryReady = true;
+    return true;
+}
+
+bool EnsureUiLua(bool requireGuiApi, wchar_t* detail, std::size_t cap) {
+    if (g_ui.luaReady && (!requireGuiApi || g_ui.guiApi)) return true;
+    if (!EnsureUiDiscovery(detail, cap) || !g_api.LoadUiLua(detail, cap)) return false;
+    if (!g_ui.executor) g_ui.executor = FindExecutorClass(g_ui.image);
+    if (!g_ui.guiApi)
+        g_ui.guiApi = g_api.class_from_name(g_ui.image, "FGStudio.LuaSystem.API", "LuaSystemAPI_GUI");
+    if (!g_ui.systemObject) {
+        const Il2CppImage* corlib = g_api.get_corlib();
+        g_ui.systemObject = corlib ? g_api.class_from_name(corlib, "System", "Object") : nullptr;
+    }
+    if (!g_ui.executor || !g_ui.systemObject || (requireGuiApi && !g_ui.guiApi)) {
+        detail[0] = 0;
+        if (!g_ui.executor) AppendMissing(detail, cap, L"MonoBehaviourExecutor(any namespace)");
+        if (!g_ui.systemObject) AppendMissing(detail, cap, L"System.Object");
+        if (requireGuiApi && !g_ui.guiApi) AppendMissing(detail, cap, L"LuaSystemAPI_GUI");
+        return false;
+    }
+    g_ui.luaReady = true;
     return true;
 }
 
@@ -563,11 +690,11 @@ bool ClassifyControl(Il2CppClass* klass, UiKind& kind) {
         if (cached.first == klass) { kind = cached.second; return true; }
     }
     bool matched = false;
-    if (g_api.class_is_assignable_from(g_ui.button, klass)) {
+    if (g_ui.button && g_api.class_is_assignable_from(g_ui.button, klass)) {
         kind = UiKind::Button; matched = true;
-    } else if (g_api.class_is_assignable_from(g_ui.toggle, klass)) {
+    } else if (g_ui.toggle && g_api.class_is_assignable_from(g_ui.toggle, klass)) {
         kind = UiKind::Toggle; matched = true;
-    } else if (g_api.class_is_assignable_from(g_ui.rect, klass)) {
+    } else if (g_ui.rect && g_api.class_is_assignable_from(g_ui.rect, klass)) {
         kind = UiKind::Rect; matched = true;
     }
     if (matched) g_ui.kindCache.push_back({klass, kind});
@@ -598,7 +725,7 @@ bool ReadBasicControl(Il2CppObject* object, Il2CppClass* klass, UiKind kind,
 
 bool EnumerateControls(std::vector<UiControl>& controls, wchar_t* detail, std::size_t cap) {
     controls.clear();
-    if (!EnsureUiRuntime(detail, cap)) return false;
+    if (!EnsureUiDiscovery(detail, cap)) return false;
     Il2CppObject* dictionary = nullptr;
     g_api.field_static_get_value(g_ui.instances, &dictionary);
     Il2CppObject* entries = nullptr;
@@ -731,6 +858,10 @@ bool FindRoleControl(Role role, UiControl& selected, wchar_t* detail, std::size_
     });
     if (candidates.empty()) {
         SetText(detail, cap, L"Không tìm thấy control nội bộ đúng vai trò");
+        Append(detail, cap, L" • types B/T/R=");
+        AppendInt(detail, cap, g_ui.button ? 1 : 0);
+        Append(detail, cap, L"/"); AppendInt(detail, cap, g_ui.toggle ? 1 : 0);
+        Append(detail, cap, L"/"); AppendInt(detail, cap, g_ui.rect ? 1 : 0);
         return false;
     }
     if (candidates.size() > 1 && candidates[0].score == candidates[1].score &&
@@ -785,6 +916,7 @@ bool InvokeControl(UiControl& control, wchar_t* detail, std::size_t cap) {
         return InvokeVoid(selectEvent, control.object, args, detail, cap);
     }
 
+    if (!EnsureUiLua(false, detail, cap)) return false;
     Il2CppObject* handlerObject = nullptr;
     if (!ObjectGetter(control.object, control.klass, "get_PointerClickHandler", handlerObject) || !handlerObject) {
         SetText(detail, cap, L"UIRect không có PointerClickHandler");
@@ -820,7 +952,7 @@ bool FindUiByName(const char* uiName, Il2CppObject*& ui, wchar_t* detail, std::s
 
 bool InvokeLuaAction(const char* uiName, const char* functionName,
                      wchar_t* detail, std::size_t cap) {
-    if (!EnsureUiRuntime(detail, cap)) return false;
+    if (!EnsureUiLua(true, detail, cap)) return false;
     Il2CppObject* ui = nullptr;
     if (!FindUiByName(uiName, ui, detail, cap)) return false;
     Il2CppString* function = g_api.string_new(functionName);

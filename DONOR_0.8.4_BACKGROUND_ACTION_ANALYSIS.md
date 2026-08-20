@@ -6,6 +6,8 @@ Các thao tác người dùng thấy “chạy ẩn” trong v0.8.4 không phả
 
 v0.6 giữ nguyên controller/FSM/business rules của v0.5, nhưng chuyển các action phù hợp sang Bridge DLL hiện hữu. Không mang nguyên `RemoteExecutor` của donor sang.
 
+> Correction v0.6.1: donor gọi `MonoBehaviourExecutor` bằng native RVA; donor không chứng minh namespace managed `FGStudio.LuaSystem` mà v0.6 đã giả định. Runtime v0.6 cho thấy readiness gate gộp làm XN và Sell cùng fail trước khi scan control. v0.6.1 tách Button/Toggle discovery khỏi Executor và chỉ nhận Executor tìm được bằng metadata nếu có đúng method surface.
+
 ## 1. Kênh thực thi của donor v0.8.4
 
 Donor mở process game với quyền đọc/ghi/tạo thread, cấp phát hai vùng nhớ từ xa và tạo một worker bằng `CreateRemoteThread`:

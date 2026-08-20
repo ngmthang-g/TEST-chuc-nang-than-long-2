@@ -1,10 +1,15 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Thần Long Tool Logic Table v0.6</title>
+<title>Thần Long Tool Logic Table v0.6.1</title>
 <style>
 body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:#172033}h1,h2{margin:.3em 0}.box{background:white;border:1px solid #dce2eb;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 8px #0000000a}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9eef8;margin-right:6px;font-weight:600}table{border-collapse:collapse;width:100%;background:white;font-size:14px}th,td{border:1px solid #d7dde8;padding:9px;vertical-align:top}th{background:#edf2f8;position:sticky;top:0}tr:nth-child(even){background:#fafbfd}.new{font-weight:700;background:#f1f7ff!important}.removed{text-decoration:line-through;color:#7a4650}.mono{font-family:Consolas,monospace}ul{line-height:1.55}.ok{font-weight:700}</style></head><body>
-<h1>Thần Long Item Consolidator — Bảng logic v0.6</h1>
-<div class="box"><span class="tag">Version v0.6</span><span class="tag">Base trực tiếp: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<h1>Thần Long Item Consolidator — Bảng logic v0.6.1</h1>
+<div class="box"><span class="tag">Version v0.6.1</span><span class="tag">Base trực tiếp: v0.6</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
+<div class="box"><h2>Runtime v0.6 → hotfix v0.6.1</h2><ul>
+<li><b>Bằng chứng:</b> XN Lâu Lan và mở chuỗi bán nền cùng fail tại lỗi readiness gộp <span class="mono">UIObject/UIButton/UIToggle/UIRect/Executor</span>. v0.6 là RUNTIME FAIL cho hai nhánh này.</li>
+<li><b>Sửa:</b> basic discovery chỉ cần <span class="mono">UIObject.instances</span> + control class hiện có; Button/Toggle không còn phụ thuộc Executor. Rect/Lua resolve dependency lười; Executor có metadata fallback và method validation.</li>
+<li><b>Giới hạn sự thật:</b> component null cụ thể của v0.6 là UNKNOWN do log cũ gộp; v0.6.1 là RUNTIME UNTESTED cho tới khi test game lại.</li>
+</ul></div>
 <div class="box"><h2>Yêu cầu v0.6 → Giải pháp → Xung đột</h2><ul>
 <li><b>Yêu cầu:</b> nghiên cứu cách v0.8.4 trị liệu/bán/XN chạy nền rồi thay các click chiếm chuột của nền v0.5. <b>Giải pháp:</b> không ghép remote worker donor; mở rộng Bridge <span class="mono">WH_GETMESSAGE</span> v0.5 bằng semantic callbacks. XN chỉ chọn nút đồng ý trong MessageBox; revive check IsDeath; AUTO gọi TopIcon Lua; bán từng item và verify FreeBagSpace. <b>Xung đột:</b> trade MAIN/CON vẫn là macro tọa độ; Dược Đại Phu ID 279 chưa có bằng chứng cây shop giống Mã Kiêu Minh.</li>
 <li><b>An toàn:</b> mỗi request chỉ gọi một action trên game thread, controller chịu delay/verify; control đồng điểm thì fail-closed; item lỗi 3 lần bị skip; hard cap 90 callback. Không có <span class="mono">CreateRemoteThread</span> mới.</li>
@@ -16,6 +21,7 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <li><b>Yêu cầu 3:</b> watchdog không được mất khi World Flow đi qua map trung gian. <b>Giải pháp:</b> giữ tool-owned cross-map ownership/evidence qua MapID transition; tại M5 chỉ click khi AutoPath hiện vẫn ON và tọa đứng ≥3s. <b>Xung đột:</b> AutoPath OFF hoặc đứng bình thường không click mù.</li>
 </ul></div>
 <table><thead><tr><th>Nhóm/Priority</th><th>Logic</th><th>Trigger</th><th>Hành vi hiện tại</th><th>Tương tác/xung đột</th><th>Trạng thái</th><th>Version</th></tr></thead><tbody>
+<tr class="new"><td>Bridge resolver</td><td>Capability-lazy UI</td><td>Mọi action semantic UI</td><td>Discovery cơ bản tách khỏi Lua/Executor; lỗi nêu đúng component; báo capability B/T/R</td><td>XN/Sell Button không bị một dependency Rect/Lua kéo sập; AUTO vẫn cần Executor</td><td>HOTFIX</td><td>v0.6.1</td></tr>
 <tr class="new"><td>P1</td><td>XN cổng Lâu Lan</td><td>M5 + tool-owned cross-map route đã tiến + AutoPath hiện ON + đứng ≥3s</td><td>Tìm candidate duy nhất trong MessageBox rồi gọi callback nội bộ</td><td>Không foreground, không mouse guard, vẫn đợi map transition để verify</td><td>THAY INPUT</td><td>v0.6</td></tr>
 <tr class="new"><td>P2</td><td>ĐẦU THAI</td><td>Acc chết + đủ điều kiện revive, kể cả đang World Flow HOLD</td><td>Bridge check lại IsDeath rồi gọi UIButton.HandleClickEvent</td><td>Giữ FIFO/HOLD tới ALIVE; không mượn click lease</td><td>THAY INPUT</td><td>v0.6</td></tr>
 <tr class="new"><td>P3</td><td>AUTO nội bộ</td><td>Có request ĐÁNH QUÁI/DỪNG AUTO</td><td>TopIcon.AutoTrainClick/AutoStopClick; snapshot verify ON/OFF</td><td>Dưới P1/P2; không mở popup AUTO</td><td>THAY INPUT</td><td>v0.6</td></tr>
@@ -52,5 +58,5 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:
 <tr class="removed"><td>ĐÃ LOẠI</td><td>XN ra Map mỗi N giây</td><td>Timer interval</td><td>Không còn runtime, UI interval, config field hay scheduler pass</td><td>Được thay bởi M5 stall watchdog</td><td>LOẠI HOÀN TOÀN</td><td>v0.4</td></tr>
 <tr class="removed"><td>ĐÃ LOẠI</td><td>Background XN PostMessage</td><td>M5 stall watchdog v0.4</td><td>Không còn trong active controller/verifier/docs hiện tại; P1 dùng real foreground mouse click</td><td>Historical v0.4 archive chỉ để truy vết</td><td>LOẠI HOÀN TOÀN</td><td>v0.5</td></tr>
 </tbody></table>
-<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime v0.6:</b> XN, revive, AUTO và auto-sell dùng callback nội bộ. Chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
+<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime v0.6.1:</b> resolver hotfix chưa được runtime-pass. XN, revive, AUTO và auto-sell vẫn dùng callback nội bộ; chuỗi giao dịch MAIN/CON vẫn dùng chuột thật.</p></div>
 </body></html>

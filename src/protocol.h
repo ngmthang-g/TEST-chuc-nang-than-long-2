@@ -6,9 +6,9 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-// v0.6 adds semantic UI/background-sell commands and compact action result metadata.
+// v0.6.1 separates basic UI discovery from optional Lua/Executor capabilities.
 // Controller + Bridge are always shipped together; mismatched versions fail attach.
-constexpr std::uint32_t kProtocolVersion = 0x00010600u;
+constexpr std::uint32_t kProtocolVersion = 0x00010601u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 

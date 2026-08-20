@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## v0.6.1 — 2026-08-20
+
+### Requested / runtime evidence
+- User runtime log reported both Lâu Lan internal confirm and background-sell UI opening failing with `Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor`.
+- v0.6 is therefore `RUNTIME FAIL` for those two paths; AUTO/Revive remain unproven, not implicitly failed or passed.
+
+### Root cause
+- CONFIRMED: v0.6 basic UI enumeration required every Lua/Executor dependency even though UIButton and UIToggle callbacks do not use them.
+- UNKNOWN: the old aggregate message cannot identify which exact dependency was null on the live client.
+- LIKELY: the guessed `FGStudio.LuaSystem.MonoBehaviourExecutor` namespace was the null dependency. The donor proved a native RVA, not that managed namespace; the old aggregate error hid the exact member.
+
+### Fixed
+- Split Bridge readiness into basic UI discovery and lazy Lua/Executor capabilities.
+- Basic scanning now requires `UIObject.instances` plus at least one available control class, not Button+Toggle+Rect+Executor+GUI+System.Object simultaneously.
+- Known namespaces remain the fast path, but UIObject/Button/Toggle/Rect also get a bounded simple-name metadata fallback and are accepted only after their required field/method surface validates.
+- UIButton/UIToggle callback paths never load Executor.
+- UIRect and TopIcon Lua actions load their extra dependencies only when selected.
+- Resolve `MonoBehaviourExecutor` through namespace candidates, then bounded Assembly-CSharp metadata enumeration; accept only a class with static `get_Instance()` and instance `ExecuteScriptFunction(3)`.
+- Replace the aggregate resolver error with exact missing-component diagnostics and report available B/T/R control capabilities when no semantic candidate is found.
+- Bump controller/Bridge protocol to `0x00010601` so v0.6 DLL mismatch fails closed.
+
+### Preserved
+- v0.5 FSM/business logic, Lâu Lan route gate, death flow, sell phases, FreeBag verification, trade macro, F4/F8, timing and unrelated behavior are unchanged.
+- No `CreateRemoteThread`; no fallback to coordinate clicks.
+
+### Build / runtime
+- Local audit and Windows CI: pending at source-fix stage.
+- Runtime: **RUNTIME UNTESTED** until the user retests with the v0.6.1 EXE/DLL pair.
+
+### Next version notes
+- Test XN and Mã Kiêu Minh first. Test AUTO separately because it legitimately needs Lua Executor even if UIButton-based actions pass.
+- Treat `System.Action -> MainThread.Execute` CTS live proof as separate architectural work; do not silently combine it with this narrow resolver hotfix.
+
 ## v0.6 — 2026-08-20
 - Replaced active XN Lâu Lan physical click with a MessageBox-scoped internal callback; preserved the exact v0.5 route-ownership and 3-second stall gate.
 - Replaced active Đầu thai physical click with a Bridge action that rechecks `IsDeath` immediately and invokes the unique revive control.

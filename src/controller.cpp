@@ -25,7 +25,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6 • INTERNAL BACKGROUND ACTIONS";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1 • INTERNAL BACKGROUND ACTIONS";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -308,7 +308,7 @@ struct RuntimeState {
     bool tradeTravelReady = false;
     std::uint64_t tradeWorkflowEntrySeq = 0; // R7: immutable FIFO ticket while staged in workflow.
 
-    // Priority-AUTO request/result mailbox. v0.6 maps Attack/StopAuto2 to the exact
+    // Priority-AUTO request/result mailbox. v0.6.1 maps Attack/StopAuto2 to the exact
     // TopIcon Lua actions inside the game; the legacy point slots remain config-compatible.
     ClickSlot priorityAutoRequestSlot = ClickSlot::None;
     ClickSlot priorityAutoCompletedSlot = ClickSlot::None;
@@ -997,7 +997,7 @@ struct Account {
     // Snapshot polling continues; normal route/death FSM resumes immediately after abort/release.
     bool tradeHeld = false;
 
-    // Legacy v0.5 adaptive macro value kept for config/runtime compatibility. v0.6's
+    // Legacy v0.5 adaptive macro value kept for config/runtime compatibility. v0.6.1's
     // internal seller instead verifies GetFreeBagSpace after each semantic item callback.
     int sellStep5LearnedRepeat = -1;
 };
@@ -1317,7 +1317,7 @@ private:
         rotateNoFullBag_ = Make(L"EDIT", L"15", WS_BORDER | ES_NUMBER | ES_CENTER, 530, 497, 45, 27, IDC_ROTATE_NO_BAG); addFont(rotateNoFullBag_);
         addFont(Make(L"STATIC", L"phút train thực • 1 bãi = không đổi • nhiều bãi = vòng lại bãi 1", 0, 580, 500, 443, 22, 0));
 
-        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
+        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6.1 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
         addFont(Make(L"BUTTON", L"LẤY 5 CLICK CỦA ACC...", BS_PUSHBUTTON, 755, 526, 268, 27, IDC_COPY_CLICKS));
         const int rowY[5] = {552, 578, 604, 630, 656};
         const int pointIds[5] = {IDC_POINT_CONFIRM, IDC_POINT_REVIVE, IDC_POINT_AUTO, IDC_POINT_ATTACK, IDC_POINT_STOP_AUTO_2};
@@ -1373,7 +1373,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
@@ -3577,7 +3577,7 @@ private:
     }
 
     void TickTradeCoordinator(DWORD now) {
-        // v0.6: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
+        // v0.6.1: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
         // physical trade-click lease. The logical atomic SELL rule remains: once an account enters the background sell sequence,
         // the trade workflow may not advance, enqueue new work, abort/release its lease,
         // or run rendezvous click substeps until SELL has completed the full macro.
@@ -3732,7 +3732,7 @@ private:
         }
 
         // CLICK SEQUENCE LEASE protects only the still-coordinate-based trade macro.
-        // Route, AUTO start/stop, XN and revive are Bridge actions in v0.6, so queued
+        // Route, AUTO start/stop, XN and revive are Bridge actions in v0.6.1, so queued
         // travelers keep progressing without borrowing the real mouse.
         if (!tradeQueuePids_.empty()) {
             if (tradeTxn_.phase != TradePhase::Sequence) {
@@ -5504,7 +5504,7 @@ private:
     bool SellMacroConfigured(const Account& a, std::wstring& reason) const {
         (void)a;
         reason.clear();
-        // v0.6 no longer depends on recorded screen coordinates. The Bridge resolves
+        // v0.6.1 no longer depends on recorded screen coordinates. The Bridge resolves
         // semantic shop controls and bag items at runtime, then verifies bag progress.
         return true;
     }
@@ -5674,7 +5674,7 @@ private:
             rt.sellPhase = 6; rt.sellPhaseTick = now;
             rt.sellMacroIndex = 0; rt.sellMacroRepeatDone = 0; rt.sellMacroNextTick = 0; rt.sellMacroCompletionDueTick = 0;
             // ActiveSellClickSequenceAccount() still blocks the trade coordinator for
-            // logical atomicity, but no physical mouse lease is acquired in v0.6.
+            // logical atomicity, but no physical mouse lease is acquired in v0.6.1.
             rt.status = L"Đã ClickNPC nội bộ ID " + std::to_wstring(npc.npcID) +
                         L" • workflow GD chờ • chuột hoàn toàn rảnh";
             return true;
@@ -5963,7 +5963,7 @@ private:
 
     void Tick() {
 
-        // Snapshots + movement-observation run first, then v0.6 services semantic
+        // Snapshots + movement-observation run first, then v0.6.1 services semantic
         // background priorities before coordinate-based trade clicks.
         std::vector<bool> snapshotReady(accounts_.size(), false);
         for (std::size_t i = 0; i < accounts_.size(); ++i) {
@@ -5987,7 +5987,7 @@ private:
             }
         }
 
-        // v0.6 priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 TopIcon AUTO.
+        // v0.6.1 priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 TopIcon AUTO.
         // All three are internal Bridge callbacks and do not foreground a game window or move the cursor.
         if (!globalPaused_ && !coordinatorRecording_) {
             (void)RunPriorityLauLanGateConfirmPass(GetTickCount(), snapshotReady);
