@@ -23,6 +23,13 @@
 - Semantic shop stages, close UI, F4/F8, AUTO, Revive, Confirm, travel, train, rotation and trade logic are unchanged.
 - Runtime remains **UNTESTED** until the user tests the matching v0.6.1.2 EXE/DLL pair.
 
+### Build / runtime
+
+- Windows MSVC x64 CI run 302 (`32414440608`) on source commit `71ef6761`: PASS.
+- Scope audit plus route, rotation, trade coordinator, background UI scoring, fixed-slot sell and Unity geometry resolver self-tests: PASS.
+- Release ZIP is the unmodified CI artifact `9423369955`; hashes are recorded in `release/SHA256SUMS_v0.6.1.2.txt`.
+- Runtime: **RUNTIME UNTESTED** until the user tests the matching v0.6.1.2 EXE/DLL pair.
+
 ## v0.6.1.1 — 2026-08-20
 
 ### Requested / confirmed

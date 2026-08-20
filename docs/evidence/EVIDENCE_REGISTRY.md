@@ -1,5 +1,21 @@
 # EVIDENCE REGISTRY
 
+## EVID-005 — v0.6.1.2 build acceptance
+
+- Type: CI / STATIC + PURE LOGIC TESTS
+- Date/version: 2026-08-20 / v0.6.1.2
+- Confidence: High for source integrity and build acceptance; no live-client claim
+
+### Observation
+
+GitHub Actions run 302 (`32414440608`) built source tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4` with MSVC x64. Scope audit and all six self-test groups passed. Artifact `9423369955` was ZIP-tested and both binaries were verified as PE32+ x86-64.
+
+### Does not prove
+
+- Which assembly/class layout the live client exposes.
+- That a live item control supplies usable RectTransform geometry.
+- Runtime success before the user retests the matching EXE/DLL pair.
+
 ## EVID-004 — v0.6.1.1 fixed-slot geometry gate fails
 
 - Type: USER_RUNTIME / LOG

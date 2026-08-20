@@ -37,3 +37,9 @@ Passing the assembly gate does not prove that the live item control exposes a Re
 1. exact remaining missing class, or
 2. geometry count / no control under coordinate, or
 3. successful callback progress `1/90`.
+
+## Build verification
+
+- Windows x64 CI run 302 (`32414440608`): PASS, including MSVC Release build, scope audit, six self-test groups and artifact staging.
+- Binary artifact `9423369955` came from source commit `71ef67610e1b8cb0b14fa357ff50f65ce98adff1`, tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4`.
+- Live client: RUNTIME UNTESTED.

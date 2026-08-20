@@ -16,7 +16,7 @@
 - User runtime sau đó xác nhận chuỗi bán v0.6.1 đi đúng tới tab Trang bị nhưng bước item không giữ hành vi một ô lặp/dồn đồ của v0.5. Đây là BUG-002.
 - v0.6.1.1: Windows MSVC x64 CI run 295 **BUILD PASS**, gồm scope audit và đủ năm nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL trên client thật.
 - User test v0.6.1.1 xác nhận item stage fail `6/6` với chi tiết `Thiếu RectTransform/Utility/Screen để hit-test ô cố định`. Đây là BUG-003: resolver ép năm class vào riêng CoreModule; lỗi xảy ra trước hit-test/callback nên không liên quan dòng 5.
-- v0.6.1.2: resolver đa assembly đã được triển khai; build/runtime chưa được nâng trạng thái trước khi CI và live test hoàn tất.
+- v0.6.1.2: Windows MSVC x64 CI run 302 **BUILD PASS**, gồm scope audit và đủ sáu nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL.
 
 ## Kiến trúc action v0.6.1.2
 

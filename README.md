@@ -13,7 +13,7 @@ Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. S
 - v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
 - Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1.2 cố ý từ chối DLL cũ.
 
-CI/build không thay thế test thực chiến trên đúng client game; hãy thử một PID và kiểm tra log callback item trước khi bật chu trình nhiều tài khoản.
+Gói v0.6.1.2 lấy nguyên từ Windows CI run 302 (`32414440608`): MSVC x64 build và đủ sáu nhóm self-test PASS. CI/build không thay thế test thực chiến trên đúng client game; hãy thử một PID và kiểm tra log callback item trước khi bật chu trình nhiều tài khoản.
 
 ## Hotfix resolver Unity geometry v0.6.1.2
 
@@ -66,6 +66,6 @@ Workflow Windows x64 chạy:
 5. Fixed-slot selection/adaptive-count self-test.
 6. Unity geometry resolver search-order self-test.
 
-Artifact `ThanLongItemConsolidator-v0.6.1.2-win-x64` gồm EXE, Bridge DLL và tài liệu.
+CI run 302 (`32414440608`) đã PASS toàn bộ các bước trên. Artifact `ThanLongItemConsolidator-v0.6.1.2-win-x64` gồm EXE, Bridge DLL và tài liệu.
 
 Đọc [DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md](DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md) để xem diễn giải chi tiết donor 0.8.4 và quyết định chuyển đổi.

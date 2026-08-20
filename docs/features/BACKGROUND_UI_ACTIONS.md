@@ -16,7 +16,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6 AUTO: UNKNOWN / not reported.
 - v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
 - v0.6.1.1: BUILD PASS; RUNTIME FAIL at Unity geometry class gate before item hit-test.
-- v0.6.1.2: multi-assembly geometry resolver source complete; CI/live runtime pending.
+- v0.6.1.2: BUILD PASS (Windows CI 302); live runtime pending.
 
 ## Version timeline
 
