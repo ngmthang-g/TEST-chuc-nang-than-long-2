@@ -11,6 +11,11 @@ enum class DispatchPhase {
     Release,
 };
 
+enum class AutoStartPoint {
+    AutoMenu,
+    Attack,
+};
+
 struct DispatchStep {
     DispatchPhase phase;
     const char* methodName;
@@ -21,6 +26,20 @@ inline constexpr std::array<DispatchStep, 2> DispatchPlan() {
     return {{
         {DispatchPhase::Press, "TryClickUI", 2},
         {DispatchPhase::Release, "EndUIDrag", 1},
+    }};
+}
+
+struct AutoStartStep {
+    AutoStartPoint point;
+    int waitBeforeMs;
+};
+
+// The small AUTO choice group needs one UI frame/update window after AUTO is
+// opened before the configured ĐÁNH QUÁI point can be dispatched.
+inline constexpr std::array<AutoStartStep, 2> AutoStartPlan() {
+    return {{
+        {AutoStartPoint::AutoMenu, 0},
+        {AutoStartPoint::Attack, 500},
     }};
 }
 

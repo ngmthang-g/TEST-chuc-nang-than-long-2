@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## v0.6.1.5 — 2026-08-21
+
+### Requested
+
+- Remove every automatic Windows-mouse click that foregrounds a client, moves the cursor or consumes the user's mouse.
+- Migrate the configurable MAIN/CON trade sequence to the same internal point mechanism proven by the 90-click item flow.
+- Enforce the invariant that AutoFight must be authoritatively OFF before any AutoPath begins. Stop twice; if still ON, run one AUTO/Attack reset and repeat the stop cycle.
+
+### Changed — hidden trade actions
+
+- Delete the `SetForegroundWindow`, cursor-warp and `SendInput` path and its low-level user-mouse guard.
+- Route sell-editor tests, trade-editor tests and every runtime trade row through one `CoordinatorInternalPointAction` primitive.
+- Scale and normalize each saved F8 point, send `ClickInternalPoint`, and let `InputSyncManager.TryClickUI → EndUIDrag` perform the UI raycast/press/release inside the target client.
+- Retain trade delays, repeats, grouped repeats, FIFO, sequence atomicity and stable `FreeBagSpace` business verification. The lease now protects business ordering only and never owns the Windows cursor.
+
+### Fixed — AutoPath/AutoFight race containment
+
+- Keep the existing Travel Guard sequence: Stop #1, Stop #2, AUTO/Attack reset once, then repeat Stop until a fresh snapshot proves OFF.
+- Add a runtime conflict latch for any observed `AutoPath=ON && AutoFight=ON`. It stops AutoPath first and blocks normal/trade routing until both AutoPath and AutoFight have been observed OFF.
+- Recheck authoritative AutoPath state both when an AUTO/Attack sequence is queued and again immediately before dispatch. Cancel a stale queued start if AutoPath became ON or unreadable.
+- Tag P3 requests/results by workflow owner (Train, Travel Guard or Mount Recovery), preventing same-slot results from crossing state-machine ownership.
+- Add the conflict latch to the central `StartPath` gate, trade rendezvous/sequence gates and steady-train busy policy.
+- Bump matching EXE/DLL protocol to `0x00010615`.
+
+### Verification status
+
+- `tools/verify_v0615_logic.py`: PASS.
+- Eight native C++ logic test groups: PASS locally.
+- Windows x64 local cross-compile: PASS (PE32+ EXE/DLL).
+- GitHub Actions MSVC build and live-client trade/AUTO runtime remain unproven until their evidence is recorded.
+
+## v0.6.1.4 — 2026-08-21
+
+### Requested / runtime evidence
+
+- User confirms the final v0.6.1.3 item path completed the full 90-click run extremely successfully.
+- Separate AUTO runtime still fails while resolving the named Lua UI/action. The user requests reusing the proven point-dispatch mechanism for `AUTO (click 1) → ĐÁNH QUÁI (click 2)` and checking authoritative `AutoFight` afterward.
+
+### Changed — P3 AUTO point action only
+
+- Add generic Bridge command `ClickInternalPoint(x,y)` over the same complete `TryClickUI(0, point) → EndUIDrag(point)` lifecycle used by the runtime-passed item action.
+- One queued Attack request now owns two ordered phases: configured `AUTO`, wait 500 ms, configured `ĐÁNH QUÁI`; completion is published only after click 2.
+- `DỪNG AUTO 2` uses the same generic point command. Existing Travel Guard still blocks movement until a fresh snapshot proves `AutoFight OFF`.
+- TEST buttons dispatch each of the three F8 points independently, so coordinates can be verified before enabling the scheduler.
+- Bump matching EXE/DLL protocol to `0x00010614`.
+
+### Protected / status
+
+- v0.6.1.3 fixed-slot sell path, 90/adaptive count, F4/F8, XN, Revive, route, mount, rotation and MAIN/CON trade are unchanged.
+- v0.6.1.4 scope audit and all seven pure test groups: PASS locally.
+- Windows MSVC x64 build and live AUTO runtime are **UNTESTED** until their respective evidence exists.
+
 ## v0.6.1.3 — 2026-08-20
 
 ### Runtime evidence
@@ -25,8 +77,8 @@
 ### Build / runtime
 
 - Exact-client metadata/native dispatcher analysis: PASS against client-data commit `f0c37b7745be47e185376358c1a51ebaa376475a`.
-- Static scope audit, pure tests and Windows MSVC x64 CI: pending.
-- Live item sale: **RUNTIME UNTESTED** until the user tests the matching v0.6.1.3 EXE/DLL pair.
+- Windows MSVC x64 CI run 306 (`32418075439`) on source commit `cfaafc210aede366577da4af49f161545824fea3`: PASS with scope audit and seven self-test groups.
+- User live report 2026-08-21: full 90-click item run is **RUNTIME PASS**. Exact per-click log was not attached, so this evidence proves the reported end-to-end run, not every intermediate counter string.
 
 ## v0.6.1.2 — 2026-08-20
 

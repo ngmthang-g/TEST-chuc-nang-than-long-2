@@ -2,22 +2,24 @@
 
 ## Purpose
 
-Perform Confirm, Revive, AUTO and Auto Sell actions without moving the physical mouse.
+Perform Confirm, Revive, AUTO, Auto Sell and MAIN/CON trade actions without moving the physical mouse.
 
 ## Current implementation
 
-The controller retains the v0.5 state machines. The per-PID Bridge resolves live managed UI objects at action time and invokes Button/Toggle/UIRect/Lua callbacks. It does not cache child controls across UI transitions.
+The controller retains the v0.5 state machines. The per-PID Bridge resolves live managed UI objects at action time and invokes semantic callbacks or the client's own InputSync EventSystem point dispatcher. It does not cache child controls across UI transitions.
 
 ## Current runtime status
 
 - v0.6 Confirm: RUNTIME FAIL, BUG-001.
 - v0.6 Auto Sell: RUNTIME FAIL, BUG-001.
 - v0.6 Revive: UNKNOWN / not reported.
-- v0.6 AUTO: UNKNOWN / not reported.
+- v0.6–v0.6.1.3 AUTO named Lua action: RUNTIME FAIL, BUG-005.
 - v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
 - v0.6.1.1: BUILD PASS; RUNTIME FAIL at Unity geometry class gate before item hit-test.
 - v0.6.1.2: BUILD PASS; RUNTIME FAIL at custom callback ownership after geometry resolved (`geometry=149`).
-- v0.6.1.3: exact InputSync press/release fix in source; build and live runtime pending.
+- v0.6.1.3: Windows CI PASS; user-confirmed RUNTIME PASS for the full fixed-item 90-click flow.
+- v0.6.1.4: generic InputSync AUTO point sequence in source; build/runtime pending.
+- v0.6.1.5: every configured trade click uses the same generic InputSync path; source audit, eight pure tests and local Windows x64 cross-build pass; live runtime pending.
 
 ## Version timeline
 
@@ -52,6 +54,23 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Replaced only the item-cell custom-control hit-test with the exact current-client `InputSyncManager` EventSystem path.
 - Each item tick performs left press plus release at the manually assigned point and verifies the internal drag lifecycle.
 - Retained 90 first, learned stable `FreeBagSpace` later, and the 90 ceiling.
+- User later confirmed the full 90-click flow succeeds on the live client.
+
+### v0.6.1.4
+
+- Exposes one generic `ClickInternalPoint` action instead of duplicating the item dispatcher.
+- P3 Start performs configured `AUTO`, waits 500 ms through controller state, then configured `ĐÁNH QUÁI`.
+- P3 Stop performs configured `DỪNG AUTO 2`.
+- Start/Stop acceptance still comes from a fresh authoritative `AutoFight` snapshot, not the click return value.
+
+### v0.6.1.5
+
+- Removes the controller's foreground/cursor/Windows-input path and low-level mouse guard.
+- Routes trade tests and runtime MAIN/CON sequence rows through one generic hidden point primitive.
+- Keeps one request per scheduler action; delay, repeat, group and sequence business verification stay in the controller.
+- Adds a hard `AutoPath && AutoFight` conflict latch. Recovery stops AutoPath first, then reuses Stop #1 → Stop #2 → AUTO/Attack reset → repeat until both states are OFF.
+- Rechecks AutoPath when AUTO/Attack is queued and immediately before dispatch, closing the stale-request race.
+- Tags P3 request/result ownership, preventing Train, Travel Guard and Mount Recovery from consuming one another's same-slot completion.
 
 ## Do-not-break rules
 
@@ -61,7 +80,11 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Revive must recheck `IsDeath` immediately.
 - Sell completion must still be verified using stable fresh `FreeBagSpace`; the fixed-slot hotfix retains the 90-callback ceiling.
 - Button/Toggle paths must not require Lua Executor.
-- A successful item press must always receive its matching release; failure cleanup must not cancel a drag that existed before the tool action.
+- Every successful internal point press must receive its matching release; failure cleanup must not cancel a drag that existed before the tool action.
+- An AUTO start request may publish completion only after both configured points finish.
+- An AUTO start request may dispatch only while AutoPath is authoritatively OFF, including after it has waited in the queue.
+- No automatic action may fall back to Windows mouse injection.
+- No `StartPath` may pass while AutoFight is ON/unreadable or while route/fight conflict recovery is latched.
 
 ## Open architectural item
 

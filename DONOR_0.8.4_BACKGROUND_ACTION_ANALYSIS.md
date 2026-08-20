@@ -83,6 +83,10 @@ Donor không còn mở menu AUTO rồi quét label con. Từ Lua asset của cli
 
 Một chi tiết dễ làm ngược: `Game.EnableAutoF1=false` nghĩa train đang bật; khi dừng, giá trị trở lại `true`. Donor gọi action trước rồi đọc lại flag nhiều lần để xác minh.
 
+> Runtime correction v0.6.1.4: contract Lua trên vẫn đúng theo source client, nhưng Bridge hiện tại không resolve được named Lua UI/action trên client test. Theo yêu cầu người dùng, active P3 tạm dùng dispatcher InputSync đã runtime-pass: điểm `AUTO` → điểm `ĐÁNH QUÁI`, hoặc điểm `DỪNG AUTO 2`; snapshot `AutoFight` vẫn là bằng chứng. Đây là fallback runtime có phạm vi, không phủ nhận semantic contract và không biến click-return thành business proof.
+
+> Runtime correction v0.6.1.5: generic InputSync point action được dùng tiếp cho toàn bộ test/runtime trade MAIN/CON. Đường foreground, di con trỏ, `SendInput` và User Mouse Guard đã bị xóa khỏi controller. Mọi `StartPath` vẫn đi qua Travel Guard; ngoài ra snapshot `AutoPath ON + AutoFight ON` được latch fail-closed: dừng path trước, sau đó DỪNG AUTO hai lần, nếu chưa OFF thì bật lại một lần để reset rồi lặp cho tới khi cả Path và Fight đều OFF.
+
 ## 7. Đầu thai
 
 Ngay trước action, donor đọc `IsDeath`. Nếu false hoặc không đọc được thì không gọi gì. Khi true, nó tìm duy nhất button `Đầu thai` đang active/interactable và gọi `UIButton.HandleClickEvent()`. Sau đó state machine chờ `IsDeath` tắt ổn định thay vì tin mù vào return value của callback.
@@ -97,9 +101,9 @@ Nền v0.5 đã có Bridge DLL được nạp bằng `WH_GETMESSAGE` và xử l�
 | Delay chuỗi | worker/FSM donor | controller v0.5 giữ state/delay |
 | XN | quét cây MessageBox + callback | cùng nguyên tắc, bắt buộc ancestor MessageBox |
 | Revive | check chết + callback | Bridge check chết lần cuối + callback |
-| AUTO | Lua quick action | cùng action, snapshot v0.5 xác minh |
+| AUTO | Lua quick action | active fallback InputSync point sequence, snapshot v0.5 xác minh |
 | Sell | vòng lặp trong donor worker | một semantic action mỗi request; không block UI thread |
-| Tọa độ click cũ | không cần | chỉ giữ để tương thích INI, không dùng active runtime |
+| Tọa độ click cũ | không cần | dùng có chủ đích cho AUTO/trade generic point action; F8/REC chỉ ghi cấu hình |
 
 ## 9. Các điểm donor chưa nói rõ hoặc có thể gây lỗi
 
@@ -113,9 +117,9 @@ Nền v0.5 đã có Bridge DLL được nạp bằng `WH_GETMESSAGE` và xử l�
 ## 10. Ma trận test runtime ưu tiên
 
 1. Đang thao tác chuột ở cửa sổ khác, kích hoạt XN Lâu Lan: cursor không đổi, đúng acc chuyển map.
-2. Một acc chết trong khi acc khác đang chạy giao dịch: đúng acc chết đầu thai; trade giữ nguyên step/repeat.
+2. Một acc chết trong khi acc khác đang chạy giao dịch: đúng acc chết đầu thai; trade giữ nguyên step/repeat và không di chuyển cursor.
 3. Ở đúng bãi, AutoFight OFF: một action nội bộ bật train, không popup AUTO, snapshot chuyển ON.
-4. Đang AutoFight rồi bắt đầu route: `AutoStopClick`, snapshot OFF rồi mới `StartPath`.
+4. Đang AutoFight rồi bắt đầu route: phát điểm `DỪNG AUTO 2` tối đa hai lần; vẫn ON thì phát AUTO → Đánh quái reset một lần rồi lặp, snapshot OFF rồi mới `StartPath`.
 5. Mã Kiêu Minh với túi full: mở đủ 4 semantic stage, FreeBagSpace tăng sau từng món, UI đóng, quay bãi.
 6. Một món không bán được: thử tối đa 3 lần rồi bỏ, không kẹt vô hạn.
 7. Dược Đại Phu ID 279: xác định cây UI có tương thích hay cần role riêng ở version sau.

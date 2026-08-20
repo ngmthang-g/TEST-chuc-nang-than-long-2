@@ -40,6 +40,6 @@ Native call-site inspection proves a complete left click is two phases: `TryClic
 ## Verification status
 
 - Exact client metadata/native call sequence: VERIFIED against the cited data snapshot.
-- Static scope verifier and pure click-plan test: required.
-- Windows MSVC x64 build/CI: pending until the release workflow finishes.
-- Live client item sale: RUNTIME UNTESTED until the user runs the matching v0.6.1.3 EXE/DLL pair.
+- Static scope verifier and all seven test groups: PASS.
+- Windows MSVC x64 CI run 306 (`32418075439`), source commit `cfaafc210aede366577da4af49f161545824fea3`: PASS.
+- Live client item sale: user-confirmed RUNTIME PASS for the full 90-click run on 2026-08-21 (EVID-009).

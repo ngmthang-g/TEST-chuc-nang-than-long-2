@@ -1,8 +1,72 @@
 # BUG REGISTRY
 
-## BUG-004 — v0.6.1.2 assumes the bag cell is a UIButton/UIRect callback object
+## BUG-007 — AutoPath can be observed together with AutoFight
 
 - Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: Critical movement invariant
+- First observed: user report after v0.6.1.4 handoff
+- Related feature: every route, including trade rendezvous and recovery paths
+- Evidence: EVID-012
+
+### Required behavior
+
+Before any StartPath, AutoFight must be authoritatively OFF. Stop is attempted twice; if AutoFight remains ON, one AUTO/Attack reset is dispatched and the two-stop process repeats.
+
+### Fix in v0.6.1.5
+
+- Preserve the existing central `EnsureAutoFightOffForTravel` loop and expose its two-stop rule in a pure tested helper.
+- Add a hard conflict latch for any snapshot with `AutoPath=ON && AutoFight=ON`.
+- Revalidate AutoPath both when queueing and immediately before dispatching AUTO/Attack, so a request queued by an older idle snapshot cannot race with a new route.
+- Match every P3 completion to its workflow owner, not only its click slot, and cancel stale Train work after the account becomes busy.
+- Stop AutoPath first, run the same two-stop/reset guard, and require an observed `AutoPath=OFF && AutoFight=OFF` boundary before route recovery can clear.
+- Block central StartPath, trade rendezvous and trade sequence while the latch is active.
+
+## BUG-006 — Coordinate trade macro owns the Windows cursor
+
+- Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: High usability and multi-client isolation
+- First observed: inherited v0.5–v0.6.1.4 trade transport
+- Related feature: MAIN/CON trade editor tests and runtime sequence
+- Evidence: EVID-011
+
+### Root cause
+
+The trade coordinator converted a saved client point to screen coordinates, foregrounded the target window, moved the cursor and emitted Windows mouse down/up input. The sequence lease therefore serialized ownership of the user's physical mouse.
+
+### Fix in v0.6.1.5
+
+- Delete the physical input function and low-level mouse guard.
+- Route every trade point through the existing generic `ClickInternalPoint` Bridge command.
+- Keep sequence delay/repeat/group/FIFO and final stable `FreeBagSpace` verification in the controller.
+- Keep F8/REC only as manual coordinate capture; no automatic physical fallback remains.
+
+## BUG-005 — P3 AUTO named Lua action is not resolved on the live client
+
+- Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: High
+- First observed: v0.6.x live AUTO test, reiterated with the v0.6.1.3 handoff
+- Related feature: P3 AUTO start/stop only
+- Evidence: EVID-009, EVID-010
+
+### Runtime evidence
+
+The user reports `AUTO NỘI BỘ FAIL: Không tìm thấy Lua UI theo tên` while the separate v0.6.1.3 fixed-item InputSync path completes all 90 clicks successfully. Therefore a sell pass must not be treated as proof that `InvokeLuaAction("TopIcon", ...)` works.
+
+### Fix in v0.6.1.4
+
+- Promote the proven InputSync point dispatcher to generic command `ClickInternalPoint`.
+- Start uses the configured `AUTO` point, waits 500 ms, then uses the configured `ĐÁNH QUÁI` point.
+- Stop uses the configured `DỪNG AUTO 2` point.
+- Preserve snapshot proof: start requires `AutoFight ON`; stop/travel requires `AutoFight OFF`.
+- Preserve the old semantic commands for history/diagnostics; active P3 no longer depends on their runtime resolver.
+
+### Runtime verification required
+
+Test the three F8 points individually, then prove one full OFF→ON start and one ON→OFF stop on a single PID before enabling multiple accounts.
+
+## BUG-004 — v0.6.1.2 assumes the bag cell is a UIButton/UIRect callback object
+
+- Status: FIXED / RUNTIME PASS IN v0.6.1.3
 - Severity: High
 - First observed: v0.6.1.2, user runtime 2026-08-20
 - Related feature: Auto Sell fixed item-cell action only
@@ -20,6 +84,10 @@ The resolver and geometry enumeration succeeded for 149 controls. The active v0.
 - Replace only the active item-cell hit-test/callback with the client's own EventSystem point dispatcher: `TryClickUI(0, point)` followed by `EndUIDrag(point)`.
 - Verify the dispatch lifecycle with `_uiDragging`; cancel only a drag started by this action if release fails.
 - Preserve row 5, 90/adaptive count, delays, close UI, F4 and all other workflows.
+
+### Runtime result
+
+On 2026-08-21 the user confirmed the final v0.6.1.3 build completed the 90-click item flow extremely successfully. This promotes the InputSync item route from runtime-untested to runtime-pass for the reported client/profile.
 
 ## BUG-003 — v0.6.1.1 geometry resolver assumes one Unity assembly
 

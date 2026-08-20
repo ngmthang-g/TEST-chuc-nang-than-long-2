@@ -964,7 +964,7 @@ bool BuildInputSyncScreenPoint(int normalizedX, int normalizedY, UnityVector2& p
             normalizedX, fixed_slot_sell_logic::kCoordinateScale) ||
         !internal_ui_click_logic::IsNormalizedCoordinate(
             normalizedY, fixed_slot_sell_logic::kCoordinateScale)) {
-        SetText(detail, cap, L"Tọa độ chuẩn hóa ô trang bị nằm ngoài client");
+        SetText(detail, cap, L"Tọa độ UI chuẩn hóa nằm ngoài client");
         return false;
     }
     std::int32_t width = 0;
@@ -1002,7 +1002,7 @@ bool InvokeInternalPointClick(int normalizedX, int normalizedY,
     bool dragging = false;
     if (!ReadInputSyncDragging(manager, dragging, detail, cap)) return false;
     if (dragging) {
-        SetText(detail, cap, L"InputSyncManager đang giữ UI drag; không chồng callback item");
+        SetText(detail, cap, L"InputSyncManager đang giữ UI drag; không chồng click nội bộ");
         return false;
     }
 
@@ -1033,6 +1033,16 @@ bool InvokeInternalPointClick(int normalizedX, int normalizedY,
         SetText(detail, cap, L"InputSyncManager chưa nhả UI drag; đã hủy và dừng fail-closed");
         return false;
     }
+    return true;
+}
+
+bool ClickInternalPoint(int normalizedX, int normalizedY, Response& response,
+                        wchar_t* detail, std::size_t cap) {
+    Classes c{};
+    if (!ResolveClasses(c, detail, cap) || !SafeForAction(c, detail, cap)) return false;
+    if (!InvokeInternalPointClick(normalizedX, normalizedY, detail, cap)) return false;
+    response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
+    SetText(detail, cap, L"InputSync click nội bộ hoàn chỉnh: TryClickUI → EndUIDrag");
     return true;
 }
 
@@ -1108,7 +1118,7 @@ int UiDepth(Il2CppObject* object) {
 
 bool EnumerateControls(std::vector<UiControl>& controls, wchar_t* detail, std::size_t cap);
 
-bool FindControlAtNormalizedPoint(int normalizedX, int normalizedY, UiControl& selected,
+[[maybe_unused]] bool FindControlAtNormalizedPoint(int normalizedX, int normalizedY, UiControl& selected,
                                   wchar_t* detail, std::size_t cap) {
     if (!EnsureUiGeometry(detail, cap)) return false;
     UnityVector2 screenPoint{};
@@ -1672,6 +1682,9 @@ void ProcessRequest() {
                                       r, detail, _countof(detail)); break;
             case Command::CloseBackgroundSell:
                 ok = CloseBackgroundSell(r, detail, _countof(detail)); break;
+            case Command::ClickInternalPoint:
+                ok = ClickInternalPoint(g_shared->request.arg0, g_shared->request.arg1,
+                                        r, detail, _countof(detail)); break;
             default:
                 SetText(detail, _countof(detail), L"Command không hợp lệ"); break;
         }

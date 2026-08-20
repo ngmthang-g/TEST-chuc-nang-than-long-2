@@ -1,10 +1,110 @@
 # EVIDENCE REGISTRY
 
+## EVID-012 — User requires strict AutoFight-OFF-before-AutoPath recovery
+
+- Type: USER OBSERVATION + EXPLICIT REQUIREMENT
+- Date/version: 2026-08-21 / v0.6.1.4 → v0.6.1.5
+- Confidence: High for the required invariant; exact original race timing not captured in a raw log
+
+### Observation
+
+The user reports seeing an incorrect state around AutoPath and requires that AutoFight always be stopped first. The requested recovery is explicit: stop once, stop a second time, and if still ON, perform one AUTO/Attack reset before repeating the stop process.
+
+### Supports
+
+- Preserve and test the existing two-stop/reset Travel Guard.
+- Recheck queued fight-start work at dispatch time, covering a scheduler race that a one-time busy check cannot exclude.
+- Add a post-condition invariant that detects `AutoPath ON + AutoFight ON`, rather than relying only on pre-dispatch intent.
+- Block route and trade movement until authoritative snapshots prove recovery.
+
+### Does not prove
+
+- Which exact scheduler interleaving or external client action produced the observed state.
+- Live success of the v0.6.1.5 recovery before the matching binaries are tested.
+
+## EVID-011 — v0.6.1.5 removes automatic Windows mouse injection in source
+
+- Type: SOURCE AUDIT + PURE TESTS + LOCAL CROSS-BUILD
+- Date/version: 2026-08-21 / v0.6.1.5
+- Confidence: High for source/build properties; no live-client claim
+
+### Observation
+
+`tools/verify_v0615_logic.py` finds no foreground, cursor-warp, Windows mouse injection or low-level mouse-hook token in the controller. Trade test/runtime call sites route through `CoordinatorInternalPointAction` and `ClickInternalPoint`. Eight native logic groups pass, `git diff --check` passes and LLVM-MinGW produces PE32+ x64 EXE/DLL locally.
+
+### Supports
+
+- The checked source contains no automatic physical-mouse fallback.
+- Trade and AUTO share the generic internal point transport.
+- The two-stop/reset and conflict truth table have pure logic coverage.
+
+### Does not prove
+
+- Live raycast correctness of every saved trade point.
+- MSVC GitHub Actions acceptance or live multi-client behavior before those runs complete.
+
+## EVID-010 — AUTO named Lua path fails; user requests proven point sequence
+
+- Type: USER RUNTIME REPORT + CURRENT REQUIREMENT
+- Date/version: 2026-08-21 / v0.6.1.3 → v0.6.1.4
+- Confidence: High for the reported failure boundary and requested behavior
+
+### Observation
+
+The carried runtime log states `AUTO NỘI BỘ FAIL: Không tìm thấy Lua UI theo tên`. The user requests the same mechanism as the successful 90-click path, specifically `AUTO (click 1) → ĐÁNH QUÁI (click 2)` followed by an AutoFight condition check, with room for more configured internal actions later.
+
+### Supports
+
+- Active P3 must not continue depending solely on the current named Lua resolver.
+- Existing F8 `AUTO`, `ĐÁNH QUÁI` and `DỪNG AUTO 2` points are the intended configuration source.
+- The outer snapshot proof must remain; point dispatch alone is not start/stop success.
+
+### Does not prove
+
+- That the three saved points are currently correct for every account/resolution.
+- Live success of v0.6.1.4 before the matching EXE/DLL is tested.
+
+## EVID-009 — v0.6.1.3 completes the 90-click fixed-item flow
+
+- Type: USER RUNTIME REPORT
+- Date/version: 2026-08-21 / v0.6.1.3
+- Confidence: High for the reported end-to-end result; exact raw log not attached in this turn
+
+### Observation
+
+The user states that the final file was tested and worked extremely successfully for all 90 clicks.
+
+### Supports
+
+- `TryClickUI(0, point) → EndUIDrag(point)` works live on the user's client/profile for the configured item point.
+- BUG-004 is runtime-fixed for that path.
+- Reusing the already implemented dispatcher is a narrower change than introducing another remote action engine.
+
+### Does not prove
+
+- AUTO point coordinates or AUTO state transitions.
+- Every intermediate counter/detail string without the raw 1/90…90/90 log.
+
+## EVID-008 — v0.6.1.3 build acceptance
+
+- Type: CI / STATIC + PURE LOGIC TESTS
+- Date/version: 2026-08-20 / v0.6.1.3
+- Confidence: High for source integrity and build acceptance
+
+### Observation
+
+GitHub Actions run 306 (`32418075439`) built source commit `cfaafc210aede366577da4af49f161545824fea3` with MSVC x64. The scope verifier and all seven self-test groups passed. Artifact `9424653318` has GitHub digest `sha256:0f53a9d8860bcddd17e2429349a3829dd20d7c0573b67ca8496a072bc27c9f15`; ZIP integrity passed and both binaries were identified as PE32+ x86-64.
+
+### Binary hashes
+
+- EXE: `5a865e4a5e554b68abf1b2d3a2563c9698d6efbd5299377982b8981ef987a91c`.
+- Bridge DLL: `bb2396b879aaf5e014c13b2d5ec9870aade9b1a98d996b4a2213219454d10ef5`.
+
 ## EVID-007 — Exact client has a complete internal EventSystem point-click sequence
 
 - Type: CLIENT METADATA + NATIVE CALL-SITE INSPECTION
 - Date/version: 2026-08-20 / client-data commit `f0c37b7745be47e185376358c1a51ebaa376475a`
-- Confidence: High for the cited client snapshot; v0.6.1.3 live behavior remains untested
+- Confidence: High for the cited client snapshot; live item behavior later confirmed by EVID-009
 
 ### Observation
 
@@ -19,7 +119,7 @@
 ### Does not prove
 
 - That the user's saved coordinate is centered on the intended second equipment cell.
-- That one live v0.6.1.3 dispatch causes the server to sell an item; `FreeBagSpace` remains the business proof.
+- AUTO point behavior; EVID-009 only promotes the fixed-item route.
 
 ## EVID-006 — v0.6.1.2 resolves geometry but finds no custom callback at the item point
 

@@ -1,5 +1,45 @@
 # DECISION REGISTRY
 
+## DEC-006 — Use one hidden point transport and one fail-closed route invariant
+
+- Date/version: 2026-08-21 / v0.6.1.5
+- Status: ACTIVE / RUNTIME UNTESTED
+- Decision: all automatic configured-point actions use the generic InputSync Bridge command; no Windows-mouse fallback exists. Every StartPath is released only by authoritative AutoFight-OFF proof, with a separate conflict recovery boundary if path and fight are ever observed together.
+
+### Why
+
+The exact same `TryClickUI → EndUIDrag` lifecycle already completed the live 90-click item flow. Keeping a second foreground/cursor/SendInput transport for trade adds cursor theft, multi-window coupling and a second failure model without adding business semantics. Separately, a pre-dispatch guard cannot alone contain a stale/external/race violation after the fact, so a snapshot invariant must detect and recover it.
+
+### Constraints
+
+- One Bridge request performs one complete internal point action; repeats remain scheduler state.
+- Dispatch PASS is not trade PASS; stable MAIN `FreeBagSpace` remains the sequence-level proof.
+- Stop AutoFight twice, reset once through AUTO/Attack if needed, then repeat until OFF.
+- Recheck AutoPath at both queue and dispatch boundaries for every AUTO/Attack request; unknown or ON is fail-closed.
+- Tag request and completion with a workflow owner; a same-slot result from another FSM is never consumable.
+- An observed path+fight conflict stops path first and requires both states OFF before clearing.
+- F8/REC remain configuration input only; they never authorize automatic Windows mouse injection.
+- Live runtime must be tested with cursor outside the game, multiple PIDs and popup/overlay cases.
+
+## DEC-005 — Reuse the proven EventSystem point dispatcher for active P3 AUTO
+
+- Date/version: 2026-08-21 / v0.6.1.4
+- Status: ACTIVE SCOPED RUNTIME FALLBACK
+- Decision: active P3 uses configured InputSync points for `AUTO → ĐÁNH QUÁI` and `DỪNG AUTO 2`; business success is still proven by the authoritative AutoFight snapshot.
+
+### Why
+
+The exact semantic `TopIcon.AutoTrainClick/AutoStopClick` contract remains verified in client Lua, but the current Bridge's named Lua UI resolution fails at runtime. Separately, the same client/profile has now runtime-proven the complete InputSync press/release path through a 90-click sale. The user explicitly requests applying that working mechanism to AUTO and future configured hidden actions.
+
+### Constraints
+
+- Keep one generic point command; do not duplicate InputSync resolution per feature.
+- One Attack request owns both points in order and does not publish completion after click 1.
+- Wait for the menu through scheduler state, never `Sleep` on the game hook thread.
+- Start/Stop remain fail-closed on snapshot proof.
+- F8 coordinates are layout-dependent and must be tested per profile/resolution.
+- Do not claim the coordinate fallback supersedes the longer-term semantic/MainThread architecture for new features where an exact reliable action is available.
+
 ## DEC-004 — Use the exact client EventSystem point dispatcher for Step 5
 
 - Date/version: 2026-08-20 / v0.6.1.3

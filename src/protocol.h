@@ -6,9 +6,10 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-// v0.6.1.3 dispatches the fixed item-cell point through InputSyncManager press/release.
+// v0.6.1.5 routes AUTO and the coordinate-based trade macro through the same
+// proven InputSyncManager press/release path, with no physical mouse fallback.
 // Controller + Bridge are always shipped together; mismatched versions fail attach.
-constexpr std::uint32_t kProtocolVersion = 0x00010613u;
+constexpr std::uint32_t kProtocolVersion = 0x00010615u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 
@@ -27,6 +28,7 @@ enum class Command : std::uint32_t {
     AdvanceBackgroundSell = 11,
     SellNextBagItem = 12,
     CloseBackgroundSell = 13,
+    ClickInternalPoint = 14,
 };
 
 enum class ActionResult : std::int32_t {

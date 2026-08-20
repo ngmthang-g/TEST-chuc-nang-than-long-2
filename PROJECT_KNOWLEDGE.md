@@ -1,4 +1,4 @@
-# PROJECT KNOWLEDGE — v0.6.1.3 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.5 CURRENT
 
 ## Quy tắc dự án
 
@@ -18,11 +18,14 @@
 - User test v0.6.1.1 xác nhận item stage fail `6/6` với chi tiết `Thiếu RectTransform/Utility/Screen để hit-test ô cố định`. Đây là BUG-003: resolver ép năm class vào riêng CoreModule; lỗi xảy ra trước hit-test/callback nên không liên quan dòng 5.
 - v0.6.1.2: Windows MSVC x64 CI run 302 **BUILD PASS**, gồm scope audit và đủ sáu nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL.
 - User test v0.6.1.2 trả `Không có UIButton/UIRect callback ... geometry=149`. Resolver BUG-003 đã qua runtime, nhưng mô hình “ô túi là custom callback control” sai; đây là BUG-004.
-- v0.6.1.3 thay duy nhất active item action bằng cặp `InputSyncManager.TryClickUI(0, point) → EndUIDrag(point)` đã được xác minh từ đúng client-data. Build và live runtime đang chờ kiểm tra.
+- v0.6.1.3 thay active item action bằng cặp `InputSyncManager.TryClickUI(0, point) → EndUIDrag(point)`. Windows CI run 306 **BUILD PASS**; người dùng sau đó xác nhận chuỗi 90 click chạy cực kỳ thành công trên client thật. BUG-004 vì vậy là **RUNTIME PASS** cho đường InputSync item.
+- AUTO Lua hiện tại vẫn **RUNTIME FAIL** với lỗi không tìm thấy Lua UI/action theo tên; sell pass không chứng minh AUTO pass. Đây là BUG-005.
+- v0.6.1.4 mở đường InputSync đã runtime-pass thành command click điểm dùng chung. P3 Start chạy `AUTO (click 1) → chờ 500 ms → ĐÁNH QUÁI (click 2) → verify AutoFight`; Stop dùng điểm `DỪNG AUTO 2` rồi vẫn verify authoritative. Scope audit và bảy pure-test group **PASS**; Windows build **PENDING**, live AUTO **RUNTIME UNTESTED**.
+- v0.6.1.5 xóa đường chuột Windows còn lại khỏi trade, chuyển mọi dòng giao dịch sang generic `ClickInternalPoint`, và thêm hard invariant recovery nếu thấy `AutoPath ON + AutoFight ON`. Scope audit, tám pure-test group và local Windows x64 cross-build **PASS**; MSVC CI/live runtime vẫn chờ bằng chứng.
 
-## Kiến trúc action v0.6.1.3
+## Kiến trúc action v0.6.1.5
 
-Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010613` từ chối ghép EXE/DLL khác version.
+Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010615` từ chối ghép EXE/DLL khác version.
 
 Không có `CreateRemoteThread` trong controller/Bridge. Một mapping chỉ có một request in-flight; timeout không được ghi đè.
 
@@ -39,9 +42,19 @@ Geometry resolver cũ vẫn được giữ để bảo toàn/chẩn đoán, như
 
 1. P1 XN Lâu Lan: điều kiện route ownership/stall của v0.5 giữ nguyên; action đổi sang MessageBox callback.
 2. P2 Đầu thai: giữ death lifecycle/World Flow FIFO; action đổi sang death-guarded UIButton callback.
-3. P3 AUTO: Attack/Stop request đổi sang `TopIcon.AutoTrainClick/AutoStopClick`.
+3. P3 AUTO: một Attack request giữ trọn hai pha điểm `AUTO → ĐÁNH QUÁI`; chỉ publish completion sau click 2. Stop phát điểm `DỪNG AUTO 2`. Cả hai đi qua `ClickInternalPoint`/InputSync và được snapshot `AutoFight` xác minh sau action.
 
-Ba action không dùng mouse guard vì không tạo mouse input. Mouse guard vẫn áp dụng cho chuỗi giao dịch tọa độ.
+AUTO, item và trade đều không tạo mouse input. F8/REC chỉ quan sát thao tác tay để lưu tọa độ; low-level mouse guard và đường injection vật lý đã bị xóa.
+
+## Hidden trade + route invariant
+
+- `CoordinatorInternalPointAction` là primitive chung cho test macro, test trade và runtime trade.
+- Mỗi dòng gửi đúng một Bridge request, giữ delay/repeat/group/FIFO ở controller và giữ stable `FreeBagSpace` làm business proof cuối pass.
+- Sequence lease chỉ bảo vệ thứ tự nghiệp vụ, không foreground hoặc sở hữu con trỏ.
+- `StartPath` luôn qua Travel Guard: Stop #1 → Stop #2 → AUTO/Attack reset → lặp Stop cho tới snapshot OFF.
+- Request AUTO/Attack được kiểm tra AutoPath authoritative cả lúc xếp hàng lẫn ngay trước dispatch; request cũ bị hủy nếu route đã bật hoặc state không đọc được.
+- Mailbox request/result mang owner Train, Travel Guard hoặc Mount Recovery; cùng slot Attack nhưng khác FSM không thể consume nhầm.
+- Nếu phát hiện `AutoPath ON + AutoFight ON`, conflict latch dừng path trước, chạy lại Travel Guard và chỉ clear sau snapshot `AutoPath OFF + AutoFight OFF`.
 
 ## Auto-sell
 
@@ -54,24 +67,27 @@ Ba action không dùng mouse guard vì không tạo mouse input. Mouse guard v�
 
 ## Logic được bảo vệ
 
-World Flow observation/recovery, route ownership, Travel Guard authoritative, mount recovery, rotation, F4/F8, trade FIFO/relock/pass/bag stabilization và trade macro giữ nguyên trừ nơi phải đổi từ AUTO physical sang AUTO nội bộ.
+World Flow observation/recovery, mount recovery, rotation, F4/F8, trade FIFO/relock/pass/bag stabilization và cấu hình trade macro được giữ nguyên. Chỉ transport của trade đổi từ chuột Windows sang InputSync; route guard được siết thêm conflict latch.
 
 ## Rủi ro còn cần test thật
 
 - Mã Kiêu Minh ID 373 là donor đã chứng minh. Dược Đại Phu ID 279 có thể dùng cây shop khác.
 - UI scorer phụ thuộc metadata/text của đúng client.
 - Game minimized có thể tự dừng update dù action không chiếm chuột.
-- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.3.
-- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. v0.6.1.3 không mở rộng kiến trúc ngoài item action; client-data chỉ được dùng để xác minh đúng dispatcher và cặp down/up.
+- Điểm AUTO phụ thuộc layout/profile F8; sai điểm có thể raycast nhầm UI. Bắt buộc test từng điểm trước khi bật nhiều PID.
+- Giao dịch MAIN/CON hidden point vẫn phụ thuộc điểm F8/layout và cần test popup/overlay trên client thật.
+- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. v0.6.1.5 tái sử dụng dispatcher đã runtime-pass; chưa tuyên bố giải quyết MainThread Action boundary dài hạn.
 
 ## Test tiếp theo bắt buộc
 
-1. Dùng đúng cặp EXE/DLL v0.6.1.3.
-2. Test XN Lâu Lan trước. Nếu fail, log mới phải nêu `UIObject`, `instances`, control type hoặc candidate ambiguity cụ thể.
-3. Mở tab Trang bị, lấy dòng item F8 tại tâm ô trang bị thứ 2; chạy một PID và ghi log `InputSync click nội bộ ô cố định 1/90` tới `90/90`.
-4. Xác nhận chuột/foreground không đổi, UI đóng, `FreeBagSpace` ổn định và log lần sau dùng learned count.
-5. Test AUTO start/stop riêng; sell pass không tự động chứng minh AUTO pass.
-6. Chưa bật hàng loạt account trước khi một PID qua đủ các bước trên.
+1. Dùng đúng cặp EXE/DLL v0.6.1.5; protocol không cho trộn Bridge cũ.
+2. F8 lại đúng ba điểm `AUTO`, `ĐÁNH QUÁI`, `DỪNG AUTO 2` nếu layout/độ phân giải đã đổi.
+3. Bấm TEST từng điểm trên một PID; xác nhận không foreground/di chuyển chuột.
+4. Chạy AutoFight OFF tại đúng bãi; log phải có click `1/2 AUTO`, click `2/2 ĐÁNH QUÁI`, rồi `verify AutoFight ON`.
+5. Khi Travel Guard cần đi, xác nhận điểm Dừng làm `AutoFight OFF` trước `StartPath`.
+6. Chưa bật hàng loạt account trước khi một PID qua đủ Start, Stop và một vòng bán.
+7. Test một pass giao dịch MAIN/CON khi cursor đang ở ứng dụng khác; cursor phải không đổi và `FreeBagSpace` MAIN phải verify đúng.
+8. Cố tình tạo trạng thái Path ON + Fight ON; log phải StopPath, DỪNG x2/reset nếu cần và không được phát StartPath mới trước khi cả hai OFF.
 
 ## Knowledge index
 
@@ -83,3 +99,5 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - `docs/history/VERSION_v0.6.1.1.md`.
 - `docs/history/VERSION_v0.6.1.2.md`.
 - `docs/history/VERSION_v0.6.1.3.md`.
+- `docs/history/VERSION_v0.6.1.4.md`.
+- `docs/history/VERSION_v0.6.1.5.md`.

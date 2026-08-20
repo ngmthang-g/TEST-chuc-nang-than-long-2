@@ -1,4 +1,12 @@
-# SOURCE PROVENANCE — v0.6.1.3
+# SOURCE PROVENANCE — v0.6.1.5
+
+- Direct v0.6.1.5 base: local commit `5404f5ddbeedf47e8acec58f834b71316119dfcf` on `codex/v0.6.1.4-internal-auto-points`.
+- Requirement input: attached `hướng dẫn làm click ẩn thần long(1).md`, derived from the supplied v0.6.1.3 source, runtime-successful 90-click behavior and the exact-client `InputSyncManager` evidence already recorded in this repository.
+- v0.6.1.5 copies no client binary, metadata blob, native RVA or donor worker. It reuses the existing metadata-resolved generic point command, removes Windows mouse injection from the controller, and adds controller-only route/fight safety state.
+- Local acceptance before GitHub publish: hidden-action source audit PASS, eight native pure-test groups PASS, `git diff --check` PASS and LLVM-MinGW Windows x64 PE cross-build PASS. These results do not claim live-client success.
+
+- Direct v0.6.1.4 code base: GitHub source commit `cfaafc210aede366577da4af49f161545824fea3` on `codex/v0.6.1.3-internal-ui-point-click`. The user-supplied final v0.6.1.3 source archive has identical code files and adds the completed CI documentation from run 306.
+- Runtime input for v0.6.1.4: the user confirms the v0.6.1.3 fixed-item InputSync path completes all 90 clicks successfully, while carried AUTO runtime reports named Lua UI/action resolution failure.
 
 - Direct v0.6.1.3 hotfix base: final packaged v0.6.1.2 commit `674cecca39fc92f776f8184c509a85c34fd80d31`, tree `132b817d1a1da3366a54fed9f6bd63891a2511b8`.
 - Direct v0.6.1.2 hotfix base: final v0.6.1.1 tree `98b4b1e3302da628df3e3d949faebe297223d3d4` / GitHub commit `c4433ed063392bcacdbb0344599bde594403f6dc`.
@@ -19,4 +27,5 @@
 - v0.6.1.2 is a direct narrow hotfix on the final v0.6.1.1 tree. It changes only Unity geometry assembly/class resolution, exact diagnostics, protocol/version and the required test/document/build surfaces. It does not import donor code or alter the fixed-slot/90/adaptive business logic.
 - The checked-in v0.6.1.2 binary ZIP is the unmodified artifact from source commit `71ef67610e1b8cb0b14fa357ff50f65ce98adff1`, source tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4`, CI run `32414440608`, artifact `9423369955`. GitHub digest and extracted PE32+ x64 EXE/DLL hashes were independently rechecked before packaging.
 - v0.6.1.3 uses the public client-data repository only as research evidence, at commit `f0c37b7745be47e185376358c1a51ebaa376475a`. Metadata and native call sites establish the `InputSyncManager` press/release surface. No client binary, metadata blob, hardcoded RVA or donor worker is copied into this repository.
-- The active change is limited to the item-cell dispatcher plus matching protocol/version, tests, documentation and release wiring. Fixed row/count/adaptive logic and all unrelated action FSMs remain from v0.6.1.2.
+- v0.6.1.3 changed only the item-cell dispatcher plus matching protocol/version, tests, documentation and release wiring. Fixed row/count/adaptive logic and all unrelated action FSMs remained from v0.6.1.2.
+- v0.6.1.4 adds no new client binary research and copies no binary/code from the data repository. It promotes the existing metadata-resolved InputSync dispatcher to one generic point command and changes only active P3 AUTO point sequencing, matching tests/version/docs/build wiring.
