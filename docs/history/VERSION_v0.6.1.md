@@ -39,9 +39,9 @@ No controller FSM, route gate, death timing, sell phase, trade macro, F4/F8 or p
 
 ## G. Build / CI
 
-- Initial local audit: pending.
-- Windows CI: pending.
-- Artifact: pending.
+- Initial local capability audit and pure logic self-tests: PASS.
+- Windows MSVC x64 CI run 274 (`32387856270`), source commit `e90e08c`: PASS.
+- First source artifact `9413662253`: ZIP digest and both PE32+ x86-64 binaries verified locally; release packaging follows in a separate traceable commit.
 
 ## H. Runtime result
 

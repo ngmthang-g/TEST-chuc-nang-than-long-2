@@ -109,7 +109,8 @@ for path in (
 ):
     assert (ROOT / path).is_file(), path
 assert "v0.6: **RUNTIME FAIL**" in knowledge
-assert "v0.6.1: **RUNTIME UNTESTED**" in knowledge
+assert "v0.6.1:" in knowledge and "**BUILD PASS**" in knowledge
+assert "**RUNTIME UNTESTED**" in knowledge
 assert "UNKNOWN" in changelog and "LIKELY" in changelog
 
 print("v0.6.1 capability-lazy UI resolver audit PASS")

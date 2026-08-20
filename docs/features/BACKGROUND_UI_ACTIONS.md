@@ -14,7 +14,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6 Auto Sell: RUNTIME FAIL, BUG-001.
 - v0.6 Revive: UNKNOWN / not reported.
 - v0.6 AUTO: UNKNOWN / not reported.
-- v0.6.1: RUNTIME UNTESTED.
+- v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
 
 ## Version timeline
 

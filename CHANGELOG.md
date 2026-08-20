@@ -26,7 +26,8 @@
 - No `CreateRemoteThread`; no fallback to coordinate clicks.
 
 ### Build / runtime
-- Local audit and Windows CI: pending at source-fix stage.
+- Local capability audit and all four pure logic self-test groups: PASS.
+- Windows MSVC x64 CI run 274 (`32387856270`) on source commit `e90e08c`: PASS, including artifact staging.
 - Runtime: **RUNTIME UNTESTED** until the user retests with the v0.6.1 EXE/DLL pair.
 
 ### Next version notes

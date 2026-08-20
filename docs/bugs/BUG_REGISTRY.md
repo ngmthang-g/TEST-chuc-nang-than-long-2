@@ -2,7 +2,7 @@
 
 ## BUG-001 — Aggregate UI readiness blocks every internal control action
 
-- Status: FIXED-BUILD-PENDING / RUNTIME UNTESTED
+- Status: FIXED-BUILD-PASS / RUNTIME UNTESTED
 - Severity: High
 - First observed: v0.6, user runtime 2026-08-20 22:24–22:25 local time
 - Last known-good: none for this new internal-callback implementation
