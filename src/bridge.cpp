@@ -9,12 +9,14 @@
 #include <vector>
 #include "background_ui_logic.h"
 #include "fixed_slot_sell_logic.h"
+#include "internal_ui_click_logic.h"
 #include "protocol.h"
 #include "unity_geometry_logic.h"
 
 using namespace cleanroute;
 using background_ui_logic::Labels;
 using background_ui_logic::Role;
+using internal_ui_click_logic::DispatchPlan;
 using unity_geometry_logic::GeometryClass;
 using unity_geometry_logic::ImageSlot;
 
@@ -204,6 +206,26 @@ bool ParamType(const MethodInfo* m, std::uint32_t index, const char* expected) {
     bool ok = Eq(n, expected);
     g_api.free_fn(n);
     return ok;
+}
+
+bool ReturnType(const MethodInfo* method, const char* expected) {
+    if (!method || !expected) return false;
+    const Il2CppType* type = g_api.method_get_return_type(method);
+    char* name = type ? g_api.type_get_name(type) : nullptr;
+    if (!name) return false;
+    const bool matches = Eq(name, expected);
+    g_api.free_fn(name);
+    return matches;
+}
+
+bool FieldType(FieldInfo* field, const char* expected) {
+    if (!field || !expected) return false;
+    const Il2CppType* type = g_api.field_get_type(field);
+    char* name = type ? g_api.type_get_name(type) : nullptr;
+    if (!name) return false;
+    const bool matches = Eq(name, expected);
+    g_api.free_fn(name);
+    return matches;
 }
 
 const MethodInfo* ExactMethod(Il2CppClass* klass, const char* name, int argc, bool isStatic,
@@ -524,6 +546,13 @@ struct UiRuntime {
     Il2CppClass* rectTransformUtility = nullptr;
     Il2CppClass* unityScreen = nullptr;
     bool geometryReady = false;
+    Il2CppClass* inputSyncManager = nullptr;
+    const MethodInfo* inputSyncGetInstance = nullptr;
+    const MethodInfo* inputSyncPress = nullptr;
+    const MethodInfo* inputSyncRelease = nullptr;
+    const MethodInfo* inputSyncCancel = nullptr;
+    FieldInfo* inputSyncDragging = nullptr;
+    bool internalPointClickReady = false;
     FieldInfo* instances = nullptr;
     std::vector<std::pair<Il2CppClass*, UiKind>> kindCache{};
 };
@@ -737,6 +766,15 @@ Il2CppClass* ResolveGeometryClass(GeometryClass role) {
     return nullptr;
 }
 
+void OpenUnityImages() {
+    if (!g_ui.coreImage)
+        g_ui.coreImage = ImageForAssembly("UnityEngine.CoreModule", "UnityEngine.CoreModule.dll");
+    if (!g_ui.uiModuleImage)
+        g_ui.uiModuleImage = ImageForAssembly("UnityEngine.UIModule", "UnityEngine.UIModule.dll");
+    if (!g_ui.legacyUnityImage)
+        g_ui.legacyUnityImage = ImageForAssembly("UnityEngine", "UnityEngine.dll");
+}
+
 void AppendGeometryAvailability(wchar_t* detail, std::size_t cap) {
     Append(detail, cap, L" • assembly Core=");
     Append(detail, cap, g_ui.coreImage ? L"OK" : L"NO");
@@ -749,9 +787,7 @@ void AppendGeometryAvailability(wchar_t* detail, std::size_t cap) {
 bool EnsureUiGeometry(wchar_t* detail, std::size_t cap) {
     if (g_ui.geometryReady) return true;
     if (!EnsureUiDiscovery(detail, cap)) return false;
-    g_ui.coreImage = ImageForAssembly("UnityEngine.CoreModule", "UnityEngine.CoreModule.dll");
-    g_ui.uiModuleImage = ImageForAssembly("UnityEngine.UIModule", "UnityEngine.UIModule.dll");
-    g_ui.legacyUnityImage = ImageForAssembly("UnityEngine", "UnityEngine.dll");
+    OpenUnityImages();
     if (!g_ui.coreImage && !g_ui.uiModuleImage && !g_ui.legacyUnityImage) {
         SetText(detail, cap, L"Không mở được CoreModule/UIModule/UnityEngine.dll để hit-test tọa độ");
         return false;
@@ -867,6 +903,138 @@ bool ResolveRectTransform(Il2CppObject* object, Il2CppClass* klass,
 
 struct UnityVector2 { float x = 0.0f; float y = 0.0f; };
 struct UnityRectValue { float x = 0.0f; float y = 0.0f; float width = 0.0f; float height = 0.0f; };
+
+bool ReadInputSyncDragging(Il2CppObject* manager, bool& dragging,
+                           wchar_t* detail, std::size_t cap) {
+    dragging = false;
+    if (!manager || !g_ui.inputSyncDragging) {
+        SetText(detail, cap, L"InputSyncManager._uiDragging chưa resolve");
+        return false;
+    }
+    std::uint8_t value = 0;
+    g_api.field_get_value(manager, g_ui.inputSyncDragging, &value);
+    dragging = value != 0;
+    return true;
+}
+
+bool EnsureInternalPointClick(wchar_t* detail, std::size_t cap) {
+    if (g_ui.internalPointClickReady) return true;
+    if (!g_api.Load(detail, cap)) return false;
+    if (!g_ui.image) g_ui.image = Image();
+    if (!g_ui.image) {
+        SetText(detail, cap, L"Click nội bộ: không mở được Assembly-CSharp");
+        return false;
+    }
+
+    g_ui.inputSyncManager = g_api.class_from_name(g_ui.image, "", "InputSyncManager");
+    OpenUnityImages();
+    if (!g_ui.unityScreen) g_ui.unityScreen = ResolveGeometryClass(GeometryClass::Screen);
+
+    constexpr auto plan = DispatchPlan();
+    if (g_ui.inputSyncManager) {
+        g_ui.inputSyncGetInstance = ExactMethod(g_ui.inputSyncManager, "get_Instance", 0, true);
+        g_ui.inputSyncPress = ExactMethod(
+            g_ui.inputSyncManager, plan[0].methodName, plan[0].parameterCount, false,
+            "System.Int32", "UnityEngine.Vector2");
+        g_ui.inputSyncRelease = ExactMethod(
+            g_ui.inputSyncManager, plan[1].methodName, plan[1].parameterCount, false,
+            "UnityEngine.Vector2");
+        g_ui.inputSyncCancel = ExactMethod(g_ui.inputSyncManager, "CancelUIDragState", 0, false);
+        g_ui.inputSyncDragging = FindField(g_ui.inputSyncManager, "_uiDragging");
+    }
+
+    const bool methodsValid = g_ui.inputSyncGetInstance && g_ui.inputSyncPress &&
+        g_ui.inputSyncRelease && g_ui.inputSyncCancel &&
+        ReturnType(g_ui.inputSyncPress, "System.Void") &&
+        ReturnType(g_ui.inputSyncRelease, "System.Void") &&
+        ReturnType(g_ui.inputSyncCancel, "System.Void");
+    if (!g_ui.inputSyncManager || !g_ui.unityScreen || !methodsValid ||
+        !FieldType(g_ui.inputSyncDragging, "System.Boolean")) {
+        SetText(detail, cap, L"Không resolve đúng InputSyncManager press/release/drag-state hoặc Unity Screen");
+        return false;
+    }
+    g_ui.internalPointClickReady = true;
+    return true;
+}
+
+bool BuildInputSyncScreenPoint(int normalizedX, int normalizedY, UnityVector2& point,
+                               wchar_t* detail, std::size_t cap) {
+    if (!EnsureInternalPointClick(detail, cap)) return false;
+    if (!internal_ui_click_logic::IsNormalizedCoordinate(
+            normalizedX, fixed_slot_sell_logic::kCoordinateScale) ||
+        !internal_ui_click_logic::IsNormalizedCoordinate(
+            normalizedY, fixed_slot_sell_logic::kCoordinateScale)) {
+        SetText(detail, cap, L"Tọa độ chuẩn hóa ô trang bị nằm ngoài client");
+        return false;
+    }
+    std::int32_t width = 0;
+    std::int32_t height = 0;
+    if (!StaticScalar(g_ui.unityScreen, "get_width", width, detail, cap) || width <= 0 ||
+        !StaticScalar(g_ui.unityScreen, "get_height", height, detail, cap) || height <= 0) {
+        SetText(detail, cap, L"Không đọc được Unity Screen.width/height cho click nội bộ");
+        return false;
+    }
+    point.x = static_cast<float>(static_cast<double>(normalizedX) * width /
+                                 fixed_slot_sell_logic::kCoordinateScale);
+    const double topY = static_cast<double>(normalizedY) * height /
+                        fixed_slot_sell_logic::kCoordinateScale;
+    point.y = static_cast<float>(height - 1.0 - topY);
+    return true;
+}
+
+void CancelOwnedInputSyncDrag(Il2CppObject* manager) {
+    if (!manager || !g_ui.inputSyncCancel) return;
+    wchar_t ignored[128]{};
+    (void)InvokeVoid(g_ui.inputSyncCancel, manager, nullptr, ignored, _countof(ignored));
+}
+
+bool InvokeInternalPointClick(int normalizedX, int normalizedY,
+                              wchar_t* detail, std::size_t cap) {
+    UnityVector2 point{};
+    if (!BuildInputSyncScreenPoint(normalizedX, normalizedY, point, detail, cap)) return false;
+
+    Il2CppObject* manager = nullptr;
+    if (!InvokeObject(g_ui.inputSyncGetInstance, nullptr, manager, detail, cap) || !manager) {
+        SetText(detail, cap, L"InputSyncManager.Instance chưa sẵn sàng");
+        return false;
+    }
+
+    bool dragging = false;
+    if (!ReadInputSyncDragging(manager, dragging, detail, cap)) return false;
+    if (dragging) {
+        SetText(detail, cap, L"InputSyncManager đang giữ UI drag; không chồng callback item");
+        return false;
+    }
+
+    std::int32_t button = internal_ui_click_logic::kLeftButton;
+    void* pressArgs[] = {&button, &point};
+    if (!InvokeVoid(g_ui.inputSyncPress, manager, pressArgs, detail, cap)) {
+        bool ownsDrag = false;
+        if (ReadInputSyncDragging(manager, ownsDrag, detail, cap) && ownsDrag)
+            CancelOwnedInputSyncDrag(manager);
+        SetText(detail, cap, L"InputSyncManager.TryClickUI ném exception");
+        return false;
+    }
+    if (!ReadInputSyncDragging(manager, dragging, detail, cap)) return false;
+    if (!dragging) {
+        SetText(detail, cap, L"InputSyncManager raycast không bắt được UI tại tọa độ đã gán");
+        return false;
+    }
+
+    void* releaseArgs[] = {&point};
+    if (!InvokeVoid(g_ui.inputSyncRelease, manager, releaseArgs, detail, cap)) {
+        CancelOwnedInputSyncDrag(manager);
+        SetText(detail, cap, L"InputSyncManager.EndUIDrag ném exception; đã hủy drag nội bộ");
+        return false;
+    }
+    if (!ReadInputSyncDragging(manager, dragging, detail, cap)) return false;
+    if (dragging) {
+        CancelOwnedInputSyncDrag(manager);
+        SetText(detail, cap, L"InputSyncManager chưa nhả UI drag; đã hủy và dừng fail-closed");
+        return false;
+    }
+    return true;
+}
 
 bool ReadRectArea(Il2CppObject* rectTransform, float& area) {
     area = 0.0f;
@@ -1408,14 +1576,12 @@ bool SellFixedBagSlot(int normalizedX, int normalizedY, Response& response,
         return true;
     }
 
-    UiControl item{};
-    if (!FindControlAtNormalizedPoint(normalizedX, normalizedY, item, detail, cap)) return false;
-    if (!InvokeControl(item, detail, cap)) return false;
+    if (!InvokeInternalPointClick(normalizedX, normalizedY, detail, cap)) return false;
     ++g_sell.callbacks;
     g_sell.pendingCallback = true;
     g_sell.lastFree = currentFree;
     response.resultCode = static_cast<std::int32_t>(ActionResult::ActionInvoked);
-    SetText(detail, cap, L"Bán nền: callback nội bộ ô cố định ");
+    SetText(detail, cap, L"Bán nền: InputSync click nội bộ ô cố định ");
     AppendInt(detail, cap, g_sell.callbacks);
     Append(detail, cap, L"/90 • FreeBag trước click=");
     AppendInt(detail, cap, currentFree);

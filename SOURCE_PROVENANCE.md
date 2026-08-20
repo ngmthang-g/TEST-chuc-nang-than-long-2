@@ -1,5 +1,6 @@
-# SOURCE PROVENANCE — v0.6.1.2
+# SOURCE PROVENANCE — v0.6.1.3
 
+- Direct v0.6.1.3 hotfix base: final packaged v0.6.1.2 commit `674cecca39fc92f776f8184c509a85c34fd80d31`, tree `132b817d1a1da3366a54fed9f6bd63891a2511b8`.
 - Direct v0.6.1.2 hotfix base: final v0.6.1.1 tree `98b4b1e3302da628df3e3d949faebe297223d3d4` / GitHub commit `c4433ed063392bcacdbb0344599bde594403f6dc`.
 - Direct hotfix base: exact v0.6.1 release tree `fd55f16c6415e56469867ff55902c7e73756c4e2` / GitHub commit `1048c2064ec6be05756e25aa8a0adc7893df3f38`.
 
@@ -17,3 +18,5 @@
 - The checked-in v0.6.1.1 binary ZIP is the unmodified artifact from source commit `930ceee7d857254770da32b74aff658c42047237`, source tree `9f09f444df035f41f6700774e47e6572a8ae8aeb`, CI run `32402322381`, artifact `9418953183`. GitHub digest and extracted PE32+ x64 EXE/DLL hashes were independently rechecked before packaging.
 - v0.6.1.2 is a direct narrow hotfix on the final v0.6.1.1 tree. It changes only Unity geometry assembly/class resolution, exact diagnostics, protocol/version and the required test/document/build surfaces. It does not import donor code or alter the fixed-slot/90/adaptive business logic.
 - The checked-in v0.6.1.2 binary ZIP is the unmodified artifact from source commit `71ef67610e1b8cb0b14fa357ff50f65ce98adff1`, source tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4`, CI run `32414440608`, artifact `9423369955`. GitHub digest and extracted PE32+ x64 EXE/DLL hashes were independently rechecked before packaging.
+- v0.6.1.3 uses the public client-data repository only as research evidence, at commit `f0c37b7745be47e185376358c1a51ebaa376475a`. Metadata and native call sites establish the `InputSyncManager` press/release surface. No client binary, metadata blob, hardcoded RVA or donor worker is copied into this repository.
+- The active change is limited to the item-cell dispatcher plus matching protocol/version, tests, documentation and release wiring. Fixed row/count/adaptive logic and all unrelated action FSMs remain from v0.6.1.2.

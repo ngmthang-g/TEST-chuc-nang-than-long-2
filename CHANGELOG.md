@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## v0.6.1.3 — 2026-08-20
+
+### Runtime evidence
+
+- v0.6.1.2 reaches the fixed item stage and reports `Không có UIButton/UIRect callback tại tọa độ đã gán • geometry=149`.
+- This proves the geometry resolver now passes, but the bag cell is not owned by an enumerated custom callback control.
+
+### Fixed — item dispatch only
+
+- Replace the active `FindControlAtNormalizedPoint → InvokeControl` item path with the exact current-client `InputSyncManager` EventSystem path.
+- Perform a complete left click as `TryClickUI(0, point)` then `EndUIDrag(point)`; the native client uses the same down/up split.
+- Reject a pre-existing InputSync drag, require the press to acquire a target, and verify release clears the drag state. Cancel only cleanup state created by the failed tool action.
+- Keep the manually assigned coordinate and existing top-left-to-Unity coordinate conversion.
+- Bump the EXE/DLL protocol to `0x00010613`.
+
+### Protected
+
+- First count remains 90; later count remains stable learned `FreeBagSpace`, capped at 90.
+- Row selection remains v0.5 row 5 for profiles with at least five rows.
+- Semantic shop stages, close UI, F4/F8, AUTO, Revive, Confirm, travel, train, rotation and trade logic are unchanged.
+- No foreground switch, cursor movement, `SendInput` or physical fallback in the item stage.
+
+### Build / runtime
+
+- Exact-client metadata/native dispatcher analysis: PASS against client-data commit `f0c37b7745be47e185376358c1a51ebaa376475a`.
+- Static scope audit, pure tests and Windows MSVC x64 CI: pending.
+- Live item sale: **RUNTIME UNTESTED** until the user tests the matching v0.6.1.3 EXE/DLL pair.
+
 ## v0.6.1.2 — 2026-08-20
 
 ### Runtime evidence

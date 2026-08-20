@@ -26,7 +26,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.2 • UNITY GEOMETRY RESOLVER";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.3 • INTERNAL UI POINT CLICK";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -1340,7 +1340,7 @@ private:
         rotateNoFullBag_ = Make(L"EDIT", L"15", WS_BORDER | ES_NUMBER | ES_CENTER, 530, 497, 45, 27, IDC_ROTATE_NO_BAG); addFont(rotateNoFullBag_);
         addFont(Make(L"STATIC", L"phút train thực • 1 bãi = không đổi • nhiều bãi = vòng lại bãi 1", 0, 580, 500, 443, 22, 0));
 
-        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6.1.2 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
+        addFont(Make(L"STATIC", L"5 ĐIỂM LEGACY — v0.6.1.3 không dùng cho XN/Đầu thai/AUTO; TEST gọi callback nội bộ", 0, 18, 530, 720, 20, 0));
         addFont(Make(L"BUTTON", L"LẤY 5 CLICK CỦA ACC...", BS_PUSHBUTTON, 755, 526, 268, 27, IDC_COPY_CLICKS));
         const int rowY[5] = {552, 578, 604, 630, 656};
         const int pointIds[5] = {IDC_POINT_CONFIRM, IDC_POINT_REVIVE, IDC_POINT_AUTO, IDC_POINT_ATTACK, IDC_POINT_STOP_AUTO_2};
@@ -1396,7 +1396,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.2",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.3",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 

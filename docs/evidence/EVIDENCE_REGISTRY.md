@@ -1,5 +1,49 @@
 # EVIDENCE REGISTRY
 
+## EVID-007 — Exact client has a complete internal EventSystem point-click sequence
+
+- Type: CLIENT METADATA + NATIVE CALL-SITE INSPECTION
+- Date/version: 2026-08-20 / client-data commit `f0c37b7745be47e185376358c1a51ebaa376475a`
+- Confidence: High for the cited client snapshot; v0.6.1.3 live behavior remains untested
+
+### Observation
+
+`Assembly-CSharp` metadata exposes `InputSyncManager.get_Instance`, private `TryClickUI(Int32, Vector2)`, `EndUIDrag(Vector2)`, `CancelUIDragState()` and Boolean `_uiDragging`. The native input parser calls `TryClickUI` for the UI-down event and `EndUIDrag` for the matching UI-up event. `TryClickUI` raycasts through Unity `EventSystem`; `EndUIDrag` dispatches the release/click path and clears the stored drag state.
+
+### Supports
+
+- A configured screen point can be dispatched through the client UI system without a Windows cursor event.
+- A complete logical click requires press plus release; `TryClickUI` alone is insufficient.
+- `_uiDragging` provides a fail-closed proof that the press raycast acquired a UI target and that release cleaned up.
+
+### Does not prove
+
+- That the user's saved coordinate is centered on the intended second equipment cell.
+- That one live v0.6.1.3 dispatch causes the server to sell an item; `FreeBagSpace` remains the business proof.
+
+## EVID-006 — v0.6.1.2 resolves geometry but finds no custom callback at the item point
+
+- Type: USER_RUNTIME / LOG
+- Date/version: 2026-08-20 / v0.6.1.2
+- Character/PID: Adonis / RoleID ending 013169 / PID 2804
+- Confidence: High for the failure boundary
+
+### Observation
+
+`BÁN NỀN FAIL callback item: Không có UIButton/UIRect callback tại tọa độ đã gán • geometry=149 • dừng fail-closed`
+
+### Supports
+
+- The working semantic sequence reached the item command after Equipment.
+- v0.6.1.2 successfully resolved its Unity geometry classes and usable geometry for 149 controls.
+- No enumerated custom `UIButton/UIRect` callback owns the configured point; the active callback-object assumption is wrong for this bag cell.
+- Row selection and the 90/adaptive count are not implicated because no item callback began.
+
+### Does not prove
+
+- Whether the configured point is correct.
+- Runtime success of the replacement EventSystem dispatcher before live retest.
+
 ## EVID-005 — v0.6.1.2 build acceptance
 
 - Type: CI / STATIC + PURE LOGIC TESTS

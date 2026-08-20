@@ -16,7 +16,8 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6 AUTO: UNKNOWN / not reported.
 - v0.6.1: BUILD PASS (Windows CI 274), RUNTIME UNTESTED.
 - v0.6.1.1: BUILD PASS; RUNTIME FAIL at Unity geometry class gate before item hit-test.
-- v0.6.1.2: BUILD PASS (Windows CI 302); live runtime pending.
+- v0.6.1.2: BUILD PASS; RUNTIME FAIL at custom callback ownership after geometry resolved (`geometry=149`).
+- v0.6.1.3: exact InputSync press/release fix in source; build and live runtime pending.
 
 ## Version timeline
 
@@ -45,6 +46,13 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Resolved geometry classes independently across CoreModule, UIModule and legacy UnityEngine.dll.
 - Added exact missing-class and assembly-availability diagnostics.
 
+### v0.6.1.3
+
+- Preserved the working semantic stages through Equipment and the close stage.
+- Replaced only the item-cell custom-control hit-test with the exact current-client `InputSyncManager` EventSystem path.
+- Each item tick performs left press plus release at the manually assigned point and verifies the internal drag lifecycle.
+- Retained 90 first, learned stable `FreeBagSpace` later, and the 90 ceiling.
+
 ## Do-not-break rules
 
 - Resolve current controls for every action; never retain stale UI pointers.
@@ -53,6 +61,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - Revive must recheck `IsDeath` immediately.
 - Sell completion must still be verified using stable fresh `FreeBagSpace`; the fixed-slot hotfix retains the 90-callback ceiling.
 - Button/Toggle paths must not require Lua Executor.
+- A successful item press must always receive its matching release; failure cleanup must not cancel a drag that existed before the tool action.
 
 ## Open architectural item
 
