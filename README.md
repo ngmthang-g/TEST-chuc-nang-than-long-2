@@ -2,6 +2,14 @@
 
 Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor để nghiên cứu cơ chế callback UI nội bộ; không ghép nguyên remote worker của donor.
 
+## Tải bản Windows x64
+
+- [ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip)
+- Giải nén và giữ `ThanLongItemConsolidator_v0.6.exe` cùng thư mục với `ThanLongCleanRouteBridge.dll`.
+- Hash bản build và CI nguồn nằm tại [release/SHA256SUMS_v0.6.txt](release/SHA256SUMS_v0.6.txt).
+
+Gói trên đã qua MSVC Windows x64 build và toàn bộ self-test. Trạng thái đó không thay thế test thực chiến trên đúng client game; hãy thử từng action bằng nút `TEST` trước khi bật chu trình nhiều tài khoản.
+
 ## Thay đổi chính
 
 - `Xác nhận ra map`: vẫn giữ nguyên điều kiện watchdog Lâu Lan của v0.5, nhưng Bridge tìm nút đồng ý duy nhất bên trong `MessageBox` rồi gọi callback nội bộ. Không foreground cửa sổ, không di chuyển chuột.
