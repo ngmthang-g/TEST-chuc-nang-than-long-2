@@ -6,9 +6,9 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-// v0.6.1.1 passes a normalized fixed item-cell coordinate to the Bridge.
+// v0.6.1.2 resolves Unity geometry across split and legacy assemblies.
 // Controller + Bridge are always shipped together; mismatched versions fail attach.
-constexpr std::uint32_t kProtocolVersion = 0x00010611u;
+constexpr std::uint32_t kProtocolVersion = 0x00010612u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 

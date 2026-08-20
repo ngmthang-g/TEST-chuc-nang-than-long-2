@@ -1,5 +1,6 @@
-# SOURCE PROVENANCE — v0.6.1.1
+# SOURCE PROVENANCE — v0.6.1.2
 
+- Direct v0.6.1.2 hotfix base: final v0.6.1.1 tree `98b4b1e3302da628df3e3d949faebe297223d3d4` / GitHub commit `c4433ed063392bcacdbb0344599bde594403f6dc`.
 - Direct hotfix base: exact v0.6.1 release tree `fd55f16c6415e56469867ff55902c7e73756c4e2` / GitHub commit `1048c2064ec6be05756e25aa8a0adc7893df3f38`.
 
 - Direct base: attached `ThanLongItemConsolidator_Source_v0.5(2).zip`, SHA-256 `d84b0f57a7da17e549c85e793232b37b5f8a518fe58f494d97fea4fd7393126d`.
@@ -14,3 +15,5 @@
 - v0.6.1.1 does not import v0.6.2 changes. It changes only the v0.6.1 item-cell stage, protocol/version/test/document surfaces required to ship the matching EXE/DLL pair.
 - The knowledge repository `ngmthang-g/clinent-game-than-long-DATA-2222` was consulted for Quick Sell and bag-grid semantics. It confirms Quick Sell redirects each bag-cell click to the normal one-item sell request and that inventory UI refreshes after removal. Its recommended instance-ID packet seller was deliberately not introduced in this scoped hotfix.
 - The checked-in v0.6.1.1 binary ZIP is the unmodified artifact from source commit `930ceee7d857254770da32b74aff658c42047237`, source tree `9f09f444df035f41f6700774e47e6572a8ae8aeb`, CI run `32402322381`, artifact `9418953183`. GitHub digest and extracted PE32+ x64 EXE/DLL hashes were independently rechecked before packaging.
+- v0.6.1.2 is a direct narrow hotfix on the final v0.6.1.1 tree. It changes only Unity geometry assembly/class resolution, exact diagnostics, protocol/version and the required test/document/build surfaces. It does not import donor code or alter the fixed-slot/90/adaptive business logic.
+- The checked-in v0.6.1.2 binary ZIP is the unmodified artifact from source commit `71ef67610e1b8cb0b14fa357ff50f65ce98adff1`, source tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4`, CI run `32414440608`, artifact `9423369955`. GitHub digest and extracted PE32+ x64 EXE/DLL hashes were independently rechecked before packaging.

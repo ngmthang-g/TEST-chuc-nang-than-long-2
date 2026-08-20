@@ -1,4 +1,4 @@
-name: build-item-consolidator-v0.6.1.1
+name: build-item-consolidator-v0.6.1.2
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify v0.6.1.1 fixed-slot sell scope
-        run: python tools/verify_v0611_logic.py
+      - name: Verify v0.6.1.2 geometry resolver scope
+        run: python tools/verify_v0612_logic.py
       - name: Configure x64
         run: cmake -S . -B build -A x64
       - name: Build Release
@@ -26,16 +26,18 @@ jobs:
         run: .\build\Release\background_ui_logic_tests.exe
       - name: Fixed-slot sell logic self-test
         run: .\build\Release\fixed_slot_sell_logic_tests.exe
+      - name: Unity geometry resolver self-test
+        run: .\build\Release\unity_geometry_logic_tests.exe
       - name: Stage artifact
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.1.exe
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.2.exe
           Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
           Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,TOOL_LOGIC_TABLE.html,DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md stage\
           Copy-Item docs stage\docs -Recurse
       - uses: actions/upload-artifact@v4
         with:
-          name: ThanLongItemConsolidator-v0.6.1.1-win-x64
+          name: ThanLongItemConsolidator-v0.6.1.2-win-x64
           path: stage
           if-no-files-found: error

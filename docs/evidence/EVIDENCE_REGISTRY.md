@@ -1,5 +1,44 @@
 # EVIDENCE REGISTRY
 
+## EVID-005 — v0.6.1.2 build acceptance
+
+- Type: CI / STATIC + PURE LOGIC TESTS
+- Date/version: 2026-08-20 / v0.6.1.2
+- Confidence: High for source integrity and build acceptance; no live-client claim
+
+### Observation
+
+GitHub Actions run 302 (`32414440608`) built source tree `1c91bcbdba96e85f647b52f3aa21abde86fda1a4` with MSVC x64. Scope audit and all six self-test groups passed. Artifact `9423369955` was ZIP-tested and both binaries were verified as PE32+ x86-64.
+
+### Does not prove
+
+- Which assembly/class layout the live client exposes.
+- That a live item control supplies usable RectTransform geometry.
+- Runtime success before the user retests the matching EXE/DLL pair.
+
+## EVID-004 — v0.6.1.1 fixed-slot geometry gate fails
+
+- Type: USER_RUNTIME / LOG
+- Date/version: 2026-08-20 / v0.6.1.1
+- Character/PID: RoleID ending 013169 / PID 2804
+- Confidence: High for failure boundary; exact missing Unity class remains unknown
+
+### Observation
+
+`BÁN NỀN FAIL callback item: Thiếu RectTransform/Utility/Screen để hit-test ô cố định • dừng fail-closed`
+
+### Supports
+
+- The semantic sequence already reached Equipment and issued the item command.
+- The Bridge opened CoreModule but failed its all-classes-in-CoreModule gate.
+- No coordinate hit-test and no item callback occurred; `6/6` is retry count, not macro row 6.
+
+### Does not prove
+
+- Which exact geometry class is absent from CoreModule.
+- That the item control exposes a usable RectTransform after multi-assembly resolution.
+- Runtime success of v0.6.1.2 before live retest.
+
 ## EVID-003 — v0.6.1.1 build acceptance
 
 - Type: CI / STATIC + PURE LOGIC TESTS
