@@ -5,16 +5,16 @@ Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. S
 ## Tải bản Windows x64
 
 - v0.6.1.5 loại bỏ đường auto-click chuột Windows còn lại trong chuỗi giao dịch MAIN/CON; mọi dòng tọa độ dùng generic InputSync hidden action.
-- Gói runtime: `release/ThanLongItemConsolidator-v0.6.1.5-win-x64.zip` (chỉ thêm sau Windows CI PASS).
-- Gói source: `release/ThanLongItemConsolidator_Source_v0.6.1.5.zip`.
-- Hash EXE/DLL/ZIP và nguồn CI sẽ nằm tại `release/SHA256SUMS_v0.6.1.5.txt`.
+- Gói runtime: GitHub Actions artifact `ThanLongItemConsolidator-v0.6.1.5-win-x64` từ [run 307](https://github.com/ngmthang-g/TEST-chuc-nang-than-long-2/actions/runs/32427510483).
+- Source: branch [`codex/v0.6.1.5-hidden-trade-autopath-guard`](https://github.com/ngmthang-g/TEST-chuc-nang-than-long-2/tree/codex/v0.6.1.5-hidden-trade-autopath-guard), tree `b350db03588e2317a2e03e5b706b35ac9c695304`.
+- Artifact ZIP: `dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`; EXE: `6d2bdfd6015ab6a6b9c503a8f3329228d73d556a31f4059a54b3927d39046c51`; DLL: `da1febd514af0951ebcab56de575dfa794f00ee99614157684a456d65faf554c`.
 - Bản v0.6.1.2 được giữ nguyên để đối chiếu lỗi `geometry=149`.
 - Bản v0.6.1.1 được giữ nguyên để đối chiếu lỗi runtime.
 - Bản v0.6.1 gốc vẫn nằm tại [release/ThanLongItemConsolidator-v0.6.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1-win-x64.zip) để đối chiếu.
 - v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
 - Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1.5 cố ý từ chối DLL cũ.
 
-v0.6.1.3 Windows CI run 306 đã PASS và người dùng xác nhận luồng item chạy đủ 90 click cực kỳ thành công. v0.6.1.5 đã qua source audit, tám nhóm pure test và local Windows x64 cross-build; live trade/AUTO vẫn **RUNTIME UNTESTED** cho tới khi chạy đúng cặp EXE/DLL trên client thật.
+v0.6.1.3 Windows CI run 306 đã PASS và người dùng xác nhận luồng item chạy đủ 90 click cực kỳ thành công. v0.6.1.5 Windows MSVC x64 run 307 đã PASS verifier, build và đủ tám nhóm self-test; live trade/AUTO vẫn **RUNTIME UNTESTED** cho tới khi chạy đúng cặp EXE/DLL trên client thật.
 
 ## Hidden trade + AutoPath invariant v0.6.1.5
 
@@ -96,6 +96,6 @@ Workflow Windows x64 chạy:
 7. Internal UI press/release dispatch-plan self-test.
 8. Travel Guard + AutoPath/AutoFight invariant self-test.
 
-Kết quả CI và mã artifact v0.6.1.5 sẽ được ghi vào đây sau khi workflow Windows hoàn tất; không được suy từ kiểm thử tĩnh thành runtime pass.
+Windows MSVC x64 [run 307](https://github.com/ngmthang-g/TEST-chuc-nang-than-long-2/actions/runs/32427510483) PASS toàn bộ các bước trên. Artifact ID `9427940998`, GitHub digest `sha256:dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`. Build pass không được suy thành live-client pass.
 
 Đọc [DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md](DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md) để xem diễn giải chi tiết donor 0.8.4 và quyết định chuyển đổi.

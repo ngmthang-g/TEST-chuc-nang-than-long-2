@@ -22,15 +22,15 @@ The user reports seeing an incorrect state around AutoPath and requires that Aut
 - Which exact scheduler interleaving or external client action produced the observed state.
 - Live success of the v0.6.1.5 recovery before the matching binaries are tested.
 
-## EVID-011 — v0.6.1.5 removes automatic Windows mouse injection in source
+## EVID-011 — v0.6.1.5 removes automatic Windows mouse injection and passes Windows CI
 
-- Type: SOURCE AUDIT + PURE TESTS + LOCAL CROSS-BUILD
+- Type: SOURCE AUDIT + PURE TESTS + LOCAL CROSS-BUILD + GITHUB ACTIONS
 - Date/version: 2026-08-21 / v0.6.1.5
 - Confidence: High for source/build properties; no live-client claim
 
 ### Observation
 
-`tools/verify_v0615_logic.py` finds no foreground, cursor-warp, Windows mouse injection or low-level mouse-hook token in the controller. Trade test/runtime call sites route through `CoordinatorInternalPointAction` and `ClickInternalPoint`. Eight native logic groups pass, `git diff --check` passes and LLVM-MinGW produces PE32+ x64 EXE/DLL locally.
+`tools/verify_v0615_logic.py` finds no foreground, cursor-warp, Windows mouse injection or low-level mouse-hook token in the controller. Trade test/runtime call sites route through `CoordinatorInternalPointAction` and `ClickInternalPoint`. Eight native logic groups pass, `git diff --check` passes and LLVM-MinGW produces PE32+ x64 EXE/DLL locally. GitHub Actions Windows MSVC x64 run 307 (`32427510483`) then passes the verifier, build and all eight self-tests; artifact `9427940998` digest is `sha256:dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`.
 
 ### Supports
 
@@ -41,7 +41,7 @@ The user reports seeing an incorrect state around AutoPath and requires that Aut
 ### Does not prove
 
 - Live raycast correctness of every saved trade point.
-- MSVC GitHub Actions acceptance or live multi-client behavior before those runs complete.
+- Live multi-client behavior, correct raycast of the user's configured points or recovery timing inside the game client.
 
 ## EVID-010 — AUTO named Lua path fails; user requests proven point sequence
 
