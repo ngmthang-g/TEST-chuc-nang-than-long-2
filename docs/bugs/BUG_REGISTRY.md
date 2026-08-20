@@ -1,5 +1,30 @@
 # BUG REGISTRY
 
+## BUG-003 — v0.6.1.1 geometry resolver assumes one Unity assembly
+
+- Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+- Severity: High
+- First observed: v0.6.1.1, user runtime 2026-08-20
+- Related feature: Auto Sell fixed item-cell hit-test only
+- Evidence: EVID-004
+
+### Runtime evidence
+
+`BÁN NỀN FAIL callback item: Thiếu RectTransform/Utility/Screen để hit-test ô cố định • dừng fail-closed`
+
+The separate CoreModule-open error did not fire. Therefore CoreModule opened, but at least one of RectTransform, Transform, GameObject, RectTransformUtility or Screen was not found in that one image. The old aggregate detail cannot identify the exact class.
+
+### Root cause
+
+CONFIRMED: v0.6.1.1 resolves all five classes only from `UnityEngine.CoreModule`. Unity clients may split UI types into `UnityEngine.UIModule` or use legacy monolithic `UnityEngine.dll`.
+
+### Fix in v0.6.1.2
+
+- Open CoreModule, UIModule and legacy UnityEngine independently.
+- Resolve each class through an explicit ordered fallback.
+- Report the exact missing class list and assembly availability.
+- Preserve row 5, 90/adaptive count and every non-resolver action.
+
 ## BUG-002 — v0.6.1 item-cell auto-enumeration does not complete the bag sale
 
 - Status: FIXED-IN-SOURCE / RUNTIME UNTESTED

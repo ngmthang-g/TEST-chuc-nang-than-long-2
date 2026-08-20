@@ -1,4 +1,4 @@
-# PROJECT KNOWLEDGE — v0.6.1.1 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.2 CURRENT
 
 ## Quy tắc dự án
 
@@ -15,10 +15,12 @@
 - v0.6.1: source audit + Windows MSVC x64 CI 274 **BUILD PASS**, nhưng vẫn **RUNTIME UNTESTED**. Hotfix chưa được gọi là runtime pass cho tới khi người dùng test lại.
 - User runtime sau đó xác nhận chuỗi bán v0.6.1 đi đúng tới tab Trang bị nhưng bước item không giữ hành vi một ô lặp/dồn đồ của v0.5. Đây là BUG-002.
 - v0.6.1.1: Windows MSVC x64 CI run 295 **BUILD PASS**, gồm scope audit và đủ năm nhóm self-test. Live runtime vẫn **RUNTIME UNTESTED** cho tới khi người dùng chạy đúng cặp EXE/DLL trên client thật.
+- User test v0.6.1.1 xác nhận item stage fail `6/6` với chi tiết `Thiếu RectTransform/Utility/Screen để hit-test ô cố định`. Đây là BUG-003: resolver ép năm class vào riêng CoreModule; lỗi xảy ra trước hit-test/callback nên không liên quan dòng 5.
+- v0.6.1.2: resolver đa assembly đã được triển khai; build/runtime chưa được nâng trạng thái trước khi CI và live test hoàn tất.
 
-## Kiến trúc action v0.6.1.1
+## Kiến trúc action v0.6.1.2
 
-Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010611` từ chối ghép EXE/DLL khác version.
+Controller vẫn là scheduler/FSM. `ThanLongCleanRouteBridge.dll` vẫn được nạp bằng `WH_GETMESSAGE` vào game window thread. Protocol `0x00010612` từ chối ghép EXE/DLL khác version.
 
 Không có `CreateRemoteThread` trong controller/Bridge. Một mapping chỉ có một request in-flight; timeout không được ghi đè.
 
@@ -28,6 +30,8 @@ Resolver UI chia hai tầng:
 2. `EnsureUiLua`: chỉ gọi khi UIRect/Lua action thực sự cần `MonoBehaviourExecutor`, `System.Object`, `LuaSystemAPI_GUI`.
 
 Executor được thử namespace ứng viên rồi quét toàn bộ class của Assembly-CSharp theo simple name; chỉ nhận class có `get_Instance()` và `ExecuteScriptFunction(3)`.
+
+Geometry resolver mở ba layout Unity: `UnityEngine.CoreModule`, `UnityEngine.UIModule` và monolithic `UnityEngine.dll`. Mỗi class có search order riêng; `RectTransformUtility` ưu tiên UIModule. Lỗi ghi danh sách class thiếu và trạng thái từng assembly.
 
 ## Ưu tiên toàn cục
 
@@ -55,12 +59,12 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - Mã Kiêu Minh ID 373 là donor đã chứng minh. Dược Đại Phu ID 279 có thể dùng cây shop khác.
 - UI scorer phụ thuộc metadata/text của đúng client.
 - Game minimized có thể tự dừng update dù action không chiếm chuột.
-- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.
-- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. Knowledge base client khuyến nghị bước sau phải proof `System.Action -> MainThread.Execute` bất đồng bộ trước khi coi đây là boundary production ổn định; v0.6.1 không mở rộng sang thay kiến trúc đó khi chưa có CTS live proof.
+- Giao dịch MAIN/CON vẫn chiếm chuột vì chưa nằm trong phạm vi v0.6.1.2.
+- `WH_GETMESSAGE` hiện vẫn gọi mutation trực tiếp trong hook. Knowledge base client khuyến nghị bước sau phải proof `System.Action -> MainThread.Execute` bất đồng bộ trước khi coi đây là boundary production ổn định; v0.6.1.2 vẫn không mở rộng sang thay kiến trúc đó khi chưa có CTS live proof.
 
 ## Test tiếp theo bắt buộc
 
-1. Dùng đúng cặp EXE/DLL v0.6.1.1.
+1. Dùng đúng cặp EXE/DLL v0.6.1.2.
 2. Test XN Lâu Lan trước. Nếu fail, log mới phải nêu `UIObject`, `instances`, control type hoặc candidate ambiguity cụ thể.
 3. Mở tab Trang bị, lấy dòng item F8 tại tâm ô trang bị thứ 2; chạy một PID và ghi log callback `1/90` tới `90/90`.
 4. Xác nhận chuột/foreground không đổi, UI đóng, `FreeBagSpace` ổn định và log lần sau dùng learned count.
@@ -75,3 +79,4 @@ World Flow observation/recovery, route ownership, Travel Guard authoritative, mo
 - `docs/features/BACKGROUND_UI_ACTIONS.md`.
 - `docs/history/VERSION_v0.6.1.md`.
 - `docs/history/VERSION_v0.6.1.1.md`.
+- `docs/history/VERSION_v0.6.1.2.md`.

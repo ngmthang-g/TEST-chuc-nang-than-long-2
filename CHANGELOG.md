@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## v0.6.1.2 — 2026-08-20
+
+### Runtime evidence
+
+- v0.6.1.1 reaches the Equipment tab and then reports `callback ô lỗi 6/6`.
+- Final detail is `Thiếu RectTransform/Utility/Screen để hit-test ô cố định`.
+- Source proves this failure occurs before coordinate hit-testing and before any item callback. Row 5 selection, click count and learned repeat are not implicated.
+
+### Fixed — geometry resolver only
+
+- Stop requiring every Unity geometry class to exist in `UnityEngine.CoreModule`.
+- Open `UnityEngine.CoreModule`, `UnityEngine.UIModule` and legacy `UnityEngine.dll` independently.
+- Resolve each required class through an explicit ordered search. `RectTransformUtility` checks UIModule first; core classes check CoreModule first; every class has legacy fallback.
+- Replace the aggregate message with the exact missing class list plus assembly availability.
+- Bump the EXE/DLL protocol to `0x00010612`.
+
+### Protected
+
+- Fixed item coordinate remains v0.5 row 5 for every profile with at least five rows.
+- First count remains 90; later count remains stable learned `FreeBagSpace`, capped at 90.
+- Semantic shop stages, close UI, F4/F8, AUTO, Revive, Confirm, travel, train, rotation and trade logic are unchanged.
+- Runtime remains **UNTESTED** until the user tests the matching v0.6.1.2 EXE/DLL pair.
+
 ## v0.6.1.1 — 2026-08-20
 
 ### Requested / confirmed

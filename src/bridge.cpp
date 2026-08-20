@@ -10,10 +10,13 @@
 #include "background_ui_logic.h"
 #include "fixed_slot_sell_logic.h"
 #include "protocol.h"
+#include "unity_geometry_logic.h"
 
 using namespace cleanroute;
 using background_ui_logic::Labels;
 using background_ui_logic::Role;
+using unity_geometry_logic::GeometryClass;
+using unity_geometry_logic::ImageSlot;
 
 namespace {
 
@@ -513,6 +516,8 @@ struct UiRuntime {
     Il2CppClass* guiApi = nullptr;
     Il2CppClass* systemObject = nullptr;
     const Il2CppImage* coreImage = nullptr;
+    const Il2CppImage* uiModuleImage = nullptr;
+    const Il2CppImage* legacyUnityImage = nullptr;
     Il2CppClass* unityRectTransform = nullptr;
     Il2CppClass* unityTransform = nullptr;
     Il2CppClass* unityGameObject = nullptr;
@@ -712,22 +717,67 @@ bool ObjectGetter(Il2CppObject* object, Il2CppClass* klass, const char* name,
     return getter && InvokeObject(getter, object, output, ignored, _countof(ignored));
 }
 
+const Il2CppImage* GeometryImage(ImageSlot slot) {
+    switch (slot) {
+        case ImageSlot::CoreModule: return g_ui.coreImage;
+        case ImageSlot::UiModule: return g_ui.uiModuleImage;
+        case ImageSlot::LegacyUnity: return g_ui.legacyUnityImage;
+    }
+    return nullptr;
+}
+
+Il2CppClass* ResolveGeometryClass(GeometryClass role) {
+    const unity_geometry_logic::SearchPlan plan = unity_geometry_logic::PlanFor(role);
+    for (ImageSlot slot : plan.images) {
+        const Il2CppImage* image = GeometryImage(slot);
+        if (!image) continue;
+        Il2CppClass* klass = g_api.class_from_name(image, "UnityEngine", plan.className);
+        if (klass) return klass;
+    }
+    return nullptr;
+}
+
+void AppendGeometryAvailability(wchar_t* detail, std::size_t cap) {
+    Append(detail, cap, L" • assembly Core=");
+    Append(detail, cap, g_ui.coreImage ? L"OK" : L"NO");
+    Append(detail, cap, L" UI=");
+    Append(detail, cap, g_ui.uiModuleImage ? L"OK" : L"NO");
+    Append(detail, cap, L" Legacy=");
+    Append(detail, cap, g_ui.legacyUnityImage ? L"OK" : L"NO");
+}
+
 bool EnsureUiGeometry(wchar_t* detail, std::size_t cap) {
     if (g_ui.geometryReady) return true;
     if (!EnsureUiDiscovery(detail, cap)) return false;
     g_ui.coreImage = ImageForAssembly("UnityEngine.CoreModule", "UnityEngine.CoreModule.dll");
-    if (!g_ui.coreImage) {
-        SetText(detail, cap, L"Không mở được UnityEngine.CoreModule để hit-test tọa độ");
+    g_ui.uiModuleImage = ImageForAssembly("UnityEngine.UIModule", "UnityEngine.UIModule.dll");
+    g_ui.legacyUnityImage = ImageForAssembly("UnityEngine", "UnityEngine.dll");
+    if (!g_ui.coreImage && !g_ui.uiModuleImage && !g_ui.legacyUnityImage) {
+        SetText(detail, cap, L"Không mở được CoreModule/UIModule/UnityEngine.dll để hit-test tọa độ");
         return false;
     }
-    g_ui.unityRectTransform = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "RectTransform");
-    g_ui.unityTransform = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "Transform");
-    g_ui.unityGameObject = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "GameObject");
-    g_ui.rectTransformUtility = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "RectTransformUtility");
-    g_ui.unityScreen = g_api.class_from_name(g_ui.coreImage, "UnityEngine", "Screen");
-    if (!g_ui.unityRectTransform || !g_ui.unityTransform || !g_ui.unityGameObject ||
-        !g_ui.rectTransformUtility || !g_ui.unityScreen) {
-        SetText(detail, cap, L"Thiếu RectTransform/Utility/Screen để hit-test ô cố định");
+    g_ui.unityRectTransform = ResolveGeometryClass(GeometryClass::RectTransform);
+    g_ui.unityTransform = ResolveGeometryClass(GeometryClass::Transform);
+    g_ui.unityGameObject = ResolveGeometryClass(GeometryClass::GameObject);
+    g_ui.rectTransformUtility = ResolveGeometryClass(GeometryClass::RectTransformUtility);
+    g_ui.unityScreen = ResolveGeometryClass(GeometryClass::Screen);
+    const std::pair<GeometryClass, Il2CppClass*> required[] = {
+        {GeometryClass::RectTransform, g_ui.unityRectTransform},
+        {GeometryClass::Transform, g_ui.unityTransform},
+        {GeometryClass::GameObject, g_ui.unityGameObject},
+        {GeometryClass::RectTransformUtility, g_ui.rectTransformUtility},
+        {GeometryClass::Screen, g_ui.unityScreen},
+    };
+    bool missing = false;
+    for (const auto& item : required) {
+        if (item.second) continue;
+        if (!missing) SetText(detail, cap, L"Geometry thiếu class: ");
+        else Append(detail, cap, L", ");
+        Append(detail, cap, unity_geometry_logic::ClassLabel(item.first));
+        missing = true;
+    }
+    if (missing) {
+        AppendGeometryAvailability(detail, cap);
         return false;
     }
     g_ui.geometryReady = true;

@@ -1,5 +1,22 @@
 # DECISION REGISTRY
 
+## DEC-003 — Resolve Unity geometry per class across assembly layouts
+
+- Date/version: 2026-08-20 / v0.6.1.2
+- Status: ACTIVE
+- Decision: search CoreModule, UIModule and legacy UnityEngine.dll with an explicit class-specific order.
+
+### Why
+
+Runtime proves CoreModule exists but the v0.6.1.1 all-in-one class gate fails. `RectTransformUtility` is UI-related and may be split from core classes; older clients may instead use monolithic UnityEngine.dll.
+
+### Constraints
+
+- Do not change the coordinate, row, count or callback transport.
+- Missing classes remain fail-closed.
+- Diagnostics must name each missing class and available assembly.
+- Passing this gate is not yet proof that a live item control exposes RectTransform.
+
 ## DEC-002 — Scoped fixed-slot internal callback for v0.6.1.1
 
 - Date/version: 2026-08-20 / v0.6.1.1
