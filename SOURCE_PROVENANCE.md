@@ -7,4 +7,4 @@
 - v0.6.2 is a direct change on v0.6.1 driven by user runtime EVID-002. Confirm/Revive code paths were kept; AUTO lookup/fallback, F4 delivery and sell candidate/completion handling were changed narrowly.
 - The exact v0.5 `ToggleGlobalPause` body was source-compared and retained; v0.6.2 only adds a shared-latch polling delivery path around it.
 - Client semantic facts used for analysis: `TopIcon.AutoTrainClick/AutoStopClick`, `AutoFight_Main.StartAutoFight(Train/None)`, structured `GetItemsAtSite(Bag)`, item instance identity, `CMD_NPC_SHOP_SELL_REQUEST=200036`, and mutation-safe rescan. These facts guide the design; v0.6.2 does not claim packet-level sell implementation.
-- GitHub Actions Windows x64, `tools/verify_v062_logic.py` and all self-tests are the build acceptance gate. Only new user live-client evidence may promote v0.6.2 runtime status.
+- GitHub Actions Windows x64 run 280 (`32394492512`) on source commit `17d5aa7049dcdc3daba7d3d5efd62455699b34b8`, plus `tools/verify_v062_logic.py` and all self-tests: BUILD PASS; artifact `9416119841`. Only new user live-client evidence may promote v0.6.2 runtime status.

@@ -34,6 +34,8 @@ Bridge tiếp tục dùng `WH_GETMESSAGE` vốn có của v0.5; mỗi request ch
 
 Build/CI chỉ chứng minh source biên dịch và self-test pass. v0.6.2 phải được test thực chiến từng action trên một PID trước khi bật nhiều account. Đặc biệt, đường bán hiện vẫn dựa vào callback control UI + `FreeBagSpace`; bước nâng cấp chuẩn sau là quét item instance và gửi từng sell request có shop state, không phải khôi phục click mù 90 ô.
 
+Source commit `17d5aa7` đã **BUILD PASS** trên Windows CI run 280: MSVC x64 và toàn bộ verifier/self-test đều pass. Trạng thái runtime v0.6.2 vẫn là **RUNTIME UNTESTED**.
+
 ## Build và kiểm tra
 
 Windows workflow chạy `tools/verify_v062_logic.py`, MSVC x64 build, route/rotation/trade tests và background UI scoring tests. Artifact có tên `ThanLongItemConsolidator-v0.6.2-win-x64`.

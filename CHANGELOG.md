@@ -26,6 +26,11 @@
 - v0.6.2 source/build success is not runtime success. AUTO fallback, F4 delivery and corrected item ordering require a fresh one-PID live test.
 - The canonical future sell implementation remains fresh `GetItemsAtSite(Bag)` instance scan → one exact sell request → inventory proof → rescan. v0.6.2 hardens the current UI-callback bridge without claiming that packet-level implementation is complete.
 
+### Build / runtime
+- Local v0.6.2 verifier, route 15/15, rotation 8/8, trade coordinator and background UI scoring: PASS.
+- Windows MSVC x64 CI run 280 (`32394492512`), source commit `17d5aa7049dcdc3daba7d3d5efd62455699b34b8`: PASS; artifact `9416119841` produced.
+- Runtime: **RUNTIME UNTESTED** until the user retests AUTO, F4 and Auto Sell on the live client.
+
 ## v0.6.1 — 2026-08-20
 
 ### Requested / runtime evidence

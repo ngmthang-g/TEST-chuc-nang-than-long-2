@@ -43,7 +43,7 @@ EVID-002 confirms XN, Revive and Mã Kiêu Minh semantic shop stages progressed 
 
 ## BUG-002 — AUTO direct Lua lookup cannot resolve TopIcon
 
-- Status: FIXED-BUILD-PENDING / RUNTIME UNTESTED in v0.6.2
+- Status: FIXED-BUILD-PASS / RUNTIME UNTESTED in v0.6.2
 - Severity: High
 - First observed: v0.6.1, user runtime 2026-08-20 23:08 local time
 - Evidence: EVID-002
@@ -65,7 +65,7 @@ EVID-002 confirms XN, Revive and Mã Kiêu Minh semantic shop stages progressed 
 
 ## BUG-003 — Auto Sell can skip item actions and finish after one free slot
 
-- Status: FIXED-BUILD-PENDING / RUNTIME UNTESTED in v0.6.2
+- Status: FIXED-BUILD-PASS / RUNTIME UNTESTED in v0.6.2
 - Severity: High
 - First observed: v0.6.1 user runtime
 - Evidence: EVID-002
@@ -90,7 +90,7 @@ UI-callback exhaustion is not equivalent to the canonical fresh inventory-instan
 
 ## BUG-004 — F4 hotkey user-reported nonresponsive
 
-- Status: MITIGATED-BUILD-PENDING / RUNTIME UNTESTED in v0.6.2
+- Status: MITIGATED-BUILD-PASS / RUNTIME UNTESTED in v0.6.2
 - Severity: Medium
 - Evidence: EVID-002
 

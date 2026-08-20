@@ -18,7 +18,7 @@
 | v0.6.1 AUTO | RUNTIME FAIL | `TopIcon` lookup trả `Không tìm thấy Lua UI theo tên`, EVID-002 |
 | v0.6.1 Auto Sell | RUNTIME PARTIAL/FAIL | mở stage và đóng UI được; item callback không bán ổn định; có đường kết thúc sai sau một món, EVID-002 |
 | v0.6.1 F4 | USER-REPORTED FAIL | thân hàm v0.5 vẫn còn; lỗi delivery cụ thể UNKNOWN, EVID-002 |
-| v0.6.2 | BUILD/RUNTIME UNTESTED cho tới CI/live test | không suy diễn từ source |
+| v0.6.2 | BUILD PASS / RUNTIME UNTESTED | Windows CI run 280 trên source commit `17d5aa7`; chưa có live test |
 
 ## Kiến trúc action v0.6.2
 

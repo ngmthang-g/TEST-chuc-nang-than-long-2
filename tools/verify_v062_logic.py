@@ -119,7 +119,8 @@ for path in (
 assert "v0.6.1 XN Lâu Lan | RUNTIME PASS" in knowledge
 assert "v0.6.1 Đầu thai | RUNTIME PASS" in knowledge
 assert "v0.6.1 AUTO | RUNTIME FAIL" in knowledge
-assert "v0.6.2 | BUILD/RUNTIME UNTESTED" in knowledge
+assert "v0.6.2 | BUILD PASS / RUNTIME UNTESTED" in knowledge
+assert "Windows CI run 280" in knowledge and "17d5aa7" in knowledge
 assert "F4 is USER-REPORTED FAIL" in changelog
 assert "v0.6.2" in readme
 
