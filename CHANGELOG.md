@@ -16,6 +16,7 @@
 - Preserve the exact v0.5 pause/resume body and `RegisterHotKey`; add latched `GetAsyncKeyState(VK_F4)` edge polling so a lost/conflicted WM_HOTKEY still has a recovery path without double-toggle.
 - Rank sell item controls by actionable item handler and natural cell index rather than raw object address.
 - Split `SafetyLimit` and `NoProgress` from true candidate exhaustion. The 90-callback guard never means successful completion.
+- Treat any non-empty fresh item enumeration whose controls all fail/skip as unresolved `NoProgress`, even after an earlier verified sale. Require three consecutive fresh empty enumerations before reporting true `NoCandidate` exhaustion.
 - Record initial FreeBagSpace + verified sold count + exhaustion proof. A single free slot or manual bag change cannot leave sell-failure phase or trigger return-to-train.
 - Closing UI failure now remains fail-closed instead of advancing to bag verification.
 - Bump controller/Bridge protocol to `0x00010602`.

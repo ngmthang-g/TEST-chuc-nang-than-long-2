@@ -37,6 +37,7 @@
 
 - Sort controls by item-action confidence and natural cell index before pointer tie-break.
 - Protocol distinguishes `NoCandidate`, `SafetyLimit` and `NoProgress`.
+- Skipped/failed controls never count as exhaustion; `NoCandidate` requires three consecutive fresh empty enumerations.
 - Record session initial free space and verified sold count.
 - Close/return only after positive progress + exhaustion + stable increase.
 - Safety/no-progress/close failure remains phase 10; manual creation of one free slot cannot resume travel.

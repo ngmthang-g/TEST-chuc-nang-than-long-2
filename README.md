@@ -24,7 +24,7 @@ Trên đúng client của người dùng, v0.6.1 đã chứng minh:
 - AUTO vẫn thử đúng Lua `TopIcon.AutoTrainClick/AutoStopClick` trước. Nếu `FindUI/MainFindUI` trả null, Bridge tìm `TopIcon` trong `UIObject.instances`. Nếu vẫn không có, controller chạy hai nhịp không block: callback `AUTO` root → đợi 650 ms → resolve mới và callback `Đánh quái` hoặc `Dừng`. Snapshot AutoFight vẫn là bằng chứng ON/OFF cuối cùng.
 - F4 giữ nguyên thân hàm pause/resume của v0.5 và `RegisterHotKey`; bổ sung edge polling `GetAsyncKeyState(VK_F4)` có latch để cứu trường hợp đăng ký/message bị mất mà không toggle hai lần.
 - Item bán được xếp theo control có handler item thật và thứ tự ô tự nhiên, thay vì địa chỉ pointer ngẫu nhiên.
-- Chạm giới hạn 90 callback không còn đồng nghĩa “hết item”. Không bán xác minh được món nào cũng là lỗi riêng; hai trường hợp đều giữ UI và dừng fail-closed.
+- Chạm giới hạn 90 callback không còn đồng nghĩa “hết item”. Control còn tồn tại nhưng toàn bộ fail/skip cũng không được coi là “hết item”; Bridge chỉ báo cạn candidate sau 3 lần quét mới liên tiếp thật sự rỗng. Các trường hợp chưa chứng minh đều giữ UI và dừng fail-closed.
 - Một ô trống không còn đủ để tự quay bãi. Chỉ kết thúc khi Bridge đã xác minh có item rời túi, đã cạn candidate hiện hành và `FreeBagSpace` tăng ổn định so với đầu phiên.
 - XN, Đầu thai, route ownership, Travel Guard, trade/FIFO/rotation và các logic v0.5 ngoài phạm vi được giữ nguyên.
 

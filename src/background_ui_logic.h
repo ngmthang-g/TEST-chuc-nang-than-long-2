@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cwctype>
 #include <initializer_list>
 #include <limits>
@@ -202,6 +203,11 @@ inline int NaturalItemIndex(const Labels& labels) {
         value = value * 10 + static_cast<int>(key[i] - L'0');
     }
     return value;
+}
+
+inline bool HasStableEmptySellEnumeration(std::size_t currentCandidates,
+                                          int consecutiveEmptyScans) {
+    return currentCandidates == 0 && consecutiveEmptyScans >= 3;
 }
 
 } // namespace background_ui_logic

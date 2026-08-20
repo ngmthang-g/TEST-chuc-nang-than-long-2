@@ -5629,6 +5629,10 @@ private:
             rt.sellMacroNextTick = now;
             rt.sellLastFreeBag = response.value0;
             rt.sellVerifiedSold = std::max(rt.sellVerifiedSold, response.value1);
+            if (response.resultCode == static_cast<std::int32_t>(ActionResult::StageReady)) {
+                rt.status = std::wstring(response.detail) + L" • giữ shop mở, chưa kết luận";
+                return true;
+            }
             if (response.resultCode == static_cast<std::int32_t>(ActionResult::SafetyLimit) ||
                 response.resultCode == static_cast<std::int32_t>(ActionResult::NoProgress)) {
                 rt.sellPhase = 10;

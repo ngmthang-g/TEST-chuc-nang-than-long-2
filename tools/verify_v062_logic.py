@@ -95,6 +95,13 @@ assert collect.index("NaturalItemIndex") < collect.index("reinterpret_cast<std::
 assert "ActionResult::SafetyLimit" in bridge
 assert "ActionResult::NoProgress" in bridge
 assert "không coi là đã hết item" in bridge
+assert "int emptyScans = 0" in bridge
+assert "HasStableEmptySellEnumeration(items.size(), g_sell.emptyScans)" in bridge
+assert "vẫn còn control trang bị nhưng toàn bộ fail/skip" in bridge
+assert "response.resultCode = static_cast<std::int32_t>(ActionResult::NoProgress)" in bridge
+assert "ActionResult::StageReady" in controller
+assert "HasStableEmptySellEnumeration(0, 3)" in tests
+assert "!HasStableEmptySellEnumeration(1, 99)" in tests
 assert "sellInitialFreeBag" in controller
 assert "sellVerifiedSold" in controller
 assert "sellExhausted" in controller

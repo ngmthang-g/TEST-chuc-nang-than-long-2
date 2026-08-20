@@ -51,5 +51,9 @@ int main() {
     assert(BagItemScore(bagCell2) > BagItemScore(bagIcon));
     assert(NaturalItemIndex(bagCell2) == 2);
     assert(NaturalItemIndex(bagCell10) == 10);
+    assert(!HasStableEmptySellEnumeration(0, 1));
+    assert(!HasStableEmptySellEnumeration(0, 2));
+    assert(HasStableEmptySellEnumeration(0, 3));
+    assert(!HasStableEmptySellEnumeration(1, 99));
     return 0;
 }

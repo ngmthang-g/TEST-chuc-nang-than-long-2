@@ -1113,6 +1113,7 @@ struct BackgroundSellState {
     int sold = 0;
     int callbacks = 0;
     int skipped = 0;
+    int emptyScans = 0;
     std::wstring pendingKey{};
     std::vector<FailedSellItem> failures{};
 };
@@ -1259,6 +1260,25 @@ bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
 
     std::vector<UiControl> items;
     if (!CollectSafeBagItems(items, detail, cap)) return false;
+    if (items.empty()) {
+        ++g_sell.emptyScans;
+        if (!background_ui_logic::HasStableEmptySellEnumeration(items.size(), g_sell.emptyScans)) {
+            response.resultCode = static_cast<std::int32_t>(ActionResult::StageReady);
+            SetText(detail, cap, L"Bán nền: quét mới chưa thấy candidate • xác minh lại ");
+            AppendInt(detail, cap, g_sell.emptyScans);
+            Append(detail, cap, L"/3");
+            return true;
+        }
+        response.value1 = g_sell.sold;
+        response.resultCode = static_cast<std::int32_t>(
+            g_sell.sold > 0 ? ActionResult::NoCandidate : ActionResult::NoProgress);
+        SetText(detail, cap, g_sell.sold > 0
+            ? L"Bán nền: 3 lần quét mới đều không còn control trang bị • đã bán="
+            : L"Bán nền: 3 lần quét mới không thấy item và chưa xác minh bán được món nào • đã bán=");
+        AppendInt(detail, cap, g_sell.sold);
+        return true;
+    }
+    g_sell.emptyScans = 0;
     for (UiControl& item : items) {
         const std::wstring key = SellItemKey(item);
         FailedSellItem& failed = FailureFor(key);
@@ -1284,12 +1304,12 @@ bool SellNextBagItem(Response& response, wchar_t* detail, std::size_t cap) {
         return true;
     }
 
+    // A non-empty fresh enumeration whose controls all failed or were skipped is
+    // unresolved, never exhaustion. In particular, one earlier sale must not turn
+    // the remaining skipped cells into a false success/return-to-train signal.
     response.value1 = g_sell.sold;
-    response.resultCode = static_cast<std::int32_t>(
-        g_sell.sold > 0 ? ActionResult::NoCandidate : ActionResult::NoProgress);
-    SetText(detail, cap, g_sell.sold > 0
-        ? L"Bán nền: hết control trang bị sau khi có tiến triển • đã bán="
-        : L"Bán nền: đã thử control trang bị nhưng chưa xác minh bán được món nào • đã bán=");
+    response.resultCode = static_cast<std::int32_t>(ActionResult::NoProgress);
+    SetText(detail, cap, L"Bán nền: vẫn còn control trang bị nhưng toàn bộ fail/skip • chưa chứng minh hết item • đã bán=");
     AppendInt(detail, cap, g_sell.sold);
     Append(detail, cap, L" • bỏ qua=");
     AppendInt(detail, cap, g_sell.skipped);
