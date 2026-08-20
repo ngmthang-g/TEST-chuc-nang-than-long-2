@@ -28,7 +28,7 @@
 
 ### Build / runtime
 - Local v0.6.2 verifier, route 15/15, rotation 8/8, trade coordinator and background UI scoring: PASS.
-- Windows MSVC x64 CI run 280 (`32394492512`), source commit `17d5aa7049dcdc3daba7d3d5efd62455699b34b8`: PASS; artifact `9416119841` produced.
+- Final Windows package comes unchanged from MSVC x64 CI run 282 (`32394836115`), source commit `a1f81d84af4488d79db1eaf1a656280b2ade0945`: PASS; artifact `9416247108`, ZIP SHA-256 `53057686ad6857d244f0feba566fb00b4d5263872bd813d036470a13b29d8079`.
 - Runtime: **RUNTIME UNTESTED** until the user retests AUTO, F4 and Auto Sell on the live client.
 
 ## v0.6.1 — 2026-08-20

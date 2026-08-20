@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,12 +121,24 @@ assert "v0.6.1 XN Lâu Lan | RUNTIME PASS" in knowledge
 assert "v0.6.1 Đầu thai | RUNTIME PASS" in knowledge
 assert "v0.6.1 AUTO | RUNTIME FAIL" in knowledge
 assert "v0.6.2 | BUILD PASS / RUNTIME UNTESTED" in knowledge
-assert "Windows CI run 280" in knowledge and "17d5aa7" in knowledge
+assert "Windows CI run 282" in knowledge and "a1f81d8" in knowledge
 assert "F4 is USER-REPORTED FAIL" in changelog
 assert "v0.6.2" in readme
 
 # Preserve already published historical packages.
 assert (ROOT / "release/ThanLongItemConsolidator-v0.6-win-x64.zip").is_file()
 assert (ROOT / "release/ThanLongItemConsolidator-v0.6.1-win-x64.zip").is_file()
+
+# The checked-in release must be the exact artifact already verified by Windows CI.
+release_zip = ROOT / "release/ThanLongItemConsolidator-v0.6.2-win-x64.zip"
+release_hashes = ROOT / "release/SHA256SUMS_v0.6.2.txt"
+expected_zip_sha256 = "53057686ad6857d244f0feba566fb00b4d5263872bd813d036470a13b29d8079"
+assert release_zip.is_file()
+assert release_hashes.is_file()
+assert hashlib.sha256(release_zip.read_bytes()).hexdigest() == expected_zip_sha256
+hash_manifest = release_hashes.read_text(encoding="utf-8")
+assert expected_zip_sha256 in hash_manifest
+assert "Source commit: a1f81d84af4488d79db1eaf1a656280b2ade0945" in hash_manifest
+assert "Runtime status: v0.6.2 RUNTIME UNTESTED" in hash_manifest
 
 print("v0.6.2 AUTO/F4/sell fail-closed audit PASS")
