@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  issues: write
+  contents: write
 
 jobs:
   export:
@@ -41,9 +40,9 @@ jobs:
             candidate.sha256
             oldsplit.zip
             oldsplit.sha256
-      - name: Publish run id as issue
+      - name: Publish run id as branch
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create --repo "${{ github.repository }}" --title "PAYLOAD_EXPORT_RUN_$env:GITHUB_RUN_ID" --body "head_sha=$env:GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git push origin "HEAD:refs/heads/export-run-$env:GITHUB_RUN_ID"
