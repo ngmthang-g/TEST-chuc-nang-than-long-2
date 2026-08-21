@@ -1,4 +1,4 @@
-name: publish-v0.6.1.7-source
+name: publish-v0.6.1.7-docs
 
 on:
   pull_request:
@@ -14,22 +14,30 @@ jobs:
         with:
           ref: codex/v0.6.1.7-autostop-hidden-sequence-fix
           fetch-depth: 0
-      - name: Apply exact v0.6.1.7 patch and verify
+      - name: Apply v0.6.1.7 evidence/docs patch and verify
         shell: bash
         run: |
           set -euo pipefail
-          python tools/verify_v0616_logic.py
-          git fetch origin codex/v0.6.1.6-per-client-clean-movement-guard
-          git show origin/codex/v0.6.1.6-per-client-clean-movement-guard:tools/verify_v0616_logic.py > tools/verify_v0616_logic.py
-          git checkout HEAD -- .github/workflows/build.yml
-          rm -rf .v0617 .v0617_exact.patch
+          python - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, zlib
+          encoded=Path('.docs0617/patch.b64').read_text().strip()
+          patch=zlib.decompress(base64.b64decode(encoded))
+          expected='a14af7e22e7d92d527d9d6f70273389ba1d9ef01864f8ef9473247ed213a75fc'
+          assert hashlib.sha256(patch).hexdigest()==expected, 'docs patch SHA mismatch'
+          Path('/tmp/v0617-docs.patch').write_bytes(patch)
+          PY
+          git apply --check /tmp/v0617-docs.patch
+          git apply /tmp/v0617-docs.patch
+          rm -rf .docs0617
+          python tools/verify_v0617_logic.py
           git diff --check
-      - name: Commit clean source tree
+      - name: Commit final evidence docs
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'fix: restore hidden AUTO then StopAuto2 lifecycle in v0.6.1.7'
+          git commit -m 'docs: record v0.6.1.7 final CI evidence and runtime status'
           git push origin HEAD:codex/v0.6.1.7-autostop-hidden-sequence-fix
