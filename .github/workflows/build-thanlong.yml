@@ -47,8 +47,18 @@ jobs:
               $controllerPath = Join-Path $PWD 'src\controller.cpp'
               $rawController = [IO.File]::ReadAllBytes($controllerPath)
               $utf8 = New-Object System.Text.UTF8Encoding($false, $false)
-              $normalizedController = $utf8.GetString($rawController)
-              [IO.File]::WriteAllText($controllerPath, $normalizedController, (New-Object System.Text.UTF8Encoding($false)))
+              $controllerText = $utf8.GetString($rawController)
+              if ($controllerText -notmatch 'RequireValidLicense') {
+                $old = "    EnableDpiAwareness();`r`n    App app;"
+                if (-not $controllerText.Contains($old)) {
+                  $old = "    EnableDpiAwareness();`n    App app;"
+                }
+                if (-not $controllerText.Contains($old)) { throw 'Cannot locate wWinMain App startup block for license-gate repair' }
+                $new = "    EnableDpiAwareness();`r`n    thanlong_license::Session licenseSession{};`r`n    if (!thanlong_license::RequireValidLicense(instance, licenseSession)) return 10;`r`n    App app;`r`n    app.SetLicenseSession(licenseSession);"
+                $controllerText = $controllerText.Replace($old, $new)
+                Write-Host 'Restored startup RequireValidLicense wiring from approved source patch.'
+              }
+              [IO.File]::WriteAllText($controllerPath, $controllerText, (New-Object System.Text.UTF8Encoding($false)))
 
               $verifyOut = & python tools\verify_license_ui.py 2>&1
               $verifyCode = $LASTEXITCODE
