@@ -56,6 +56,7 @@ jobs:
             Copy-Item overlay_work\src\license_installer.cpp source\src\license_installer.cpp -Force
             Copy-Item overlay_work\CMakeLists.txt source\CMakeLists.txt -Force
             New-Item -ItemType Directory -Force source\installer | Out-Null
+            New-Item -ItemType Directory -Force source\tools | Out-Null
             Copy-Item overlay_work\installer\ThanLongSetup.iss source\installer\ThanLongSetup.iss -Force
             Copy-Item overlay_work\resources\app.rc source\resources\app.rc -Force
             Copy-Item overlay_work\VERSION.txt source\VERSION.txt -Force
