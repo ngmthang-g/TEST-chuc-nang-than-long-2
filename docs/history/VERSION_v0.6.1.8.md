@@ -18,4 +18,4 @@ Duyệt audit items 2, 5, 7, 8; clean thật sạch và làm thật cẩn thận
 ## Validation
 - Local static verifier: PASS.
 - Native pure tests: route 15/15 PASS, rotation 8/8 PASS, trade/background/fixed-slot/unity/internal-UI/travel-guard PASS.
-- Windows MSVC/GitHub Actions result: pending publish/CI at authoring time; append after run.
+- Windows MSVC/GitHub Actions clean-source run #396 (`32447200068`): PASS verifier, MSVC x64 Release, all 8 native test groups, stage and artifact upload. Artifact ID `9434467413`.
