@@ -1,48 +1,10 @@
-name: export-current-candidate
+name: export-current-candidate-legacy
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'dist/**'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  export:
-    runs-on: windows-latest
+  legacy-disabled:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Decode payloads
-        shell: pwsh
-        run: |
-          $p='clean_source\minbuild_fixed.payload'
-          $raw=[IO.File]::ReadAllBytes($p)
-          if ($raw.Length -ge 2 -and $raw[0] -eq 0x50 -and $raw[1] -eq 0x4B) {
-            [IO.File]::WriteAllBytes('candidate.zip',$raw)
-          } else {
-            $text=[IO.File]::ReadAllText($p).Trim()
-            [IO.File]::WriteAllBytes('candidate.zip',[Convert]::FromBase64String($text))
-          }
-          (Get-FileHash candidate.zip -Algorithm SHA256).Hash.ToLower() | Set-Content candidate.sha256
-
-          $parts=Get-ChildItem source\payload.part* | Sort-Object Name
-          $b64=(($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
-          [IO.File]::WriteAllBytes('oldsplit.zip',[Convert]::FromBase64String($b64))
-          (Get-FileHash oldsplit.zip -Algorithm SHA256).Hash.ToLower() | Set-Content oldsplit.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: current-candidate-payload
-          path: |
-            candidate.zip
-            candidate.sha256
-            oldsplit.zip
-            oldsplit.sha256
-      - name: Publish run id as branch
-        shell: pwsh
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git push origin "HEAD:refs/heads/export-run-$env:GITHUB_RUN_ID"
+      - run: echo "Legacy candidate export is manual-only."
