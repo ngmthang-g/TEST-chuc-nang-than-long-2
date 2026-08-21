@@ -28,7 +28,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.5 • ALL HIDDEN ACTIONS";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.6 • PER-CLIENT HIDDEN ACTIONS";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -313,7 +313,7 @@ struct RuntimeState {
     bool tradeTravelReady = false;
     std::uint64_t tradeWorkflowEntrySeq = 0; // R7: immutable FIFO ticket while staged in workflow.
 
-    // Priority-AUTO request/result mailbox. v0.6.1.5 dispatches configured points
+    // Priority-AUTO request/result mailbox. v0.6.1.6 dispatches configured points
     // through InputSyncManager. An Attack request owns both AUTO then ĐÁNH QUÁI
     // phases and publishes one result only after click 2 finishes.
     ClickSlot priorityAutoRequestSlot = ClickSlot::None;
@@ -358,7 +358,7 @@ struct RuntimeState {
     int sellMacroIndex = 0;
     int sellMacroRepeatDone = 0;
     DWORD sellMacroNextTick = 0;
-    DWORD sellMacroCompletionDueTick = 0; // R6: keep SELL sequence lease through final configured delay.
+    DWORD sellMacroCompletionDueTick = 0; // R6: keep SELL macro completion state through final configured delay.
     int sellMacroPass = 0;
     int sellLastFreeBag = -1;
     DWORD sellBagStableSince = 0;
@@ -1385,7 +1385,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.5",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.6",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
@@ -1982,12 +1982,25 @@ private:
                            L" được lưu cho mọi CON; click MAIN vẫn tham chiếu CHUỖI GD MAIN.");
     }
 
+    bool RecorderBlocksAccount(const Account& a) const {
+        if (recorderMode_ == RecorderMode::None) return false;
+        if (recorderMode_ == RecorderMode::Sell) return a.game.pid == recorderPrimaryPid_;
+        if (recorderMode_ == RecorderMode::TradeMain) {
+            const Account* main = const_cast<App*>(this)->AccountByTradeRole(1);
+            return main && a.game.pid == main->game.pid;
+        }
+        if (recorderMode_ == RecorderMode::TradeChild) {
+            const Account* main = const_cast<App*>(this)->AccountByTradeRole(1);
+            return a.game.pid == recorderPrimaryPid_ || (main && a.game.pid == main->game.pid);
+        }
+        return false;
+    }
+
     void StopRecorder(bool commit) {
         if (recorderMode_ == RecorderMode::None) return;
         const RecorderMode mode = recorderMode_;
         const DWORD primaryPid = recorderPrimaryPid_;
         KillTimer(hwnd_, kRecordTimer);
-        coordinatorRecording_ = false;
         recorderMode_ = RecorderMode::None;
         recorderMouseDown_ = false;
         if (commit && !recorderClicks_.empty()) {
@@ -1999,24 +2012,13 @@ private:
         recorderClicks_.clear(); recorderPrimaryPid_ = 0;
         const std::wstring status = commit ? L"REC xong • đã chuyển " + std::to_wstring(count) + L" click thành dòng tọa độ" : L"REC đã hủy";
         UpdateRecorderUi(status);
-        SetTradeStatus(L"BĐPT thoát RECORDING • auto scheduler tiếp tục");
+        SetTradeStatus(L"BĐPT thoát RECORDING CỤC BỘ • acc bị giữ tiếp tục auto");
     }
 
     void StartRecorder(RecorderMode mode) {
         if (recorderMode_ != RecorderMode::None) { StopRecorder(true); return; }
-        // Recording owns the point-capture workflow. A stale hidden-action busy flag
-        // observed here is fail-closed state, not an action currently in flight.
-        if (coordinatorInputBusy_) {
-            Log(L"BĐPT REC: phát hiện hidden-action slot cũ → thu hồi để vào chế độ cấu hình.");
-            coordinatorInputBusy_ = false;
-            if (!coordinatorSequenceLease_) coordinatorOwnerPid_ = 0;
-        }
-        if (tradeTxn_.phase != TradePhase::Idle) {
-            AbortTrade(L"người dùng mở REC → hủy workflow giao dịch đang treo", GetTickCount());
-        }
-        if (coordinatorSequenceLease_) {
-            ReleaseCoordinatorSequenceLease(L"REC yêu cầu quyền cấu hình");
-        }
+        // REC is now scoped to the window(s) being captured. It must never freeze
+        // unrelated accounts merely because point capture uses the physical mouse.
         Account* primary = nullptr;
         if (mode == RecorderMode::Sell) {
             primary = SelectedAccount();
@@ -2030,11 +2032,10 @@ private:
         } else return;
         recorderClicks_.clear(); recorderMode_ = mode; recorderPrimaryPid_ = primary->game.pid;
         recorderMouseDown_ = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-        coordinatorRecording_ = true;
         SetTimer(hwnd_, kRecordTimer, 10, nullptr);
-        UpdateRecorderUi(L"REC ĐANG GHI • BĐPT khóa mọi auto action • thao tác tay trong game rồi bấm DỪNG REC");
-        SetTradeStatus(L"RECORDING • FREEZE ALL AUTO • chỉ ghi thao tác chuột tay của người dùng");
-        LogAccount(*primary, L"BĐPT vào RECORDING • auto action bị khóa; click tay sẽ được đổi thành các dòng tọa độ khi DỪNG REC.");
+        UpdateRecorderUi(L"REC ĐANG GHI • chỉ khóa acc/cặp acc đang capture • các acc khác tiếp tục auto");
+        SetTradeStatus(L"RECORDING CỤC BỘ • chỉ giữ cửa sổ liên quan; scheduler acc khác tiếp tục");
+        LogAccount(*primary, L"BĐPT vào RECORDING CỤC BỘ • chỉ acc/cặp acc capture bị giữ; acc khác vẫn auto độc lập.");
     }
 
     void ToggleSellRecorder() { StartRecorder(RecorderMode::Sell); }
@@ -3424,10 +3425,10 @@ private:
         tradeQueuePids_.clear();
     }
 
-    void ReleaseTradeSequenceLease(const std::wstring& reason) {
-        if (!coordinatorSequenceLease_) return;
-        if (tradeTxn_.mainPid == 0 || coordinatorSequenceOwnerPid_ != tradeTxn_.mainPid) return;
-        ReleaseCoordinatorSequenceLease(reason);
+    void ReleaseTradeWorkflowLock(const std::wstring& reason) {
+        // Kept as a workflow hook for call-site stability. Trade ordering is owned by
+        // tradeTxn_ itself; there is no global hidden-input lease in v0.6.1.6.
+        ReleaseTradeWorkflowLockCore(reason);
     }
 
     void AbortTrade(const std::wstring& reason, DWORD now) {
@@ -3435,7 +3436,7 @@ private:
         Account* child = AccountByPid(tradeTxn_.childPid);
         if (main) LogAccount(*main, L"GD ABORT: " + reason);
         if (child) LogAccount(*child, L"GD ABORT: " + reason);
-        ReleaseTradeSequenceLease(L"giao dịch abort");
+        ReleaseTradeWorkflowLock(L"giao dịch abort");
         ReleaseTradeHolds();
         tradeTxn_.phase = TradePhase::Idle;
         tradeTxn_.mainPid = 0;
@@ -3443,7 +3444,7 @@ private:
         tradeTxn_.childSlot = 0;
         tradeTxn_.sequenceIndex = 0; tradeTxn_.sequenceRepeatDone = 0; tradeTxn_.sequenceGroupRepeatDone = 0; tradeTxn_.sequencePass = 1; tradeTxn_.sequenceDueTick = 0; tradeTxn_.sequenceMainFreeBeforePass = -1; tradeTxn_.sequenceBagVerifyStartedTick = 0; tradeTxn_.sequenceBagStableSinceTick = 0; tradeTxn_.sequenceBagLastFree = -1;
         tradeTxn_.cooldownUntil = now + 2500;
-        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + hidden lease");
+        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + workflow lock");
     }
 
     void FinishTrade(DWORD now) {
@@ -3457,7 +3458,7 @@ private:
         if (child) LogAccount(*child, L"GD ĐẠT ĐIỀU KIỆN MỚI • pass cuối làm MAIN nhận ≤8 slot"
                                   L" • nhả HOLD để core quay bãi; slot queue giải phóng ngay.");
 
-        ReleaseTradeSequenceLease(L"chuỗi click giao dịch hoàn tất");
+        ReleaseTradeWorkflowLock(L"chuỗi click giao dịch hoàn tất");
         if (child) ReleaseTradeHold(*child);
         RemoveTradeQueuePid(finishedChildPid);
 
@@ -3483,7 +3484,7 @@ private:
             // to become stable before applying the R10 <=8-slot heuristic.
             if (tradeTxn_.sequenceDueTick != 0 && static_cast<LONG>(now - tradeTxn_.sequenceDueTick) < 0) return true;
             if (!main.snapshotValid || (main.snapshot.validMask & ValidBagSpace) == 0) {
-                SetTradeStatus(L"HIDDEN LEASE • chờ MAIN FreeBagSpace hợp lệ sau pass GD");
+                SetTradeStatus(L"TRADE WORKFLOW • chờ MAIN FreeBagSpace hợp lệ sau pass GD");
                 return true;
             }
 
@@ -3492,13 +3493,13 @@ private:
                 tradeTxn_.sequenceBagVerifyStartedTick = now;
                 tradeTxn_.sequenceBagStableSinceTick = now;
                 tradeTxn_.sequenceBagLastFree = observedFree;
-                SetTradeStatus(L"HIDDEN LEASE • xác minh ổn định túi MAIN sau pass GD");
+                SetTradeStatus(L"TRADE WORKFLOW • xác minh ổn định túi MAIN sau pass GD");
                 return true;
             }
             if (observedFree != tradeTxn_.sequenceBagLastFree) {
                 tradeTxn_.sequenceBagLastFree = observedFree;
                 tradeTxn_.sequenceBagStableSinceTick = now;
-                SetTradeStatus(L"HIDDEN LEASE • MAIN FreeBagSpace vừa đổi → reset cửa sổ ổn định");
+                SetTradeStatus(L"TRADE WORKFLOW • MAIN FreeBagSpace vừa đổi → reset cửa sổ ổn định");
                 return true;
             }
             const bool stableEnough = Elapsed(now, tradeTxn_.sequenceBagStableSinceTick, kTradeBagStableMs);
@@ -3518,7 +3519,7 @@ private:
                 tradeTxn_.sequenceBagVerifyStartedTick = 0;
                 tradeTxn_.sequenceBagStableSinceTick = 0;
                 tradeTxn_.sequenceBagLastFree = -1;
-                SetTradeStatus(L"HIDDEN LEASE • CON" + std::to_wstring(tradeTxn_.childSlot) +
+                SetTradeStatus(L"TRADE WORKFLOW • CON" + std::to_wstring(tradeTxn_.childSlot) +
                                L" • MAIN nhận " + std::to_wstring(receivedSlots) +
                                L" slot (>8) sau khi túi ổn định • lặp lại toàn chuỗi GD lần " +
                                std::to_wstring(tradeTxn_.sequencePass));
@@ -3594,19 +3595,9 @@ private:
     }
 
     void TickTradeCoordinator(DWORD now) {
-        // v0.6.1: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
-        // hidden trade-action lease. The logical atomic SELL rule remains: once an account enters the background sell sequence,
-        // the trade workflow may not advance, enqueue new work, abort/release its lease,
-        // or run rendezvous click substeps until SELL has completed the full macro.
-        // If another sequence already owns the lease, allow that pre-existing owner to finish
-        // (this avoids deadlock); otherwise SELL has strict priority.
-        if (Account* seller = ActiveSellClickSequenceAccount()) {
-            if (!coordinatorSequenceLease_ || coordinatorSequenceOwnerPid_ == seller->game.pid) {
-                SetTradeStatus(L"BÁN ĐỒ ƯU TIÊN • " + AccountTag(*seller) +
-                               L" đang chạy callback nội bộ • workflow GD chờ • chuột rảnh");
-                return;
-            }
-        }
+        // v0.6.1.6: SELL on an unrelated PID never stalls the trade coordinator.
+        // The active MAIN/CON pair is protected by tradeTxn_/tradeHeld only; SELL keeps
+        // its own per-account macro ordering and has no cross-window input ownership.
 
         if (!tradeEnabled_) {
             if (tradeTxn_.phase != TradePhase::Idle || !tradeQueuePids_.empty())
@@ -3748,7 +3739,7 @@ private:
             }
         }
 
-        // HIDDEN SEQUENCE LEASE protects the business ordering of the point-based
+        // TRADE WORKFLOW LOCK protects the business ordering of the point-based
         // trade macro. Every dispatch is now a per-client Bridge action, so queued
         // travelers keep progressing without borrowing the Windows mouse.
         if (!tradeQueuePids_.empty()) {
@@ -3819,10 +3810,10 @@ private:
             }
 
             if (!sequenceReady) { AbortTrade(L"chuỗi click GD chưa sẵn sàng: " + sequenceReason, now); return; }
-            // Travel/queueing owns no sequence lease. The hidden lease begins only
+            // Travel/queueing owns no sequence lease. The workflow lock begins only
             // when both accounts are parked and the first trade action is about to run.
-            if (!AcquireCoordinatorSequenceLease(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
-                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ BĐPT cấp HIDDEN LEASE cho chuỗi giao dịch");
+            if (!AcquireTradeWorkflowLock(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
+                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ tradeTxn_ bắt đầu chuỗi giao dịch");
                 return;
             }
             tradeTxn_.phase = TradePhase::Sequence;
@@ -3835,11 +3826,11 @@ private:
             tradeTxn_.sequenceBagVerifyStartedTick = 0;
             tradeTxn_.sequenceBagStableSinceTick = 0;
             tradeTxn_.sequenceBagLastFree = -1;
-            SetTradeStatus(L"HIDDEN LEASE • bắt đầu chuỗi GD CON" + std::to_wstring(tradeTxn_.childSlot) +
+            SetTradeStatus(L"TRADE WORKFLOW • bắt đầu chuỗi GD CON" + std::to_wstring(tradeTxn_.childSlot) +
                            L" • đo slot MAIN nhận/pass; ≤8 thì đổi CON • queued " +
                            std::to_wstring(tradeQueuePids_.size()) + L"/3");
             LogAccount(*activeMain, L"BĐPT: MAIN + CON" + std::to_wstring(tradeTxn_.childSlot) +
-                                    L" đã tới TỌA GD → BẮT ĐẦU HIDDEN LEASE đúng tại chuỗi action.");
+                                    L" đã tới TỌA GD → BẮT ĐẦU TRADE WORKFLOW đúng tại chuỗi action.");
             return;
         }
 
@@ -3849,7 +3840,7 @@ private:
             }
             if (activeMain->runtime.autoPathFightConflictLatched ||
                 activeChild->runtime.autoPathFightConflictLatched) {
-                SetTradeStatus(L"HIDDEN LEASE • pause action khi ROUTE/FIGHT INVARIANT đang recovery");
+                SetTradeStatus(L"TRADE WORKFLOW • pause action khi ROUTE/FIGHT INVARIANT đang recovery");
                 return;
             }
             if (activeMain->snapshot.autoPathing || activeChild->snapshot.autoPathing) {
@@ -3858,7 +3849,7 @@ private:
                     Response r{}; std::wstring ignored;
                     (void)a->bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
                 }
-                SetTradeStatus(L"HIDDEN LEASE • phát hiện AutoPath bật lại tại TỌA GD → StopPath trước action tiếp");
+                SetTradeStatus(L"TRADE WORKFLOW • phát hiện AutoPath bật lại tại TỌA GD → StopPath trước action tiếp");
                 return;
             }
             if (!TradeAccountAtRendezvous(*activeMain) || !TradeAccountAtRendezvous(*activeChild)) {
@@ -4225,75 +4216,28 @@ private:
         return true;
     }
 
-    bool AcquireCoordinatorSequenceLease(Account& owner, const std::wstring& reason) {
-        if (coordinatorRecording_) return false;
-        if (coordinatorSequenceLease_) return coordinatorSequenceOwnerPid_ == owner.game.pid;
-        if (coordinatorInputBusy_) return false;
-        coordinatorSequenceLease_ = true;
-        coordinatorSequenceOwnerPid_ = owner.game.pid;
-        coordinatorOwnerPid_ = owner.game.pid;
-        SetTradeStatus(L"HIDDEN SEQUENCE LEASE → " + AccountTag(owner) + L" • " + reason);
-        LogAccount(owner, L"BĐPT GIỮ HIDDEN SEQUENCE LEASE đến khi chuỗi nghiệp vụ kết thúc • " + reason);
+    // v0.6.1.6: hidden InputSync actions do not share a Windows-input resource.
+    // Business workflows serialize themselves (SELL per account, TRADE per active pair),
+    // so there is no global input/owner/sequence lease between unrelated clients.
+    bool AcquireTradeWorkflowLock(Account& owner, const std::wstring& reason) {
+        (void)owner;
+        (void)reason;
+        // tradeTxn_ is the lock: only the active MAIN/CON pair advances this sequence.
         return true;
     }
 
-    void ReleaseCoordinatorSequenceLease(const std::wstring& reason) {
-        if (!coordinatorSequenceLease_) return;
-        Account* owner = AccountByPid(coordinatorSequenceOwnerPid_);
-        if (owner) LogAccount(*owner, L"BĐPT NHẢ HIDDEN SEQUENCE LEASE • " + reason);
-        coordinatorSequenceLease_ = false;
-        coordinatorSequenceOwnerPid_ = 0;
-        if (!coordinatorInputBusy_) {
-            coordinatorOwnerPid_ = 0;
-        }
-        SetTradeStatus(L"HIDDEN LEASE RELEASE • " + reason + L" • scheduler tiếp tục");
+    void ReleaseTradeWorkflowLockCore(const std::wstring& reason) {
+        (void)reason;
     }
 
     bool CoordinatorInternalPointAction(Account& target, const ClickPoint& savedPoint,
                                         const std::wstring& request,
                                         std::wstring& error) {
-        if (coordinatorRecording_) {
-            error = L"BĐPT đang RECORDING thao tác tay; hidden action phải chờ DỪNG REC";
+        if (RecorderBlocksAccount(target)) {
+            error = L"acc đang REC cấu hình; hidden action của chính acc này tạm giữ";
             return false;
         }
-        if (coordinatorSequenceLease_) {
-            const bool activeTradePairTarget = tradeTxn_.phase == TradePhase::Sequence &&
-                (target.game.pid == tradeTxn_.mainPid || target.game.pid == tradeTxn_.childPid);
-            if (coordinatorSequenceOwnerPid_ != target.game.pid && !activeTradePairTarget) {
-                error = L"BĐPT đang giữ HIDDEN SEQUENCE LEASE cho PID " +
-                        std::to_wstring(coordinatorSequenceOwnerPid_) +
-                        L"; action acc khác phải chờ lease";
-                return false;
-            }
-            if (coordinatorInputBusy_) {
-                error = L"BĐPT owner đang thực hiện hidden action trước trong SEQUENCE LEASE";
-                return false;
-            }
-            coordinatorInputBusy_ = true;
-            coordinatorOwnerPid_ = target.game.pid;
-            SetTradeStatus(L"HIDDEN LEASE giữ nguyên → " + AccountTag(target) + L" • " + request);
-            const bool ok = DispatchInternalPointActionDirect(target, savedPoint, request, error);
-            coordinatorInputBusy_ = false;
-            if (ok) LogAccount(target, L"BĐPT HIDDEN RESULT=OK • vẫn GIỮ SEQUENCE LEASE cho chuỗi");
-            else LogAccount(target, L"BĐPT RESULT=FAIL • vẫn giữ lease đến khi workflow xử lý abort");
-            return ok;
-        }
-        if (coordinatorInputBusy_) {
-            error = L"BĐPT đang chạy hidden action cho PID " +
-                    std::to_wstring(coordinatorOwnerPid_) + L"; yêu cầu phải chờ";
-            return false;
-        }
-        coordinatorInputBusy_ = true;
-        coordinatorOwnerPid_ = target.game.pid;
-        SetTradeStatus(L"HIDDEN ACTION SERIALIZE → " + AccountTag(target) + L" • " + request);
-        const bool ok = DispatchInternalPointActionDirect(target, savedPoint, request, error);
-        if (ok) LogAccount(target, L"BĐPT HIDDEN RESULT=OK • nhả action slot");
-        else LogAccount(target, L"BĐPT HIDDEN RESULT=FAIL • " + error + L" • nhả action slot");
-        coordinatorOwnerPid_ = 0;
-        coordinatorInputBusy_ = false;
-        if (ok) SetTradeStatus(L"HIDDEN ACTION xong • route/FSM tiếp tục");
-        else SetTradeStatus(L"HIDDEN ACTION FAIL: " + error);
-        return ok;
+        return DispatchInternalPointActionDirect(target, savedPoint, request, error);
     }
 
     bool ClickSlotNow(Account& a, ClickSlot slot, const wchar_t* reason, bool verbose = true) {
@@ -4489,7 +4433,7 @@ private:
         bool clicked = false;
         std::vector<DWORD> visited;
         auto runOne = [&](Account* a) {
-            if (!a || !a->runtime.running || a->runtime.priorityAutoRequestSlot == ClickSlot::None) return;
+            if (!a || !a->runtime.running || RecorderBlocksAccount(*a) || a->runtime.priorityAutoRequestSlot == ClickSlot::None) return;
             const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
             if (it == accounts_.end()) return;
             const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
@@ -4498,8 +4442,7 @@ private:
             visited.push_back(a->game.pid);
             if (PriorityAutoClick(*a)) clicked = true;
         };
-        // Fixed global order: P1 XN -> P2 Đầu thai -> P3 AUTO UI. Within P3 use
-        // MAIN, CON1..CON6, then unassigned accounts for deterministic behavior.
+        // Legacy helper retained for deterministic diagnostics only; runtime Tick uses per-account priority.
         for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
         for (auto& item : accounts_) runOne(item.get());
         return clicked;
@@ -4520,7 +4463,7 @@ private:
             rt.status = L"TRAVEL GUARD • chờ AutoFight authoritative trước StartPath tới " + where;
             return false;
         }
-        if (!s.autoFight) {
+        if (travel_fight_guard_logic::CanDispatchMovement(true, s.autoFight != 0)) {
             if (rt.travelFightGuardPhase != 0 || rt.travelFightStopAttempts != 0) {
                 LogAccount(a, L"TRAVEL GUARD PASS: AutoFight OFF authoritative → nhả StartPath tới " + where);
             }
@@ -4755,9 +4698,6 @@ private:
     }
 
     void StopAccount(Account& a) {
-        if (coordinatorSequenceLease_ && coordinatorSequenceOwnerPid_ == a.game.pid) {
-            ReleaseCoordinatorSequenceLease(L"người dùng dừng acc đang chạy chuỗi bán");
-        }
         const bool wasFrozen = a.runtime.clientFreezeActive;
         a.deathSessionLatched = false;
         a.rotationDeathTicks.clear();
@@ -4903,15 +4843,17 @@ private:
             return false;
         }
         const DWORD now = GetTickCount();
-        // Single authoritative movement gate: no StartPath can be emitted while
-        // AutoFight is ON/unreadable or after a path+fight conflict until the
-        // conflict recovery has observed both states OFF.
-        if (action == Action::StartPath) {
-            if (rt.autoPathFightConflictLatched) {
+        // Single authoritative movement gate: neither Mount nor StartPath may be
+        // emitted while AutoFight is ON/unreadable. StartPath additionally waits for
+        // the hard AutoPath+Fight conflict recovery to observe both states OFF.
+        if (action == Action::Mount || action == Action::StartPath) {
+            if (action == Action::StartPath && rt.autoPathFightConflictLatched) {
                 rt.status = L"ROUTE/FIGHT INVARIANT • cấm StartPath khi recovery chưa hoàn tất";
                 return false;
             }
-            if (!EnsureAutoFightOffForTravel(a, now, context)) return false;
+            const wchar_t* movementContext = context ? context :
+                (action == Action::Mount ? L"lên ngựa" : L"AutoPath");
+            if (!EnsureAutoFightOffForTravel(a, now, movementContext)) return false;
         }
         if (!CooldownReady(rt, action, now)) return false;
         Response r{};
@@ -5164,10 +5106,9 @@ private:
         }
         if (rt.revivePhase == 0 && Elapsed(now, rt.deadSinceTick, 500) &&
             (rt.lastReviveClickTick == 0 || Elapsed(now, rt.lastReviveClickTick, 5000))) {
-            // The actual Revive callback is emitted ONLY by RunPriorityRevivePass(),
-            // after the higher-priority global XN pass. Keep this per-account path fail-closed
-            // so Đầu thai can never interleave with SELL/GD/AUTO clicks in another window.
-            rt.status = L"ĐẦU THAI đến hạn • chờ GLOBAL BARRIER cấp 2 (sau XN map)";
+            // The Revive callback is emitted by the per-account P2 priority pass. Keep this
+            // path fail-closed for the same client without blocking unrelated windows.
+            rt.status = L"ĐẦU THAI đến hạn • chờ P2 cục bộ của chính acc";
             return true;
         }
         if (rt.revivePhase == 1 && Elapsed(now, rt.revivePhaseTick, 900)) {
@@ -5347,7 +5288,7 @@ private:
         RuntimeState& rt = a.runtime;
         const Snapshot& s = a.snapshot;
         if (!a.profile.enableConfirm) return false;
-        if (!a.snapshotValid || rt.clientFreezeActive || globalPaused_ || coordinatorRecording_) return false;
+        if (!a.snapshotValid || rt.clientFreezeActive || globalPaused_ || RecorderBlocksAccount(a)) return false;
         if ((s.validMask & (ValidMap | ValidPosition | ValidAutoPath | ValidLifeState)) !=
             (ValidMap | ValidPosition | ValidAutoPath | ValidLifeState)) return false;
         if (!s.mapReady || s.waitingChangeMap || s.dead) return false;
@@ -5464,7 +5405,7 @@ private:
         std::vector<DWORD> visited;
 
         auto runOne = [&](Account* a) {
-            if (!a || !a->runtime.running) return;
+            if (!a || !a->runtime.running || RecorderBlocksAccount(*a)) return;
             const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
             if (it == accounts_.end()) return;
             const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
@@ -5474,8 +5415,7 @@ private:
             if (PriorityReviveClick(*a, GetTickCount())) clicked = true;
         };
 
-        // Priority order is fixed: Lâu Lan gate watchdog runs first; only then
-        // Đầu thai is serviced MAIN, CON1..CON6, then unassigned accounts.
+        // Legacy helper retained for diagnostics; runtime priority is scoped per account.
         for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
         for (auto& item : accounts_) runOne(item.get());
         return clicked;
@@ -5941,10 +5881,10 @@ private:
             ++rt.sellMacroPass;
             rt.sellPhase = 6; rt.sellPhaseTick = now;
             rt.sellMacroIndex = 0; rt.sellMacroRepeatDone = 0; rt.sellMacroNextTick = 0; rt.sellMacroCompletionDueTick = 0;
-            // ActiveSellClickSequenceAccount() still blocks the trade coordinator for
-            // logical atomicity; v0.6.1.5 uses only a hidden business-action lease.
+            // SELL owns only this account's sellPhase/macro cursor. It never stalls
+            // an unrelated trade workflow or another client's hidden action.
             rt.status = L"Đã ClickNPC nội bộ ID " + std::to_wstring(npc.npcID) +
-                        L" • workflow GD chờ • chuột hoàn toàn rảnh";
+                        L" • SELL riêng acc • cửa sổ khác tiếp tục độc lập";
             return true;
         }
 
@@ -6041,7 +5981,7 @@ private:
         if (UpdateRotationEfficiency(a, now)) return;
         if (HandleRouteOwnershipReset(a, now)) return;
         if (HandleUnderworldAutoFightGuard(a, now)) return;
-        // P1 XN is GLOBAL-PASS ONLY and now uses a per-client internal callback, so it
+        // P1 XN is PER-ACCOUNT PRIORITY ONLY and now uses a per-client internal callback, so it
         // remains eligible during World Flow HOLD without touching the Windows cursor.
 
         if (rt.qualifiedMap != s.mapID) {
@@ -6078,7 +6018,7 @@ private:
             if (HandleTrainRecovery(a, now)) return;
         }
 
-        // Semantic MessageBox Confirm remains disabled. Lâu Lan P1 XN is scheduled
+        // Semantic MessageBox Confirm remains disabled. Lâu Lan P1 XN is scheduled per account
         // globally before P2/P3 and is not part of this train FSM.
         // Steady training mode: AutoFight is checked once per minute, but ONLY when
         // no death/sell/recovery/confirm/path action is active. A busy state does not
@@ -6258,12 +6198,21 @@ private:
             }
         }
 
-        // Priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 InputSync AUTO points.
-        // All three are internal Bridge callbacks and do not foreground a game window or move the cursor.
-        if (!globalPaused_ && !coordinatorRecording_) {
-            (void)RunPriorityLauLanGateConfirmPass(GetTickCount(), snapshotReady);
-            (void)RunPriorityRevivePass(GetTickCount(), snapshotReady);
-            (void)RunPriorityAutoPass(GetTickCount(), snapshotReady);
+        // v0.6.1.6 priorities are scoped per account, not global input barriers.
+        // For each PID preserve local safety order P1 XN -> P2 revive -> P3 AUTO, while
+        // unrelated windows never wait merely because another PID has a higher-priority action.
+        if (!globalPaused_) {
+            for (std::size_t i = 0; i < accounts_.size(); ++i) {
+                if (i >= snapshotReady.size() || !snapshotReady[i]) continue;
+                Account& a = *accounts_[i];
+                if (!a.runtime.running || RecorderBlocksAccount(a)) continue;
+                const DWORD priorityNow = GetTickCount();
+                if (PriorityLauLanGateConfirmClick(a, priorityNow)) continue;
+                if (PriorityReviveClick(a, priorityNow)) continue;
+                if (a.runtime.priorityAutoRequestSlot != ClickSlot::None) {
+                    (void)PriorityAutoClick(a);
+                }
+            }
         }
 
         for (std::size_t i = 0; i < accounts_.size(); ++i) {
@@ -6279,11 +6228,10 @@ private:
             }
             const DWORD now = GetTickCount();
             if (a.runtime.running) {
-                // Hidden sequence leases preserve business ordering but never own the
-                // Windows cursor. Per-account bridge state machines can progress between actions.
-                // Recording and F4 are still true global pauses.
-                if (coordinatorRecording_) {
-                    a.runtime.status = L"BĐPT RECORDING • FREEZE AUTO • đang ghi thao tác tay";
+                // Hidden actions are per-client. REC pauses only the window(s) being
+                // captured; unrelated accounts keep their normal FSM ticks. F4 remains global.
+                if (RecorderBlocksAccount(a)) {
+                    a.runtime.status = L"BĐPT RECORDING CỤC BỘ • chỉ acc này tạm giữ để ghi thao tác tay";
                 } else if (HoldUntilClientStable(a, now)) {
                     UpdateAccountRow(static_cast<int>(i), a);
                     continue;
@@ -6304,7 +6252,14 @@ private:
             }
             UpdateAccountRow(static_cast<int>(i), a);
         }
-        if (!globalPaused_ && !coordinatorRecording_) TickTradeCoordinator(GetTickCount());
+        if (!globalPaused_) {
+            Account* activeMain = AccountByPid(tradeTxn_.mainPid);
+            Account* activeChild = AccountByPid(tradeTxn_.childPid);
+            const bool tradeRecorderBlocked = (activeMain && RecorderBlocksAccount(*activeMain)) ||
+                                              (activeChild && RecorderBlocksAccount(*activeChild));
+            if (!tradeRecorderBlocked) TickTradeCoordinator(GetTickCount());
+            else SetTradeStatus(L"RECORDING CỤC BỘ • giữ workflow GD liên quan; acc khác vẫn chạy");
+        }
         UpdateSelectedLive();
     }
 
@@ -6643,11 +6598,6 @@ private:
     TargetProfile tradeRendezvous_{};
     int tradeRendezvousTolerance_ = 120;
     int mainSellThreshold_ = 6;
-    bool coordinatorInputBusy_ = false;
-    DWORD coordinatorOwnerPid_ = 0;
-    bool coordinatorSequenceLease_ = false;
-    DWORD coordinatorSequenceOwnerPid_ = 0;
-    bool coordinatorRecording_ = false;
     RecorderMode recorderMode_ = RecorderMode::None;
     DWORD recorderPrimaryPid_ = 0;
     bool recorderMouseDown_ = false;

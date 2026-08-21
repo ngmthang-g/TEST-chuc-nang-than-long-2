@@ -15,6 +15,11 @@ int main() {
     assert(!HasAutoPathFightConflict(false, true));
     assert(HasAutoPathFightConflict(true, true));
 
+    assert(!CanDispatchMovement(false, false));
+    assert(!CanDispatchMovement(false, true));
+    assert(!CanDispatchMovement(true, true));
+    assert(CanDispatchMovement(true, false));
+
     assert(!CanDispatchFightStart(false, false));
     assert(!CanDispatchFightStart(false, true));
     assert(!CanDispatchFightStart(true, true));

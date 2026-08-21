@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## v0.6.1.6 — 2026-08-21
+
+### Clean architecture
+- Remove global hidden-input busy/owner/sequence lease state inherited from physical mouse serialization.
+- Trade ordering is owned only by `tradeTxn_`/`tradeHeld`; unrelated SELL no longer stalls trade.
+- REC is scoped to the captured PID or MAIN/CON pair instead of freezing all automation.
+- Runtime priority is per account: P1 XN → P2 Revive → P3 AUTO.
+
+### Movement safety
+- `Mount` and `StartPath` share the same authoritative AutoFight-OFF precondition.
+- Reuse existing Travel Guard: Stop #1 → Stop #2 → AUTO/Attack reset → repeat until OFF.
+- Preserve Mount Recovery fight-10s stage, but every actual Mount dispatch is guarded OFF.
+
+### Versioning / audit
+- Protocol bump to `0x00010616`.
+- Add `CanDispatchMovement()` pure guard test.
+- Add `tools/verify_v0616_logic.py`.
+
+
 ## v0.6.1.5 — 2026-08-21
 
 ### Requested

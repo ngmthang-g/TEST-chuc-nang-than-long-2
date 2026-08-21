@@ -1,4 +1,10 @@
-# SOURCE PROVENANCE — v0.6.1.5
+# SOURCE PROVENANCE — v0.6.1.6
+
+- Direct base: user-provided `TEST-chuc-nang-than-long-2-codex-v0.6.1.5-hidden-trade-autopath-guard.zip`, corresponding to GitHub branch `codex/v0.6.1.5-hidden-trade-autopath-guard`.
+- Scope: architecture cleanup approved by user + new invariant requiring AutoFight OFF before both Mount and StartPath.
+- No donor/client binary or new RVA introduced. Bridge InputSync transport is unchanged; controller scheduling/guard logic is cleaned.
+- Target branch: `codex/v0.6.1.6-per-client-clean-movement-guard`.
+
 
 - Direct v0.6.1.5 base: local commit `5404f5ddbeedf47e8acec58f834b71316119dfcf` on `codex/v0.6.1.4-internal-auto-points`.
 - Requirement input: attached `hướng dẫn làm click ẩn thần long(1).md`, derived from the supplied v0.6.1.3 source, runtime-successful 90-click behavior and the exact-client `InputSyncManager` evidence already recorded in this repository.

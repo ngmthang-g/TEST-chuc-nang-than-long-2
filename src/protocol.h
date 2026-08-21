@@ -6,10 +6,10 @@
 namespace cleanroute {
 
 constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
-// v0.6.1.5 routes AUTO and the coordinate-based trade macro through the same
+// v0.6.1.6 routes AUTO and the coordinate-based trade macro through the same
 // proven InputSyncManager press/release path, with no physical mouse fallback.
 // Controller + Bridge are always shipped together; mismatched versions fail attach.
-constexpr std::uint32_t kProtocolVersion = 0x00010615u;
+constexpr std::uint32_t kProtocolVersion = 0x00010616u;
 constexpr UINT kWakeMessage = WM_APP + 0x531;
 constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
 

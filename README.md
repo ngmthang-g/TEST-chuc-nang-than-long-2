@@ -1,4 +1,17 @@
-# Thần Long Item Consolidator v0.6.1.5
+# Thần Long Item Consolidator v0.6.1.6
+
+> **Residual scheduler limitation:** v0.6.1.6 removes logical cross-window input locks, but `BridgeClient::Call()` is still synchronous on the controller thread. A single Bridge timeout can therefore delay the next scheduler iteration for its bounded timeout. This is no longer mouse contention, but it is not yet a true per-PID asynchronous worker architecture. Do not claim full timing independence until Bridge calls are moved to per-client workers/mailboxes.
+
+## v0.6.1.6 — Per-client cleanup + Movement Guard
+
+- Xóa toàn bộ global hidden-input owner/busy/sequence lease còn sót từ kiến trúc click vật lý. SELL, Train, Revive, XN và các client không liên quan không còn nhường nhau một tài nguyên input chung.
+- Trade giữ thứ tự MAIN↔CON bằng `tradeTxn_`/`tradeHeld` nghiệp vụ, không dùng input lease. SELL của PID khác không làm trade dừng.
+- REC chỉ tạm giữ acc đang capture; REC trade giữ đúng MAIN + CON đang capture. Các acc còn lại vẫn chạy.
+- Priority runtime chuyển sang cục bộ theo từng PID: P1 XN → P2 Đầu thai → P3 AUTO trong chính acc đó; không còn global mouse barrier.
+- **Invariant mới:** cả `Action::Mount` và `Action::StartPath` đều phải qua `EnsureAutoFightOffForTravel()`. AutoFight không authoritative hoặc còn ON → không được lên ngựa/AutoPath. Recovery giữ nguyên DỪNG #1 → DỪNG #2 → AUTO→ĐÁNH QUÁI reset → lặp.
+- `Client Freeze`, F4 global pause, FIFO trade, death lifecycle, route ownership reset và AutoPath/Fight invariant giữ nguyên.
+- Protocol EXE/DLL: `0x00010616`.
+
 
 Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor để nghiên cứu cơ chế callback UI nội bộ; không ghép nguyên remote worker của donor.
 

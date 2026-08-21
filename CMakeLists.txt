@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ThanLongItemConsolidator VERSION 0.6.1.5 LANGUAGES CXX RC)
+project(ThanLongItemConsolidator VERSION 0.6.1.6 LANGUAGES CXX RC)
 
 if(NOT WIN32)
     message(FATAL_ERROR "ThanLongItemConsolidator is Windows-only")

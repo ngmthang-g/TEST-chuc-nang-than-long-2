@@ -1,4 +1,17 @@
-# PROJECT KNOWLEDGE — v0.6.1.5 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.6 CURRENT
+
+> **Residual scheduler limitation:** v0.6.1.6 removes logical cross-window input locks, but `BridgeClient::Call()` is still synchronous on the controller thread. A single Bridge timeout can therefore delay the next scheduler iteration for its bounded timeout. This is no longer mouse contention, but it is not yet a true per-PID asynchronous worker architecture. Do not claim full timing independence until Bridge calls are moved to per-client workers/mailboxes.
+
+## v0.6.1.6 — quyết định kiến trúc hiện tại
+
+1. Không tồn tại global mouse/input ownership giữa các cửa sổ. `coordinatorInputBusy_`, `coordinatorOwnerPid_`, `coordinatorSequenceLease_`, `coordinatorSequenceOwnerPid_`, `coordinatorRecording_` đã xóa.
+2. Trade atomicity là nghiệp vụ của `tradeTxn_` + MAIN/CON `tradeHeld`; không phải input lease. SELL acc khác không chặn trade.
+3. REC scoped theo PID/cặp MAIN-CON; không freeze toàn scheduler.
+4. P1/P2/P3 là priority cục bộ theo PID. F4 vẫn là global pause chủ động.
+5. Movement invariant: **Mount và StartPath đều yêu cầu AutoFight authoritative OFF**. Cả hai dùng cùng `EnsureAutoFightOffForTravel`: Stop #1 → Stop #2 → AUTO/Attack reset → lặp đến OFF.
+6. Mount Recovery vẫn được phép bật Fight 10s để thoát kẹt sau 2 lần Mount fail, nhưng trước lần `ToggleRide(Mount)` kế tiếp guard bắt buộc tắt Fight.
+7. Client Freeze và AutoPath+AutoFight conflict latch giữ nguyên vì đó là safety state của client, không phải mouse contention.
+
 
 ## Quy tắc dự án
 

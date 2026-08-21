@@ -15,6 +15,12 @@ inline bool HasAutoPathFightConflict(bool autoPathing, bool autoFight) {
     return autoPathing && autoFight;
 }
 
+// Any movement command that changes locomotion state (Mount or StartPath) is
+// fail-closed unless AutoFight is authoritatively OFF. Unknown is unsafe.
+inline bool CanDispatchMovement(bool autoFightStateKnown, bool autoFight) {
+    return autoFightStateKnown && !autoFight;
+}
+
 // A queued AUTO -> Attack request can outlive the state that created it. Recheck
 // AutoPath at dispatch time so a stale request cannot turn fight on after travel
 // has started. Unknown is unsafe; the caller waits for an authoritative snapshot.
