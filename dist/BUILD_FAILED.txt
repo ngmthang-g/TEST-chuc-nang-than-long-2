@@ -1,4 +1,4 @@
 FAILED
-built_from=82d7f62631aec3822664b5f2d3a65988e04495c1
-failed_utc=2026-08-21T09:18:53.0600964Z
+built_from=f306dd44fa9a714445358e15eeab09370052dad1
+failed_utc=2026-08-21T09:21:10.4080677Z
 error=Cannot locate wWinMain App startup block for license-gate repair
