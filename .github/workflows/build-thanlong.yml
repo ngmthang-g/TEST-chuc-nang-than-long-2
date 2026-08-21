@@ -5,7 +5,6 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'dist/**'
-      - 'overlay/**'
   workflow_dispatch:
 
 permissions:
@@ -23,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build verify test and publish
+      - name: Verify clean source, build, test and publish
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -31,47 +30,32 @@ jobs:
           New-Item -ItemType Directory -Force $statusDir | Out-Null
           Remove-Item "$statusDir\BUILD_FAILED.txt" -ErrorAction SilentlyContinue
           try {
-            $parts = Get-ChildItem source\payload.part* | Sort-Object Name
-            if ($parts.Count -ne 18) { throw "Expected 18 payload parts, got $($parts.Count)" }
-            $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
-            [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($b64))
-            $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
-            Write-Host "Payload SHA256: $actual"
+            $payload = 'clean_source\minbuild_fixed.payload'
+            if (-not (Test-Path $payload)) { throw 'Missing clean source payload' }
+            $raw = [IO.File]::ReadAllBytes($payload)
+            if ($raw.Length -ge 2 -and $raw[0] -eq 0x50 -and $raw[1] -eq 0x4B) {
+              [IO.File]::WriteAllBytes('minbuild.zip', $raw)
+            } else {
+              $text = [IO.File]::ReadAllText($payload).Trim()
+              [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($text))
+            }
 
+            $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
+            $expected = '207566df7dc09aadd6ccb202fc41a3ef057c6d28ae9ca288e5432346507ecba2'
+            Write-Host "Clean payload SHA256: $actual"
+            if ($actual -ne $expected) { throw "Clean payload SHA256 mismatch: $actual" }
+
+            Remove-Item work -Recurse -Force -ErrorAction SilentlyContinue
             Expand-Archive -Path minbuild.zip -DestinationPath work -Force
-            if (-not (Test-Path 'work\CMakeLists.txt')) { throw 'Payload archive is not a valid Than Long build source: missing CMakeLists.txt' }
-            if (-not (Test-Path 'work\src\controller.cpp')) { throw 'Payload archive is incomplete: missing src/controller.cpp' }
-            if (-not (Test-Path 'work\src\license_gate.cpp')) { throw 'Payload archive is incomplete: missing src/license_gate.cpp' }
+            if (-not (Test-Path 'work\CMakeLists.txt')) { throw 'Missing CMakeLists.txt' }
+            if (-not (Test-Path 'work\src\controller.cpp')) { throw 'Missing src/controller.cpp' }
+            if (-not (Test-Path 'work\src\license_gate.cpp')) { throw 'Missing src/license_gate.cpp' }
+
+            New-Item -ItemType Directory -Force 'work\.github\workflows' | Out-Null
+            Copy-Item '.github\workflows\build-thanlong.yml' 'work\.github\workflows\build.yml' -Force
 
             Push-Location work
             try {
-              $controllerPath = Join-Path $PWD 'src\controller.cpp'
-              $rawController = [IO.File]::ReadAllBytes($controllerPath)
-              $utf8Loose = New-Object System.Text.UTF8Encoding($false, $false)
-              $controllerText = $utf8Loose.GetString($rawController)
-
-              if ($controllerText -notmatch 'RequireValidLicense') {
-                $sig = 'int\s+WINAPI\s+wWinMain\s*\([^\)]*\)\s*\{'
-                $m = [regex]::Match($controllerText, $sig)
-                if (-not $m.Success) { throw 'Cannot locate wWinMain signature for license-gate repair' }
-                $tailStart = $m.Index + $m.Length
-                $tail = $controllerText.Substring($tailStart)
-                $dpi = [regex]::Match($tail, 'EnableDpiAwareness\s*\(\s*\)\s*;')
-                if (-not $dpi.Success) { throw 'Cannot locate EnableDpiAwareness inside wWinMain' }
-                $insertAt = $tailStart + $dpi.Index + $dpi.Length
-                $licenseLines = "`r`n    thanlong_license::Session licenseSession{};`r`n    if (!thanlong_license::RequireValidLicense(instance, licenseSession)) return 10;"
-                $controllerText = $controllerText.Insert($insertAt, $licenseLines)
-
-                $after = $controllerText.Substring($insertAt + $licenseLines.Length)
-                $appMatch = [regex]::Match($after, 'App\s+app\s*;')
-                if (-not $appMatch.Success) { throw 'Cannot locate App app declaration inside wWinMain' }
-                $appEnd = $insertAt + $licenseLines.Length + $appMatch.Index + $appMatch.Length
-                $controllerText = $controllerText.Insert($appEnd, "`r`n    app.SetLicenseSession(licenseSession);")
-                Write-Host 'Restored startup RequireValidLicense wiring.'
-              }
-
-              [IO.File]::WriteAllText($controllerPath, $controllerText, (New-Object System.Text.UTF8Encoding($false)))
-
               $verifyOut = & python tools\verify_license_ui.py 2>&1
               $verifyCode = $LASTEXITCODE
               $verifyOut | Tee-Object -FilePath '..\dist\VERIFY_LICENSE_UI.txt' | Write-Host
