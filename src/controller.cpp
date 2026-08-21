@@ -20,6 +20,7 @@
 #include "fixed_slot_sell_logic.h"
 #include "internal_ui_click_logic.h"
 #include "travel_fight_guard_logic.h"
+#include "auto_fight_retry_logic.h"
 
 using namespace cleanroute;
 using namespace cleanroute_logic;
@@ -28,7 +29,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.8 • ROUTE/M87 CLEAN MAINTENANCE";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.9 • ROUTE/M87 CLEAN MAINTENANCE";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -38,8 +39,25 @@ constexpr DWORD kClientStableResumeMs = 2000;
 constexpr DWORD kBridgeNudgeMs = 750;
 constexpr DWORD kReadFailLogIntervalMs = 2000;
 constexpr UINT kWindowResponsiveProbeMs = 120;
-constexpr DWORD kTrainPositionCheckMs = 180000;
+constexpr DWORD kTrainPositionCheckMs = 60000;
 constexpr DWORD kAutoFightRecheckMs = 60000;
+constexpr wchar_t kUpcomingFeaturesText[] = LR"TLUPCOMING(Các chức năng/ tính năng của AUTO thần long do Thắng Nguyễn ( ĐỒ LONG )  xây dựng và Phát triển ĐỘC QUYỀN CHƯA TỪNG NƠI NÀO CÓ
+- Các acc được quản lý bởi bộ não ảo thông minh
+ 1. Giúp điều phối và giúp đỡ lẫn nhau giữa các acc
+ - Ví dụ như acc 1 đang yếu máu thì dù ở cách xa vạn dặm acc 2 nếu là NM  cũng có thể tự động chạy đến buff rồi chạy về
+ - Hoặc 1 acc đang train mà bị PK chết quá nhiều lần thì các acc ở các Map khác nhau sẽ cùng chạy về tọa độ acc đó để dọn dẹp rồi tự động về map train bình thường
+ - 1 acc đang thiếu đói vàng khóa thì các acc còn lại sẽ cùng train và đem vàng khóa về giao lại cho
+ 2. Cùng nhau đi boss tự phân chia nhiệm vụ
+ - ví dụ Bộ não sẽ chỉ đạo acc Võ đang tự bế Lý thu thủy khi cần thiết, và lúc nào cần bế. Nếu thấy skill chưa hồi có thể gọi các acc khác cùng đợi khi nào hồi thì cùng vào ăn boss
+ - Hoặc đi QTC khi mà sót con quái , các acc tự động bảo nhau đi tìm 6 hướng khác nhau. Khi 1 acc tìm thấy và giết được quái thì sẽ bảo 5 đứa kia để về tọa ăn boss
+ 3. Tính năng PK
+ - các acc clone đi với nhau sẽ không bao giờ pk lẻ tẻ. chỉ đợi khi các acc tụ đông đủ mới tự động lao vào bãi pk. 1 vòng lặp luân hồi
+ 4. Check trạng thái nhân vật theo real time thời gian thực để đưa ra những gợi ý hành động cho các acc.
+5. Bộ não cũng sẽ tự động gửi tin nhắn về điện thoại thông báo tình hình acc khỏe hay yếu , buồn hay vui , để bạn kịp thời để ý
+Đủ các loại auto mà bạn chưa từng nghĩ tới và chính mình cũng chưa từng nghĩ tới
+Tất cả các hành động đều dựa theo bộ não điều khiển, không hành động như robot mà scrip từng làm .
+Rất nhiều tình năng sắp ra mắt. hihi
+)TLUPCOMING";
 constexpr DWORD kMountRetryWaitMs = 5000;
 constexpr DWORD kFootWalkMaxMs = 15000;
 constexpr DWORD kMountFightBoostMs = 10000;
@@ -295,10 +313,11 @@ struct RuntimeState {
     int fightPhase = 0;
     DWORD fightPhaseTick = 0;
     int fightAttempts = 0;
+    DWORD fightRetryWaitTick = 0;
     bool wasAtTarget = false;
 
     // Once AUTO fight is confirmed at the training spot, position is intentionally
-    // checked only every 3 minutes. Death/bag state are still observed every tick.
+    // checked every 1 minute. Death/bag state are still observed every tick.
     bool trainPositionMonitorArmed = false;
     DWORD lastTrainPositionCheckTick = 0;
     DWORD lastAutoFightCheckTick = 0;
@@ -1378,12 +1397,39 @@ private:
         logCaption_ = Make(L"STATIC", L"LOG / BỘ ĐIỀU PHỐI", 0, 18, 742, 190, 20, 0); addFont(logCaption_);
         log_ = Make(L"EDIT", L"", WS_BORDER | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL, 18, 764, 1005, 159, IDC_LOG); addFont(log_);
 
-        aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
-                                          SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.8",
-                                          SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
-        for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
+        aboutHeadingFont_ = CreateFontW(-25, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                        DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        aboutNameFont_ = CreateFontW(-20, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                     OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                     DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        aboutUpcomingFont_ = CreateFontW(-32, 0, 0, 0, FW_HEAVY, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                         DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        aboutBodyFont_ = CreateFontW(-18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                     OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                     DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+
+        HWND aboutHeading = Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 55, 62, 950, 42, 0);
+        HWND aboutName = Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
+                              SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 55, 112, 950, 46, 0);
+        HWND aboutUpcoming = Make(L"STATIC", L"CÁC TÍNH NĂNG SẮP RA MẮT",
+                                  SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 55, 170, 950, 66, 0);
+        HWND aboutVersion = Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.9",
+                                 SS_CENTER | SS_CENTERIMAGE, 55, 242, 950, 28, 0);
+        HWND aboutBody = Make(L"EDIT", kUpcomingFeaturesText,
+                              WS_BORDER | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL,
+                              55, 280, 950, 642, 0);
+        if (aboutHeading && aboutHeadingFont_) SendMessageW(aboutHeading, WM_SETFONT, reinterpret_cast<WPARAM>(aboutHeadingFont_), TRUE);
+        if (aboutName && aboutNameFont_) SendMessageW(aboutName, WM_SETFONT, reinterpret_cast<WPARAM>(aboutNameFont_), TRUE);
+        if (aboutUpcoming && aboutUpcomingFont_) SendMessageW(aboutUpcoming, WM_SETFONT, reinterpret_cast<WPARAM>(aboutUpcomingFont_), TRUE);
+        if (aboutVersion && aboutNameFont_) SendMessageW(aboutVersion, WM_SETFONT, reinterpret_cast<WPARAM>(aboutNameFont_), TRUE);
+        if (aboutBody && aboutBodyFont_) {
+            SendMessageW(aboutBody, WM_SETFONT, reinterpret_cast<WPARAM>(aboutBodyFont_), TRUE);
+            SendMessageW(aboutBody, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(12, 12));
+        }
+        aboutControls_ = {aboutHeading, aboutName, aboutUpcoming, aboutVersion, aboutBody};
+        for (HWND h : aboutControls_) if (h) ShowWindow(h, SW_HIDE);
 
         if (!RegisterHotKey(hwnd_, kCaptureHotkeyId, MOD_NOREPEAT, VK_F8)) {
             Log(L"CẢNH BÁO: không đăng ký được F8 global.");
@@ -3250,6 +3296,7 @@ private:
         rt.lastTrainPositionCheckTick = 0;
         rt.fightPhase = 0;
         rt.fightAttempts = 0;
+        rt.fightRetryWaitTick = 0;
 
         // The old train AutoPath belongs to the normal core and must not survive into
         // a consolidation rendezvous. This StopPath is internal and does not touch F4 state.
@@ -4192,7 +4239,7 @@ private:
         return true;
     }
 
-    // v0.6.1.8: hidden InputSync actions do not share a Windows-input resource.
+    // v0.6.1.9: hidden InputSync actions do not share a Windows-input resource.
     // Business workflows serialize themselves (SELL per account, TRADE per active pair),
     // so there is no global input/owner/sequence lease between unrelated clients.
     bool CoordinatorInternalPointAction(Account& target, const ClickPoint& savedPoint,
@@ -5182,6 +5229,7 @@ private:
         if (!a.profile.enableFight) {
             rt.fightPhase = 0;
             rt.fightAttempts = 0;
+            rt.fightRetryWaitTick = 0;
             return false;
         }
         if ((s.validMask & ValidAutoFight) == 0) {
@@ -5191,20 +5239,38 @@ private:
         if (s.autoFight) {
             rt.fightPhase = 3;
             rt.fightAttempts = 0;
+            rt.fightRetryWaitTick = 0;
             if (!rt.trainPositionMonitorArmed) {
                 rt.trainPositionMonitorArmed = true;
                 rt.lastTrainPositionCheckTick = now;
-                LogAccount(a, L"AutoFight ON • bắt đầu check tọa độ train 3 phút/lần.");
+                LogAccount(a, L"AutoFight ON • bắt đầu check tọa độ train 1 phút/lần.");
             }
             rt.lastAutoFightCheckTick = now;
             rt.status = L"Đúng bãi • AutoFight ON • check Auto mỗi 1 phút";
             return true;
         }
-        if (rt.fightAttempts >= 2) {
-            rt.status = L"P3 AUTO→Đánh quái thử 2 lần • chờ chu kỳ check Auto tiếp theo";
-            rt.fightPhase = 3;
-            rt.lastAutoFightCheckTick = now;
-            return true;
+        if (rt.fightAttempts >= auto_fight_retry_logic::kImmediateAttemptLimit) {
+            const auto retryDecision = auto_fight_retry_logic::DecideExhaustedRetry(
+                now, rt.fightRetryWaitTick, kAutoFightRecheckMs);
+            if (retryDecision == auto_fight_retry_logic::ExhaustedRetryDecision::StartWait) {
+                rt.fightRetryWaitTick = now;
+                rt.fightPhase = 3;
+                rt.status = L"P3 AUTO→Đánh quái thử 2 lần • bắt đầu chờ retry 60s";
+                LogAccount(a, L"P3 AUTO RETRY: 2 lần chưa bật được AutoFight • neo timer 60s một lần, không reset mỗi tick.");
+                return true;
+            }
+            if (retryDecision == auto_fight_retry_logic::ExhaustedRetryDecision::KeepWaiting) {
+                const DWORD elapsedMs = now - rt.fightRetryWaitTick;
+                const DWORD remainSec = elapsedMs >= kAutoFightRecheckMs
+                    ? 0 : (kAutoFightRecheckMs - elapsedMs + 999) / 1000;
+                rt.status = L"P3 AUTO→Đánh quái thử 2 lần • retry sau " +
+                            std::to_wstring(remainSec) + L"s";
+                return true;
+            }
+            rt.fightAttempts = 0;
+            rt.fightPhase = 0;
+            rt.fightRetryWaitTick = 0;
+            LogAccount(a, L"P3 AUTO RETRY 60s: AutoFight vẫn OFF → cấp lại 2 lần AUTO→Đánh quái.");
         }
         if (rt.fightPhase == 3) rt.fightPhase = 0;
 
@@ -5235,6 +5301,7 @@ private:
             if (s.autoFight) {
                 rt.fightPhase = 3;
                 rt.fightAttempts = 0;
+                rt.fightRetryWaitTick = 0;
                 rt.lastAutoFightCheckTick = now;
                 if (!rt.trainPositionMonitorArmed) {
                     rt.trainPositionMonitorArmed = true;
@@ -5574,7 +5641,7 @@ private:
         rt.fightAttempts = 0;
         ResetRobustTravel(rt);
         ResetTravelFightGuard(rt);
-        LogAccount(a, L"CHECK 3 PHÚT: lệch bãi → v0.3 Travel Guard bắt buộc AutoFight OFF trước mọi StartPath → quay lại tọa train.");
+        LogAccount(a, L"CHECK 1 PHÚT: lệch bãi → v0.3 Travel Guard bắt buộc AutoFight OFF trước mọi StartPath → quay lại tọa train.");
     }
 
     bool HandleTrainRecovery(Account& a, DWORD now) {
@@ -5980,6 +6047,7 @@ private:
                 if (!s.autoFight) {
                     rt.fightPhase = 0;
                     rt.fightAttempts = 0;
+                    rt.fightRetryWaitTick = 0;
                     LogAccount(a, L"CHECK AUTO 1 PHÚT: AutoFight OFF → chạy AUTO→Đánh quái.");
                     if (HandleFightClicks(a, now)) return;
                 } else {
@@ -6001,8 +6069,8 @@ private:
             monitor.riding = s.riding != 0; monitor.autoPathing = s.autoPathing != 0;
             Target monitorTarget{a.profile.target.mapID, a.profile.target.x, a.profile.target.y, a.profile.tolerance};
             if (AtTarget(monitor, monitorTarget)) {
-                rt.status = L"CHECK 3 PHÚT: đúng tọa • tiếp tục đánh";
-                LogAccount(a, L"CHECK 3 PHÚT: tọa train vẫn đúng.");
+                rt.status = L"CHECK 1 PHÚT: đúng tọa • tiếp tục đánh";
+                LogAccount(a, L"CHECK 1 PHÚT: tọa train vẫn đúng.");
                 return;
             }
             BeginTrainRecovery(a, now);
@@ -6027,6 +6095,7 @@ private:
             if (rt.wasAtTarget) {
                 rt.fightPhase = 0;
                 rt.fightAttempts = 0;
+                rt.fightRetryWaitTick = 0;
             }
             rt.wasAtTarget = false;
         }
@@ -6038,6 +6107,7 @@ private:
             if (!rt.wasAtTarget) {
                 rt.fightPhase = 0;
                 rt.fightAttempts = 0;
+                rt.fightRetryWaitTick = 0;
                 LogAccount(a, L"Đã tới bãi và ổn định.");
             }
             rt.wasAtTarget = true;
@@ -6133,7 +6203,7 @@ private:
             }
         }
 
-        // v0.6.1.8 priorities remain scoped per account, not global input barriers.
+        // v0.6.1.9 priorities remain scoped per account, not global input barriers.
         // For each PID preserve local safety order P1 XN -> P2 revive -> P3 AUTO, while
         // unrelated windows never wait merely because another PID has a higher-priority action.
         if (!globalPaused_) {
@@ -6433,6 +6503,9 @@ private:
                 UnregisterHotKey(hwnd_, kCaptureHotkeyId);
                 UnregisterHotKey(hwnd_, kPauseHotkeyId);
                 for (auto& a : accounts_) a->bridge.Close();
+                for (HFONT* font : {&aboutHeadingFont_, &aboutNameFont_, &aboutUpcomingFont_, &aboutBodyFont_}) {
+                    if (*font) { DeleteObject(*font); *font = nullptr; }
+                }
                 PostQuitMessage(0);
                 return 0;
         }
@@ -6493,6 +6566,10 @@ private:
     HWND mainTab_ = nullptr;
     int mainTabIndex_ = 0;
     std::vector<HWND> aboutControls_{};
+    HFONT aboutHeadingFont_ = nullptr;
+    HFONT aboutNameFont_ = nullptr;
+    HFONT aboutUpcomingFont_ = nullptr;
+    HFONT aboutBodyFont_ = nullptr;
     std::vector<std::pair<HWND, bool>> autoTabVisibility_{};
 
     std::vector<std::unique_ptr<Account>> accounts_;

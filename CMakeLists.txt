@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(ThanLongItemConsolidator VERSION 0.6.1.8 LANGUAGES CXX RC)
+project(ThanLongItemConsolidator VERSION 0.6.1.9 LANGUAGES CXX RC)
 
 if(NOT WIN32)
     message(FATAL_ERROR "ThanLongItemConsolidator is Windows-only")
@@ -38,10 +38,12 @@ add_executable(internal_ui_click_logic_tests src/internal_ui_click_logic_test.cp
 target_include_directories(internal_ui_click_logic_tests PRIVATE src)
 add_executable(travel_fight_guard_logic_tests src/travel_fight_guard_logic_test.cpp)
 target_include_directories(travel_fight_guard_logic_tests PRIVATE src)
+add_executable(auto_fight_retry_logic_tests src/auto_fight_retry_logic_test.cpp)
+target_include_directories(auto_fight_retry_logic_tests PRIVATE src)
 
 if(MSVC)
     target_compile_options(ThanLongCleanRouteBridge PRIVATE /utf-8 /W4 /permissive- /FIstdlib.h)
-    foreach(t ThanLongItemConsolidator route_logic_tests rotation_logic_tests trade_coordinator_logic_tests background_ui_logic_tests fixed_slot_sell_logic_tests unity_geometry_logic_tests internal_ui_click_logic_tests travel_fight_guard_logic_tests)
+    foreach(t ThanLongItemConsolidator route_logic_tests rotation_logic_tests trade_coordinator_logic_tests background_ui_logic_tests fixed_slot_sell_logic_tests unity_geometry_logic_tests internal_ui_click_logic_tests travel_fight_guard_logic_tests auto_fight_retry_logic_tests)
         target_compile_options(${t} PRIVATE /utf-8 /W4 /permissive-)
     endforeach()
 endif()
