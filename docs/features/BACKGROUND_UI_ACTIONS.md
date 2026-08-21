@@ -19,7 +19,7 @@ The controller retains the v0.5 state machines. The per-PID Bridge resolves live
 - v0.6.1.2: BUILD PASS; RUNTIME FAIL at custom callback ownership after geometry resolved (`geometry=149`).
 - v0.6.1.3: Windows CI PASS; user-confirmed RUNTIME PASS for the full fixed-item 90-click flow.
 - v0.6.1.4: generic InputSync AUTO point sequence in source; build/runtime pending.
-- v0.6.1.5: every configured trade click uses the same generic InputSync path; source audit, eight pure tests and local Windows x64 cross-build pass; live runtime pending.
+- v0.6.1.5: every configured trade click uses the same generic InputSync path; source audit, eight pure tests, local Windows x64 cross-build and GitHub MSVC run 307 pass; live runtime pending.
 
 ## Version timeline
 

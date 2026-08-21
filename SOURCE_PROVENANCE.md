@@ -4,6 +4,8 @@
 - Requirement input: attached `hướng dẫn làm click ẩn thần long(1).md`, derived from the supplied v0.6.1.3 source, runtime-successful 90-click behavior and the exact-client `InputSyncManager` evidence already recorded in this repository.
 - v0.6.1.5 copies no client binary, metadata blob, native RVA or donor worker. It reuses the existing metadata-resolved generic point command, removes Windows mouse injection from the controller, and adds controller-only route/fight safety state.
 - Local acceptance before GitHub publish: hidden-action source audit PASS, eight native pure-test groups PASS, `git diff --check` PASS and LLVM-MinGW Windows x64 PE cross-build PASS. These results do not claim live-client success.
+- GitHub publish: branch `codex/v0.6.1.5-hidden-trade-autopath-guard`, source commit `ffc376559dd0aee6ce3966f7f7c93a828c33e465`, exact local/remote tree `b350db03588e2317a2e03e5b706b35ac9c695304`.
+- Windows MSVC x64 run 307 (`32427510483`) passed verifier, build and all eight self-tests. Artifact `9427940998` has digest `sha256:dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`; extracted EXE hash is `6d2bdfd6015ab6a6b9c503a8f3329228d73d556a31f4059a54b3927d39046c51`, DLL hash is `da1febd514af0951ebcab56de575dfa794f00ee99614157684a456d65faf554c`.
 
 - Direct v0.6.1.4 code base: GitHub source commit `cfaafc210aede366577da4af49f161545824fea3` on `codex/v0.6.1.3-internal-ui-point-click`. The user-supplied final v0.6.1.3 source archive has identical code files and adds the completed CI documentation from run 306.
 - Runtime input for v0.6.1.4: the user confirms the v0.6.1.3 fixed-item InputSync path completes all 90 clicks successfully, while carried AUTO runtime reports named Lua UI/action resolution failure.

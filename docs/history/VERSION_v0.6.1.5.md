@@ -45,6 +45,8 @@ Remove the remaining automatic Windows-mouse transport from configurable trade a
 - Eight native C++ logic groups with strict warnings: PASS.
 - `git diff --check`: PASS.
 - LLVM-MinGW Windows x64 cross-build: PASS; EXE and Bridge are PE32+ x86-64.
+- GitHub Actions Windows MSVC x64 run 307 (`32427510483`): PASS for verifier, build and all eight self-tests.
+- Artifact `9427940998`, digest `sha256:dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`.
 
 ## Runtime status
 
@@ -52,4 +54,4 @@ Remove the remaining automatic Windows-mouse transport from configurable trade a
 - Hidden AUTO path: RUNTIME UNTESTED for this exact version.
 - Hidden MAIN/CON trade: RUNTIME UNTESTED.
 - AutoPath/AutoFight conflict recovery: RUNTIME UNTESTED.
-- GitHub Actions MSVC artifact: pending at source handoff; record run/artifact evidence after completion.
+- GitHub Actions MSVC artifact: BUILD PASS; this still does not prove live game behavior.

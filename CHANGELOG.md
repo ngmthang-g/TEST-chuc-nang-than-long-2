@@ -29,7 +29,9 @@
 - `tools/verify_v0615_logic.py`: PASS.
 - Eight native C++ logic test groups: PASS locally.
 - Windows x64 local cross-compile: PASS (PE32+ EXE/DLL).
-- GitHub Actions MSVC build and live-client trade/AUTO runtime remain unproven until their evidence is recorded.
+- GitHub Actions MSVC x64 run 307 (`32427510483`): PASS, including verifier, build and all eight self-test groups.
+- Artifact `9427940998`: `ThanLongItemConsolidator-v0.6.1.5-win-x64`, digest `sha256:dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`.
+- Live-client trade/AUTO/conflict-recovery runtime remains unproven until the matching pair is tested in game.
 
 ## v0.6.1.4 — 2026-08-21
 

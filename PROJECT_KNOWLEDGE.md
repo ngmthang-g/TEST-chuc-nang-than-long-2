@@ -21,7 +21,7 @@
 - v0.6.1.3 thay active item action bằng cặp `InputSyncManager.TryClickUI(0, point) → EndUIDrag(point)`. Windows CI run 306 **BUILD PASS**; người dùng sau đó xác nhận chuỗi 90 click chạy cực kỳ thành công trên client thật. BUG-004 vì vậy là **RUNTIME PASS** cho đường InputSync item.
 - AUTO Lua hiện tại vẫn **RUNTIME FAIL** với lỗi không tìm thấy Lua UI/action theo tên; sell pass không chứng minh AUTO pass. Đây là BUG-005.
 - v0.6.1.4 mở đường InputSync đã runtime-pass thành command click điểm dùng chung. P3 Start chạy `AUTO (click 1) → chờ 500 ms → ĐÁNH QUÁI (click 2) → verify AutoFight`; Stop dùng điểm `DỪNG AUTO 2` rồi vẫn verify authoritative. Scope audit và bảy pure-test group **PASS**; Windows build **PENDING**, live AUTO **RUNTIME UNTESTED**.
-- v0.6.1.5 xóa đường chuột Windows còn lại khỏi trade, chuyển mọi dòng giao dịch sang generic `ClickInternalPoint`, và thêm hard invariant recovery nếu thấy `AutoPath ON + AutoFight ON`. Scope audit, tám pure-test group và local Windows x64 cross-build **PASS**; MSVC CI/live runtime vẫn chờ bằng chứng.
+- v0.6.1.5 xóa đường chuột Windows còn lại khỏi trade, chuyển mọi dòng giao dịch sang generic `ClickInternalPoint`, và thêm hard invariant recovery nếu thấy `AutoPath ON + AutoFight ON`. Scope audit, tám pure-test group, local Windows x64 cross-build và GitHub MSVC x64 run 307 **PASS**; live runtime vẫn chờ bằng chứng.
 
 ## Kiến trúc action v0.6.1.5
 
