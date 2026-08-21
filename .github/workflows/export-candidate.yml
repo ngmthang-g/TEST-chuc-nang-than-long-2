@@ -1,0 +1,49 @@
+name: export-current-candidate
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'dist/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode candidate
+        shell: pwsh
+        run: |
+          $p='clean_source\minbuild_fixed.payload'
+          $raw=[IO.File]::ReadAllBytes($p)
+          if ($raw.Length -ge 2 -and $raw[0] -eq 0x50 -and $raw[1] -eq 0x4B) {
+            [IO.File]::WriteAllBytes('candidate.zip',$raw)
+          } else {
+            $text=[IO.File]::ReadAllText($p).Trim()
+            [IO.File]::WriteAllBytes('candidate.zip',[Convert]::FromBase64String($text))
+          }
+          (Get-FileHash candidate.zip -Algorithm SHA256).Hash.ToLower() | Set-Content candidate.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: current-candidate-payload
+          path: |
+            candidate.zip
+            candidate.sha256
+      - name: Publish run id
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          @("run_id=$env:GITHUB_RUN_ID","commit=$env:GITHUB_SHA") | Set-Content dist\EXPORT_RUN_ID.txt -Encoding UTF8
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add dist\EXPORT_RUN_ID.txt
+          if (-not (git diff --cached --quiet)) {
+            git commit -m 'Publish candidate export run [skip ci]'
+            git push origin HEAD:main
+          }
