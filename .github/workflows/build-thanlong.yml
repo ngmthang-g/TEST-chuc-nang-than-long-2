@@ -42,24 +42,13 @@ jobs:
             if (-not (Test-Path 'work\src\controller.cpp')) { throw 'Payload archive is incomplete: missing src/controller.cpp' }
             if (-not (Test-Path 'work\src\license_gate.cpp')) { throw 'Payload archive is incomplete: missing src/license_gate.cpp' }
 
-            # Repair accidental non-UTF8 byte corruption introduced while transporting the split payload.
-            # This does not alter program logic: only undecodable bytes are replaced before verification/build.
-            $repair = @'
-from pathlib import Path
-for rel in ['src/controller.cpp']:
-    p = Path(rel)
-    raw = p.read_bytes()
-    try:
-        raw.decode('utf-8-sig')
-    except UnicodeDecodeError:
-        text = raw.decode('utf-8-sig', errors='replace')
-        p.write_text(text, encoding='utf-8')
-        print(f'Normalized UTF-8 transport corruption in {rel}')
-'@
             Push-Location work
             try {
-              $repair | python -
-              if ($LASTEXITCODE -ne 0) { throw "UTF-8 normalization failed: $LASTEXITCODE" }
+              $controllerPath = Join-Path $PWD 'src\controller.cpp'
+              $rawController = [IO.File]::ReadAllBytes($controllerPath)
+              $utf8 = New-Object System.Text.UTF8Encoding($false, $false)
+              $normalizedController = $utf8.GetString($rawController)
+              [IO.File]::WriteAllText($controllerPath, $normalizedController, (New-Object System.Text.UTF8Encoding($false)))
 
               $verifyOut = & python tools\verify_license_ui.py 2>&1
               $verifyCode = $LASTEXITCODE
