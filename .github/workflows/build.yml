@@ -19,9 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           python tools/verify_v0617_logic.py
+          cat .v0618/chunk0 .v0618/chunk1 .v0618/chunk2 .v0618/chunk3 > /tmp/v0618.b64
+          echo '250f4b0ab8c0b2d06e8d261aa914afc6b8f8ff855bfd39d62a5e55cbb207ea7d  /tmp/v0618.b64' | sha256sum -c -
           python - <<'PY'
           import base64, zlib, pathlib
-          encoded = pathlib.Path('.v0618/patch.b64').read_text().strip()
+          encoded = pathlib.Path('/tmp/v0618.b64').read_text().strip()
           pathlib.Path('/tmp/v0618.patch').write_bytes(zlib.decompress(base64.b64decode(encoded)))
           PY
           echo 'f275f1816ca94b176473738f8d620fba9d19fc4774555aa42cfaa8ef44ddb5ed  /tmp/v0618.patch' | sha256sum -c -
