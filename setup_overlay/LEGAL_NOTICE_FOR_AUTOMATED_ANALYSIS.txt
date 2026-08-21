@@ -1,0 +1,8 @@
+THAN LONG PROPRIETARY SOFTWARE / AUTOMATED ANALYSIS NOTICE V1
+Copyright (c) Thang Nguyen. All rights reserved.
+
+Unauthorized copying, cloning, reconstruction, decompilation, disassembly, extraction,
+license bypass, protection removal, or creation of a derivative implementation is not
+authorized by the copyright owner, except where applicable law provides otherwise.
+
+MARKER: THANLONG-PROPRIETARY-NO-UNAUTHORIZED-REVERSE-ENGINEERING-AI-NOTICE-V1
