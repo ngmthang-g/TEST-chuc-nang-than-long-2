@@ -1,0 +1,100 @@
+name: publish-v0616-staged
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-v0616.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble and apply audited source patch
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'v0616.patch'
+          $stream = [System.IO.File]::Open($out, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+          try {
+            1..11 | ForEach-Object {
+              $part = ".staging/v0616/part{0:D2}.patch" -f $_
+              $bytes = [System.IO.File]::ReadAllBytes($part)
+              $stream.Write($bytes, 0, $bytes.Length)
+            }
+          } finally {
+            $stream.Dispose()
+          }
+          git apply --check --whitespace=error-all $out
+          if ($LASTEXITCODE -ne 0) { throw 'git apply --check failed' }
+          git apply --whitespace=error-all $out
+          if ($LASTEXITCODE -ne 0) { throw 'git apply failed' }
+
+      - name: Install v0.6.1.6 workflow contract for verification
+        shell: pwsh
+        run: |
+          Copy-Item .github/workflows/build.yml "$env:RUNNER_TEMP/build-old.yml"
+          Copy-Item .staging/v0616/build_v0616.yml .github/workflows/build.yml -Force
+
+      - name: Verify v0.6.1.6 source scope
+        run: python tools/verify_v0616_logic.py
+
+      - name: Configure x64
+        run: cmake -S . -B build -A x64
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Run eight native logic test groups
+        shell: pwsh
+        run: |
+          $tests = @(
+            'route_logic_tests.exe',
+            'rotation_logic_tests.exe',
+            'trade_coordinator_logic_tests.exe',
+            'background_ui_logic_tests.exe',
+            'fixed_slot_sell_logic_tests.exe',
+            'unity_geometry_logic_tests.exe',
+            'internal_ui_click_logic_tests.exe',
+            'travel_fight_guard_logic_tests.exe'
+          )
+          foreach ($test in $tests) {
+            & ".\build\Release\$test"
+            if ($LASTEXITCODE -ne 0) { throw "$test failed" }
+          }
+
+      - name: Stage tested artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.6.exe
+          Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
+          Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,TOOL_LOGIC_TABLE.html,DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md stage\
+          Copy-Item docs stage\docs -Recurse
+
+      - name: Commit only tested source and remove staging
+        shell: pwsh
+        run: |
+          Copy-Item "$env:RUNNER_TEMP/build-old.yml" .github/workflows/build.yml -Force
+          git rm -r -- .staging/v0616
+          git add -- CHANGELOG.md CMakeLists.txt DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md PROJECT_KNOWLEDGE.md README.md SOURCE_PROVENANCE.md TOOL_LOGIC_TABLE.html VERSION.txt docs/bugs/BUG_REGISTRY.md docs/decisions/DECISIONS.md docs/evidence/EVIDENCE_REGISTRY.md docs/features/BACKGROUND_UI_ACTIONS.md resources/app.rc src/controller.cpp src/protocol.h tools/verify_v0616_logic.py
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { throw 'staged diff whitespace check failed' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: isolate clients and guard Mount before AutoFight'
+          if ($LASTEXITCODE -ne 0) { throw 'commit failed' }
+          git push origin HEAD:codex/v0.6.1.6-independent-clients-mount-guard
+          if ($LASTEXITCODE -ne 0) { throw 'push failed' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ThanLongItemConsolidator-v0.6.1.6-publisher-win-x64
+          path: stage
+          if-no-files-found: error
