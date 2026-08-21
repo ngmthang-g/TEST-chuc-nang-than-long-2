@@ -1,0 +1,103 @@
+--- a/CHANGELOG.md	2026-08-20 23:14:54.000000000 +0000
++++ b/CHANGELOG.md	2026-08-21 01:36:19.115555205 +0000
+@@ -1,5 +1,40 @@
+ # CHANGELOG
+ 
++## v0.6.1.6 — 2026-08-21
++
++### Requested
++
++- Remove the remaining global coordination assumptions inherited from physical mouse ownership now that runtime point actions are internal per-client actions.
++- Make clients independent: unrelated SELL, trade, REC and P1/P2/P3 work must not wait for a shared input resource.
++- Require authoritative AutoFight OFF before **both Mount and StartPath**, reusing the existing two-stop/reset Travel Guard.
++
++### Changed — independent client ownership
++
++- Remove global hidden-action busy/owner/recording state. Generic point dispatch is scoped to the target client and never consults the MAIN↔CON transaction lock.
++- Replace the old hidden sequence lease naming with a business-only Trade Workflow Lock. It preserves transaction order but does not block unrelated PIDs.
++- Remove the rule that any account in SELL item phase blocks the trade coordinator.
++- Scope recorder blocking: Sell blocks its PID; TradeChild blocks the recorded child plus its MAIN; TradeMain blocks its MAIN. Unrelated clients continue.
++- Replace global MAIN→CON priority passes with local `P1 → P2 → P3` evaluation per account.
++- Fan out snapshot `ReadState` calls concurrently per PID, then merge/observe on the controller thread. This removes the old `N × Bridge timeout` polling behavior without moving UI/profile-mutating FSM code onto worker threads.
++
++### Fixed — Mount movement guard
++
++- v0.6.1.5 guaranteed the Travel Guard before `StartPath`, but the first Mount attempt in robust travel could still be sent while AutoFight was ON.
++- The central action gate now applies the exact same `EnsureAutoFightOffForTravel` proof to `Action::Mount` and `Action::StartPath`.
++- Existing recovery policy is unchanged: Stop #1 → verify, Stop #2 → verify, if still ON run one AUTO/Attack reset, then repeat until a fresh authoritative snapshot proves OFF.
++- Existing `AutoPath && AutoFight` conflict latch remains fail-closed and also forbids Mount until recovery completes.
++
++### Preserved
++
++- Client Freeze, F4 global manual pause, death/revive lifecycle, route ownership reset, FIFO/re-lock, stable `FreeBagSpace` proof, trade step/repeat/group semantics and InputSync press/release transport.
++- `WH_GETMESSAGE` Bridge integration is not the removed low-level mouse hook. F8/REC still read manual input for configuration only.
++
++### Verification status
++
++- `tools/verify_v0616_logic.py`: PASS locally.
++- Eight native pure C++ logic test groups: PASS locally.
++- Windows MSVC x64 CI and live-client behavior: pending until recorded.
++
+ ## v0.6.1.5 — 2026-08-21
+ 
+ ### Requested
+--- a/CMakeLists.txt	2026-08-20 23:14:54.000000000 +0000
++++ b/CMakeLists.txt	2026-08-21 01:32:31.010141460 +0000
+@@ -1,5 +1,5 @@
+ cmake_minimum_required(VERSION 3.24)
+-project(ThanLongItemConsolidator VERSION 0.6.1.5 LANGUAGES CXX RC)
++project(ThanLongItemConsolidator VERSION 0.6.1.6 LANGUAGES CXX RC)
+ 
+ if(NOT WIN32)
+     message(FATAL_ERROR "ThanLongItemConsolidator is Windows-only")
+--- a/DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md	2026-08-20 23:14:54.000000000 +0000
++++ b/DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md	2026-08-21 01:36:19.116495588 +0000
+@@ -87,6 +87,8 @@
+ 
+ > Runtime correction v0.6.1.5: generic InputSync point action được dùng tiếp cho toàn bộ test/runtime trade MAIN/CON. Đường foreground, di con trỏ, `SendInput` và User Mouse Guard đã bị xóa khỏi controller. Mọi `StartPath` vẫn đi qua Travel Guard; ngoài ra snapshot `AutoPath ON + AutoFight ON` được latch fail-closed: dừng path trước, sau đó DỪNG AUTO hai lần, nếu chưa OFF thì bật lại một lần để reset rồi lặp cho tới khi cả Path và Fight đều OFF.
+ 
++> Runtime correction v0.6.1.6: input lease/owner toàn cục không còn cần sau khi mọi point action đi nội bộ theo PID. Trade chỉ giữ workflow lock của active MAIN↔CON; SELL/REC/P1-P3 được scope theo client/workflow. Quan trọng: audit v0.6.1.5 phát hiện Mount đầu tiên chưa đi qua Travel Guard, nên v0.6.1.6 áp cùng `EnsureAutoFightOffForTravel` cho cả Mount lẫn StartPath.
++
+ ## 7. Đầu thai
+ 
+ Ngay trước action, donor đọc `IsDeath`. Nếu false hoặc không đọc được thì không gọi gì. Khi true, nó tìm duy nhất button `Đầu thai` đang active/interactable và gọi `UIButton.HandleClickEvent()`. Sau đó state machine chờ `IsDeath` tắt ổn định thay vì tin mù vào return value của callback.
+--- a/PROJECT_KNOWLEDGE.md	2026-08-20 23:14:54.000000000 +0000
++++ b/PROJECT_KNOWLEDGE.md	2026-08-21 01:36:19.115362029 +0000
+@@ -1,4 +1,4 @@
+-# PROJECT KNOWLEDGE — v0.6.1.5 CURRENT
++# PROJECT KNOWLEDGE — v0.6.1.6 CURRENT
+ 
+ ## Quy tắc dự án
+ 
+@@ -9,6 +9,11 @@
+ 
+ ## Trạng thái hiện tại
+ 
++- v0.6.1.6: loại global hidden-action ownership/legacy mouse serialization; SELL/REC/trade được scope theo PID/workflow và priority P1→P2→P3 chạy theo từng client.
++- v0.6.1.6 sửa lỗ hổng movement guard: v0.6.1.5 chỉ bảo đảm mọi `StartPath` qua `EnsureAutoFightOffForTravel`; Mount đầu tiên trong robust travel chưa qua guard. Từ v0.6.1.6, cả `Mount` và `StartPath` đều bắt buộc cùng một proof AutoFight OFF.
++- ReadState được fan-out đồng thời theo PID; mutation FSM vẫn ở controller thread để tránh race UI/profile. Vì vậy không được diễn giải v0.6.1.6 là full worker/thread per account.
++- Trade Workflow Lock chỉ bảo vệ transaction MAIN↔CON; không còn là input lease và không chặn PID ngoài cặp.
++- Client Freeze/F4/death/FIFO/route ownership vẫn giữ vì là safety/nghiệp vụ độc lập với chuột.
+ - v0.6: **RUNTIME FAIL** đối với XN Lâu Lan và mở chuỗi bán nền. Cùng lỗi: `Không resolve đủ UIObject/UIButton/UIToggle/UIRect/Executor`.
+ - Điều runtime đã chứng minh: Bridge attach, snapshot, route và `ClickNPC` trước chuỗi UI vẫn hoạt động đủ để FSM đi tới đúng điểm lỗi. Log không chứng minh component cụ thể nào null.
+ - BUG-001 root cause ở mức **CONFIRMED**: basic UI enumeration bị khóa bởi một readiness gate gộp cả dependency Lua/Executor không cần cho UIButton. `MonoBehaviourExecutor` là component **LIKELY** bị thiếu vì namespace của nó chỉ là giả định từ donor RVA, chưa có metadata proof trong v0.6.
+--- a/README.md	2026-08-20 23:14:54.000000000 +0000
++++ b/README.md	2026-08-21 01:36:19.115173871 +0000
+@@ -1,20 +1,24 @@
+-# Thần Long Item Consolidator v0.6.1.5
++# Thần Long Item Consolidator v0.6.1.6
+ 
+ Nền phát triển trực tiếp: source v0.5.0 do người dùng cung cấp. Source v0.8.4 chỉ là donor để nghiên cứu cơ chế callback UI nội bộ; không ghép nguyên remote worker của donor.
+ 
+ ## Tải bản Windows x64
+ 
+-- v0.6.1.5 loại bỏ đường auto-click chuột Windows còn lại trong chuỗi giao dịch MAIN/CON; mọi dòng tọa độ dùng generic InputSync hidden action.
+-- Gói runtime: GitHub Actions artifact `ThanLongItemConsolidator-v0.6.1.5-win-x64` từ [run 307](https://github.com/ngmthang-g/TEST-chuc-nang-than-long-2/actions/runs/32427510483).
+-- Source: branch [`codex/v0.6.1.5-hidden-trade-autopath-guard`](https://github.com/ngmthang-g/TEST-chuc-nang-than-long-2/tree/codex/v0.6.1.5-hidden-trade-autopath-guard), tree `b350db03588e2317a2e03e5b706b35ac9c695304`.
+-- Artifact ZIP: `dd21bf0d3f96a4e8b37d623cf5c54beb5a4e8f067033f5fb42f4261596e7988a`; EXE: `6d2bdfd6015ab6a6b9c503a8f3329228d73d556a31f4059a54b3927d39046c51`; DLL: `da1febd514af0951ebcab56de575dfa794f00ee99614157684a456d65faf554c`.
+-- Bản v0.6.1.2 được giữ nguyên để đối chiếu lỗi `geometry=149`.
+-- Bản v0.6.1.1 được giữ nguyên để đối chiếu lỗi runtime.
+-- Bản v0.6.1 gốc vẫn nằm tại [release/ThanLongItemConsolidator-v0.6.1-win-x64.zip](release/ThanLongItemConsolidator-v0.6.1-win-x64.zip) để đối chiếu.
+-- v0.6 cũ được giữ tại [release/ThanLongItemConsolidator-v0.6-win-x64.zip](release/ThanLongItemConsolidator-v0.6-win-x64.zip) để bảo toàn lịch sử, nhưng **không nên dùng để test callback UI**.
+-- Luôn giữ EXE cùng thư mục với `ThanLongCleanRouteBridge.dll`; protocol v0.6.1.5 cố ý từ chối DLL cũ.
+-
