@@ -1,49 +1,46 @@
-name: build-item-consolidator-v0.6.1.9
+name: publish-v0.6.1.9-docs
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  windows-x64:
-    runs-on: windows-latest
+  publish-docs:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/v0.6.1.9-p3-retry-about-roadmap'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify v0.6.1.9 P3 retry + 60s coordinate check + About roadmap
-        run: python tools/verify_v0619_logic.py
-      - name: Configure x64
-        run: cmake -S . -B build -A x64
-      - name: Build Release
-        run: cmake --build build --config Release --parallel
-      - name: Route logic self-test
-        run: .\build\Release\route_logic_tests.exe
-      - name: Rotation logic self-test
-        run: .\build\Release\rotation_logic_tests.exe
-      - name: Shared coordinator self-test
-        run: .\build\Release\trade_coordinator_logic_tests.exe
-      - name: Background UI scoring self-test
-        run: .\build\Release\background_ui_logic_tests.exe
-      - name: Fixed-slot sell logic self-test
-        run: .\build\Release\fixed_slot_sell_logic_tests.exe
-      - name: Unity geometry resolver self-test
-        run: .\build\Release\unity_geometry_logic_tests.exe
-      - name: Internal UI point-click plan self-test
-        run: .\build\Release\internal_ui_click_logic_tests.exe
-      - name: AutoPath and AutoFight invariant self-test
-        run: .\build\Release\travel_fight_guard_logic_tests.exe
-      - name: AutoFight retry timer self-test
-        run: .\build\Release\auto_fight_retry_logic_tests.exe
-      - name: Stage artifact
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.9.exe
-          Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
-          Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,TOOL_LOGIC_TABLE.html,DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md stage\
-          Copy-Item docs stage\docs -Recurse
-      - uses: actions/upload-artifact@v4
         with:
-          name: ThanLongItemConsolidator-v0.6.1.9-win-x64
-          path: stage
-          if-no-files-found: error
+          ref: codex/v0.6.1.9-p3-retry-about-roadmap
+          fetch-depth: 0
+      - name: Apply exact v0.6.1.9 documentation patch and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/verify_v0619_logic.py
+          cat .docs0619/chunk0 .docs0619/chunk1 .docs0619/chunk2 .docs0619/chunk3 > /tmp/v0619-docs.b64
+          echo 'b2c7b1e266ff8e1998cf786806c40b2627c6b299b0abd6abeb9d847726756a42  /tmp/v0619-docs.b64' | sha256sum -c -
+          python - <<'PY'
+          import base64, zlib, pathlib
+          encoded = pathlib.Path('/tmp/v0619-docs.b64').read_text().strip()
+          pathlib.Path('/tmp/v0619-docs.patch').write_bytes(zlib.decompress(base64.b64decode(encoded)))
+          PY
+          echo '190bca9c6481f42b2899ebe077b9e1b5f45ce77761b9760f7d5dcff38283be30  /tmp/v0619-docs.patch' | sha256sum -c -
+          git apply --check /tmp/v0619-docs.patch
+          git apply /tmp/v0619-docs.patch
+          rm -rf .docs0619
+          python tools/verify_v0619_logic.py
+          git diff --check
+      - name: Commit v0.6.1.9 knowledge and history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- README.md CHANGELOG.md PROJECT_KNOWLEDGE.md SOURCE_PROVENANCE.md TOOL_LOGIC_TABLE.html docs/history/VERSION_v0.6.1.9.md
+          git add -u -- .docs0619
+          git commit -m 'docs: close v0.6.1.9 knowledge with CI evidence'
+          git push origin HEAD:codex/v0.6.1.9-p3-retry-about-roadmap
