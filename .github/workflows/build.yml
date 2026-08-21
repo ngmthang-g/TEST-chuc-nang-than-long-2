@@ -1,4 +1,4 @@
-name: build-item-consolidator-v0.6.1.9
+name: build-item-consolidator-v0.6.1.10
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify v0.6.1.9 P3 retry + 60s coordinate check + About roadmap
-        run: python tools/verify_v0619_logic.py
+      - name: Verify v0.6.1.10 About roadmap CRLF bullet layout
+        run: python tools/verify_v06110_logic.py
       - name: Configure x64
         run: cmake -S . -B build -A x64
       - name: Build Release
@@ -38,12 +38,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.9.exe
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.10.exe
           Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
           Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,TOOL_LOGIC_TABLE.html,DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md stage\
           Copy-Item docs stage\docs -Recurse
       - uses: actions/upload-artifact@v4
         with:
-          name: ThanLongItemConsolidator-v0.6.1.9-win-x64
+          name: ThanLongItemConsolidator-v0.6.1.10-win-x64
           path: stage
           if-no-files-found: error
