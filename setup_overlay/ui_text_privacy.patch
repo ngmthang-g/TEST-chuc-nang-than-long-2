@@ -1,0 +1,72 @@
+--- a/src/license_installer.cpp
++++ b/src/license_installer.cpp
+@@ -52,8 +52,7 @@
+             HFONT font = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+             auto addFont = [font](HWND h) { if (h) SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE); };
+             addFont(CreateWindowExW(0, L"STATIC",
+-                L"KÍCH HOẠT THẦN LONG\r\n\r\nNhập KEY được cấp. Setup sẽ tạo bản quyền 30 ngày khóa theo máy. "
+-                L"Xóa/cài lại tool không làm thời hạn quay về 30 ngày.",
++                L"KÍCH HOẠT THẦN LONG\r\n\r\nNhập KEY bản quyền được cấp để tiếp tục.",
+                 WS_CHILD | WS_VISIBLE | SS_LEFT, 22, 18, 500, 76, hwnd, nullptr, nullptr, nullptr));
+             addFont(CreateWindowExW(0, L"STATIC", L"KEY:",
+                 WS_CHILD | WS_VISIBLE | SS_LEFT, 22, 105, 45, 24, hwnd, nullptr, nullptr, nullptr));
+--- a/installer/ThanLongSetup.iss
++++ b/installer/ThanLongSetup.iss
+@@ -64,11 +64,11 @@
+     if ResultCode = 2 then
+       Result := 'Bạn đã hủy kích hoạt KEY. Setup chưa cài tool.'
+     else if ResultCode = 11 then
+-      Result := 'KEY này đã hết 30 ngày trên máy này. Cần dùng KEY mới.'
++      Result := 'KEY đã hết hạn. Vui lòng dùng KEY khác.'
+     else if ResultCode = 12 then
+-      Result := 'Dữ liệu bản quyền hệ thống bị thiếu hoặc không đồng nhất. Setup không tự reset trial.'
++      Result := 'Không thể xác minh bản quyền. Vui lòng liên hệ hỗ trợ.'
+     else if ResultCode = 14 then
+-      Result := 'Phát hiện thời gian hệ thống bị quay lùi. Setup không reset trial.'
++      Result := 'Không thể xác minh bản quyền. Vui lòng kiểm tra thời gian hệ thống hoặc liên hệ hỗ trợ.'
+     else
+       Result := 'Kích hoạt bản quyền không thành công. Mã lỗi: ' + IntToStr(ResultCode) + '.';
+   end;
+--- a/src/controller.cpp
++++ b/src/controller.cpp
+@@ -1187,12 +1187,12 @@
+         message = L"Chưa tìm thấy bản quyền đã cài đặt. Hãy chạy ThanLong_Setup.exe và nhập KEY được cấp.";
+         icon = MB_ICONWARNING;
+     } else if (check.status == thanlong_license::Status::Expired) {
+-        message = L"KEY đã hết hạn 30 ngày trên máy này. Cài lại tool không reset thời hạn; cần dùng KEY mới.";
++        message = L"KEY đã hết hạn. Vui lòng dùng KEY khác.";
+         icon = MB_ICONWARNING;
+     } else if (check.status == thanlong_license::Status::ClockRollback) {
+-        message = L"Phát hiện thời gian hệ thống bị quay lùi. Tool sẽ không chạy để tránh reset trial.";
++        message = L"Không thể xác minh bản quyền. Vui lòng kiểm tra thời gian hệ thống hoặc liên hệ hỗ trợ.";
+     } else if (check.status == thanlong_license::Status::Invalid) {
+-        message = L"Dữ liệu bản quyền trong Windows bị thiếu, thay đổi hoặc không đồng nhất. Cài lại sẽ không tự cấp lại 30 ngày.";
++        message = L"Không thể xác minh bản quyền. Vui lòng liên hệ hỗ trợ.";
+     }
+     MessageBoxW(nullptr, message, L"Thần Long - Bản quyền", MB_OK | icon);
+     return false;
+--- a/src/license_manager.h
++++ b/src/license_manager.h
+@@ -1067,17 +1067,17 @@
+ inline std::wstring InstallResultText(InstallResult result) {
+     switch (result) {
+         case InstallResult::InstalledNew:
+-            return L"Kích hoạt thành công. Thời hạn 30 ngày bắt đầu từ bây giờ.";
++            return L"Kích hoạt bản quyền thành công.";
+         case InstallResult::ExistingValid:
+-            return L"Máy này đã kích hoạt key. Giữ nguyên ngày kích hoạt cũ, không reset trial.";
++            return L"KEY đã được kích hoạt trên thiết bị này.";
+         case InstallResult::InvalidKey:
+             return L"Key không hợp lệ.";
+         case InstallResult::SameKeyExpired:
+-            return L"Key này đã hết 30 ngày trên máy này. Cần dùng key mới.";
++            return L"KEY đã hết hạn. Vui lòng dùng KEY khác.";
+         case InstallResult::Tampered:
+-            return L"Dữ liệu bản quyền hệ thống không đồng nhất hoặc đã bị xóa một phần. Setup sẽ không tự reset trial.";
++            return L"Không thể xác minh dữ liệu bản quyền. Vui lòng liên hệ hỗ trợ.";
+         case InstallResult::ClockRollback:
+-            return L"Phát hiện thời gian hệ thống bị quay lùi. Không thể kích hoạt lại để reset trial.";
++            return L"Không thể xác minh bản quyền. Vui lòng kiểm tra thời gian hệ thống hoặc liên hệ hỗ trợ.";
+         default:
+             return L"Không ghi được dữ liệu bản quyền. Hãy chạy Setup bằng quyền Administrator.";
+     }
