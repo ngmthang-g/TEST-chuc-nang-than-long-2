@@ -29,7 +29,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.9 • ROUTE/M87 CLEAN MAINTENANCE";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.10 • ABOUT ROADMAP FORMAT";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -41,23 +41,30 @@ constexpr DWORD kReadFailLogIntervalMs = 2000;
 constexpr UINT kWindowResponsiveProbeMs = 120;
 constexpr DWORD kTrainPositionCheckMs = 60000;
 constexpr DWORD kAutoFightRecheckMs = 60000;
-constexpr wchar_t kUpcomingFeaturesText[] = LR"TLUPCOMING(Các chức năng/ tính năng của AUTO thần long do Thắng Nguyễn ( ĐỒ LONG )  xây dựng và Phát triển ĐỘC QUYỀN CHƯA TỪNG NƠI NÀO CÓ
-- Các acc được quản lý bởi bộ não ảo thông minh
- 1. Giúp điều phối và giúp đỡ lẫn nhau giữa các acc
- - Ví dụ như acc 1 đang yếu máu thì dù ở cách xa vạn dặm acc 2 nếu là NM  cũng có thể tự động chạy đến buff rồi chạy về
- - Hoặc 1 acc đang train mà bị PK chết quá nhiều lần thì các acc ở các Map khác nhau sẽ cùng chạy về tọa độ acc đó để dọn dẹp rồi tự động về map train bình thường
- - 1 acc đang thiếu đói vàng khóa thì các acc còn lại sẽ cùng train và đem vàng khóa về giao lại cho
- 2. Cùng nhau đi boss tự phân chia nhiệm vụ
- - ví dụ Bộ não sẽ chỉ đạo acc Võ đang tự bế Lý thu thủy khi cần thiết, và lúc nào cần bế. Nếu thấy skill chưa hồi có thể gọi các acc khác cùng đợi khi nào hồi thì cùng vào ăn boss
- - Hoặc đi QTC khi mà sót con quái , các acc tự động bảo nhau đi tìm 6 hướng khác nhau. Khi 1 acc tìm thấy và giết được quái thì sẽ bảo 5 đứa kia để về tọa ăn boss
- 3. Tính năng PK
- - các acc clone đi với nhau sẽ không bao giờ pk lẻ tẻ. chỉ đợi khi các acc tụ đông đủ mới tự động lao vào bãi pk. 1 vòng lặp luân hồi
- 4. Check trạng thái nhân vật theo real time thời gian thực để đưa ra những gợi ý hành động cho các acc.
-5. Bộ não cũng sẽ tự động gửi tin nhắn về điện thoại thông báo tình hình acc khỏe hay yếu , buồn hay vui , để bạn kịp thời để ý
-Đủ các loại auto mà bạn chưa từng nghĩ tới và chính mình cũng chưa từng nghĩ tới
-Tất cả các hành động đều dựa theo bộ não điều khiển, không hành động như robot mà scrip từng làm .
-Rất nhiều tình năng sắp ra mắt. hihi
-)TLUPCOMING";
+constexpr wchar_t kUpcomingFeaturesText[] =
+    L"Các chức năng/ tính năng của AUTO thần long do Thắng Nguyễn ( ĐỒ LONG )  xây dựng và Phát triển ĐỘC QUYỀN CHƯA TỪNG NƠI NÀO CÓ\r\n"
+    L"\r\n"
+    L"- Các acc được quản lý bởi bộ não ảo thông minh\r\n"
+    L"\r\n"
+    L"1. Giúp điều phối và giúp đỡ lẫn nhau giữa các acc\r\n"
+    L"  - Ví dụ như acc 1 đang yếu máu thì dù ở cách xa vạn dặm acc 2 nếu là NM  cũng có thể tự động chạy đến buff rồi chạy về\r\n"
+    L"  - Hoặc 1 acc đang train mà bị PK chết quá nhiều lần thì các acc ở các Map khác nhau sẽ cùng chạy về tọa độ acc đó để dọn dẹp rồi tự động về map train bình thường\r\n"
+    L"  - 1 acc đang thiếu đói vàng khóa thì các acc còn lại sẽ cùng train và đem vàng khóa về giao lại cho\r\n"
+    L"\r\n"
+    L"2. Cùng nhau đi boss tự phân chia nhiệm vụ\r\n"
+    L"  - ví dụ Bộ não sẽ chỉ đạo acc Võ đang tự bế Lý thu thủy khi cần thiết, và lúc nào cần bế. Nếu thấy skill chưa hồi có thể gọi các acc khác cùng đợi khi nào hồi thì cùng vào ăn boss\r\n"
+    L"  - Hoặc đi QTC khi mà sót con quái , các acc tự động bảo nhau đi tìm 6 hướng khác nhau. Khi 1 acc tìm thấy và giết được quái thì sẽ bảo 5 đứa kia để về tọa ăn boss\r\n"
+    L"\r\n"
+    L"3. Tính năng PK\r\n"
+    L"  - các acc clone đi với nhau sẽ không bao giờ pk lẻ tẻ. chỉ đợi khi các acc tụ đông đủ mới tự động lao vào bãi pk. 1 vòng lặp luân hồi\r\n"
+    L"\r\n"
+    L"4. Check trạng thái nhân vật theo real time thời gian thực để đưa ra những gợi ý hành động cho các acc.\r\n"
+    L"\r\n"
+    L"5. Bộ não cũng sẽ tự động gửi tin nhắn về điện thoại thông báo tình hình acc khỏe hay yếu , buồn hay vui , để bạn kịp thời để ý\r\n"
+    L"\r\n"
+    L"Đủ các loại auto mà bạn chưa từng nghĩ tới và chính mình cũng chưa từng nghĩ tới\r\n"
+    L"Tất cả các hành động đều dựa theo bộ não điều khiển, không hành động như robot mà scrip từng làm .\r\n"
+    L"Rất nhiều tình năng sắp ra mắt. hihi";
 constexpr DWORD kMountRetryWaitMs = 5000;
 constexpr DWORD kFootWalkMaxMs = 15000;
 constexpr DWORD kMountFightBoostMs = 10000;
@@ -1415,7 +1422,7 @@ private:
                               SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 55, 112, 950, 46, 0);
         HWND aboutUpcoming = Make(L"STATIC", L"CÁC TÍNH NĂNG SẮP RA MẮT",
                                   SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 55, 170, 950, 66, 0);
-        HWND aboutVersion = Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.9",
+        HWND aboutVersion = Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.10",
                                  SS_CENTER | SS_CENTERIMAGE, 55, 242, 950, 28, 0);
         HWND aboutBody = Make(L"EDIT", kUpcomingFeaturesText,
                               WS_BORDER | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL,
