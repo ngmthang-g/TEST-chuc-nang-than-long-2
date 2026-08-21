@@ -24,7 +24,7 @@ jobs:
           encoded = pathlib.Path('.v0618/patch.b64').read_text().strip()
           pathlib.Path('/tmp/v0618.patch').write_bytes(zlib.decompress(base64.b64decode(encoded)))
           PY
-          echo 'bba19aebae734f2191514a1aec86147937e31f9d4d687c85a212281876441cc4  /tmp/v0618.patch' | sha256sum -c -
+          echo 'f275f1816ca94b176473738f8d620fba9d19fc4774555aa42cfaa8ef44ddb5ed  /tmp/v0618.patch' | sha256sum -c -
           git apply --check /tmp/v0618.patch
           git apply /tmp/v0618.patch
           rm -f .v0618/patch.b64
@@ -37,8 +37,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- CHANGELOG.md CMakeLists.txt PROJECT_KNOWLEDGE.md README.md SOURCE_PROVENANCE.md TOOL_LOGIC_TABLE.html VERSION.txt docs/history/VERSION_v0.6.1.7.md docs/history/VERSION_v0.6.1.8.md resources/app.rc src/controller.cpp src/protocol.h src/travel_fight_guard_logic.h src/travel_fight_guard_logic_test.cpp tools/verify_v0618_logic.py
-          git rm --cached --ignore-unmatch .v0618/patch.b64 || true
+          git add -- CMakeLists.txt VERSION.txt docs/history/VERSION_v0.6.1.8.md resources/app.rc src/controller.cpp src/protocol.h src/travel_fight_guard_logic.h src/travel_fight_guard_logic_test.cpp tools/verify_v0618_logic.py
           git add -u -- .v0618/patch.b64
           git commit -m 'refactor: finalize v0.6.1.8 route M87 dead-code maintenance'
           git push origin HEAD:codex/v0.6.1.8-route-m87-deadcode-clean
