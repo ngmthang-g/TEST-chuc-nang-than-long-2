@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Decode candidate
+      - name: Decode payloads
         shell: pwsh
         run: |
           $p='clean_source\minbuild_fixed.payload'
@@ -29,12 +29,19 @@ jobs:
             [IO.File]::WriteAllBytes('candidate.zip',[Convert]::FromBase64String($text))
           }
           (Get-FileHash candidate.zip -Algorithm SHA256).Hash.ToLower() | Set-Content candidate.sha256
+
+          $parts=Get-ChildItem source\payload.part* | Sort-Object Name
+          $b64=(($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
+          [IO.File]::WriteAllBytes('oldsplit.zip',[Convert]::FromBase64String($b64))
+          (Get-FileHash oldsplit.zip -Algorithm SHA256).Hash.ToLower() | Set-Content oldsplit.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: current-candidate-payload
           path: |
             candidate.zip
             candidate.sha256
+            oldsplit.zip
+            oldsplit.sha256
       - name: Publish run id
         shell: pwsh
         run: |
