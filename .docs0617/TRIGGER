@@ -1,0 +1,1 @@
+trigger publisher after ci/v0617-publish-base workflow update
