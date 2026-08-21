@@ -1,0 +1,98 @@
++<tr class="new"><td>Trade</td><td>Trade Workflow Lock</td><td>MAIN + active CON đã tới tọa GD</td><td>Khóa thứ tự transaction MAIN↔CON; mỗi step/group/repeat phát một InputSync point action</td><td>Không phải input lease; PID ngoài cặp không bị chặn</td><td>BUSINESS LOCK</td><td>v0.6.1.6</td></tr>
+ <tr><td>Trade</td><td>Đánh giá pass</td><td>Sau FreeBagSpace ổn định</td><td>receivedSlots ≤8 hoàn tất CON; ≥9 tiếp tục</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
+ <tr><td>Rotation</td><td>Đổi bãi theo chết</td><td>Quá ngưỡng chết/window</td><td>Chuyển bãi kế tiếp</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
+ <tr><td>Rotation</td><td>Đổi bãi theo hiệu suất</td><td>Train N phút chưa full</td><td>Chuyển bãi kế tiếp</td><td>Không đổi</td><td>Giữ nguyên</td><td>cũ</td></tr>
+ <tr><td>Hotkey</td><td>F4</td><td>Người dùng pause/resume</td><td>Pause toàn auto theo hành vi cũ</td><td>User Mouse Guard đã xóa; F4 là pause chủ động duy nhất</td><td>Giữ nguyên</td><td>cũ/v0.6.1.5</td></tr>
+ <tr><td>Hotkey</td><td>F8 / GET tọa</td><td>Capture tọa click</td><td>AUTO/ĐÁNH QUÁI/DỪNG dùng active; XN/revive giữ tương thích; item dùng dòng macro riêng</td><td>Nút TEST phát từng điểm nội bộ</td><td>ACTIVE P3</td><td>v0.6.1.4</td></tr>
+-<tr><td>Recorder</td><td>Sell/Trade recorder</td><td>REC</td><td>Recording vẫn là chế độ cấu hình khóa auto action để ghi thao tác tay chính xác</td><td>Đây là intentional global pause riêng, không phải click-lease runtime</td><td>Giữ nguyên</td><td>cũ</td></tr>
++<tr class="new"><td>Recorder</td><td>Scoped Sell/Trade recorder</td><td>REC</td><td>Sell chặn PID đang REC; TradeChild chặn CON+MAIN; TradeMain chặn MAIN</td><td>Acc không liên quan tiếp tục auto</td><td>SCOPE PER WORKFLOW</td><td>v0.6.1.6</td></tr>
+ <tr><td>Profile</td><td>RoleID profile / INI</td><td>Identity/config</td><td>Lưu điểm Confirm như trước; không còn đọc/ghi ConfirmIntervalSec</td><td>Legacy INI key nếu còn trên đĩa bị bỏ qua</td><td>CẬP NHẬT</td><td>v0.4</td></tr>
+ <tr class="removed"><td>ĐÃ LOẠI</td><td>XN ra Map mỗi N giây</td><td>Timer interval</td><td>Không còn runtime, UI interval, config field hay scheduler pass</td><td>Được thay bởi M5 stall watchdog</td><td>LOẠI HOÀN TOÀN</td><td>v0.4</td></tr>
+ <tr class="removed"><td>ĐÃ LOẠI</td><td>Background XN PostMessage</td><td>M5 stall watchdog v0.4</td><td>Không còn active; P1 hiện dùng semantic MessageBox callback nội bộ</td><td>Historical v0.4/v0.5 chỉ để truy vết</td><td>LOẠI HOÀN TOÀN</td><td>v0.6</td></tr>
+ </tbody></table>
+-<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime:</b> v0.6.1.3 item 90 click đã được user xác nhận RUNTIME PASS. v0.6.1.5 AUTO/trade/invariant đang RUNTIME UNTESTED; source không còn automatic Windows-mouse injection.</p></div>
++<div class="box"><p><b>Audit rule:</b> mỗi version sau phải cập nhật file này, thêm yêu cầu/giải pháp/xung đột và đánh dấu logic bị thay/xóa.</p><p><b>Lưu ý runtime:</b> v0.6.1.3 item 90 click đã được user xác nhận RUNTIME PASS. v0.6.1.6 cleanup + Mount/StartPath guard hiện SOURCE/PURE-TEST PASS; Windows CI và live runtime đang chờ bằng chứng.</p></div>
+ </body></html>
+--- a/VERSION.txt	2026-08-20 23:14:54.000000000 +0000
++++ b/VERSION.txt	2026-08-21 01:32:31.012397701 +0000
+@@ -1 +1 @@
+-v0.6.1.5
++v0.6.1.6
+--- a/docs/bugs/BUG_REGISTRY.md	2026-08-20 23:14:54.000000000 +0000
++++ b/docs/bugs/BUG_REGISTRY.md	2026-08-21 01:36:19.115792968 +0000
+@@ -1,5 +1,33 @@
+ # BUG REGISTRY
+ 
++## BUG-009 — Legacy global hidden-action coupling survives after mouse-free transport
++
++- Status: FIXED-IN-SOURCE / BUILD + RUNTIME PENDING
++- Severity: High multi-client isolation
++- First observed: architecture review of v0.6.1.5
++- Related features: SELL, trade, REC, P1/P2/P3 scheduler
++- Evidence: EVID-013
++
++### Root cause and fix
++
++v0.6.1.5 removed Windows mouse injection but retained coordinator busy/owner/sequence/recording concepts inherited from a shared physical input resource. v0.6.1.6 removes global input ownership, scopes recorder state, removes SELL→trade blocking, makes priority local per account and retains only a business Trade Workflow Lock for the active MAIN↔CON transaction.
++
++## BUG-008 — First Mount can bypass the AutoFight-OFF Travel Guard
++
++- Status: FIXED-IN-SOURCE / BUILD + RUNTIME PENDING
++- Severity: Critical movement invariant
++- First observed: source review of v0.6.1.5
++- Related feature: robust travel / mount recovery
++- Evidence: EVID-013
++
++### Root cause
++
++The central `SendDecision` path guarded `Action::StartPath`, while the first `Action::Mount` attempt could call the ride action directly. A later retry branch happened to stop AutoFight before remounting, but this did not establish a universal Mount invariant.
++
++### Fix in v0.6.1.6
++
++The central action gate now handles `Action::Mount || Action::StartPath` identically: conflict latch must be clear and `EnsureAutoFightOffForTravel` must prove a fresh authoritative AutoFight OFF snapshot before either movement action can dispatch.
++
+ ## BUG-007 — AutoPath can be observed together with AutoFight
+ 
+ - Status: FIXED-IN-SOURCE / RUNTIME UNTESTED
+--- a/docs/decisions/DECISIONS.md	2026-08-20 23:14:54.000000000 +0000
++++ b/docs/decisions/DECISIONS.md	2026-08-21 01:36:19.115681593 +0000
+@@ -1,5 +1,26 @@
+ # DECISION REGISTRY
+ 
++## DEC-007 — Per-client action ownership and one common movement gate
++
++- Date/version: 2026-08-21 / v0.6.1.6
++- Status: ACTIVE / BUILD + RUNTIME PENDING
++- Decision: remove global input ownership between clients; retain only locks that protect business state inside a client or active MAIN↔CON transaction. Both Mount and StartPath must pass the same authoritative AutoFight-OFF guard.
++
++### Why
++
++Internal InputSync actions target a specific client and do not consume a shared Windows cursor, so a global input lease creates needless coupling. However, transaction order, recorder scope and one-client UI mutation are still real correctness constraints. The first Mount path also exposed a gap: StartPath was guarded while Mount itself could be sent before AutoFight was proven OFF.
++
++### Constraints
++
++- No global hidden-action busy/owner state.
++- Trade Workflow Lock is business-only and cannot block an unrelated PID's point action.
++- SELL on one PID cannot globally pause trade on another PID.
++- Recorder blocks only the PID/pair whose manual coordinates are being captured.
++- Evaluate P1→P2→P3 independently per account.
++- Fan out read-only Bridge snapshot polling per PID, but keep UI/profile-mutating FSM work on the controller thread until it is explicitly redesigned for thread safety.
++- Both `Action::Mount` and `Action::StartPath` call the same `EnsureAutoFightOffForTravel`; do not duplicate or weaken the two-stop/reset loop.
++- Client Freeze and F4 remain valid global/safety behavior and are not removed merely because mouse serialization disappeared.
++
+ ## DEC-006 — Use one hidden point transport and one fail-closed route invariant
+ 
+ - Date/version: 2026-08-21 / v0.6.1.5
+--- a/docs/evidence/EVIDENCE_REGISTRY.md	2026-08-20 23:14:54.000000000 +0000
++++ b/docs/evidence/EVIDENCE_REGISTRY.md	2026-08-21 01:36:19.115903081 +0000
+@@ -1,5 +1,32 @@
+ # EVIDENCE REGISTRY
+ 
++## EVID-013 — v0.6.1.6 cleanup approval and Mount guard source audit
++
++- Type: USER EXPLICIT REQUIREMENT + SOURCE AUDIT + LOCAL PURE TESTS
++- Date/version: 2026-08-21 / v0.6.1.6
++- Confidence: High for requested architecture and checked source properties; no live-client claim
++
++### Observation
++
