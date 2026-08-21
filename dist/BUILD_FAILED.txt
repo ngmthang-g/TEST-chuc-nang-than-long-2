@@ -1,4 +1,4 @@
 FAILED
-built_from=8775927bacb5d98d9823a63208872e9d7694a241
-failed_utc=2026-08-21T09:17:10.9908434Z
-error=verify_license_ui.py failed: 1 :: FAIL: startup license gate not wired
+built_from=82d7f62631aec3822664b5f2d3a65988e04495c1
+failed_utc=2026-08-21T09:18:53.0600964Z
+error=Cannot locate wWinMain App startup block for license-gate repair
