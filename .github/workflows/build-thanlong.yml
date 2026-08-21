@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'dist/**'
+      - 'overlay/**'
   workflow_dispatch:
 
 permissions:
@@ -46,18 +47,29 @@ jobs:
             try {
               $controllerPath = Join-Path $PWD 'src\controller.cpp'
               $rawController = [IO.File]::ReadAllBytes($controllerPath)
-              $utf8 = New-Object System.Text.UTF8Encoding($false, $false)
-              $controllerText = $utf8.GetString($rawController)
+              $utf8Loose = New-Object System.Text.UTF8Encoding($false, $false)
+              $controllerText = $utf8Loose.GetString($rawController)
+
               if ($controllerText -notmatch 'RequireValidLicense') {
-                $old = "    EnableDpiAwareness();`r`n    App app;"
-                if (-not $controllerText.Contains($old)) {
-                  $old = "    EnableDpiAwareness();`n    App app;"
-                }
-                if (-not $controllerText.Contains($old)) { throw 'Cannot locate wWinMain App startup block for license-gate repair' }
-                $new = "    EnableDpiAwareness();`r`n    thanlong_license::Session licenseSession{};`r`n    if (!thanlong_license::RequireValidLicense(instance, licenseSession)) return 10;`r`n    App app;`r`n    app.SetLicenseSession(licenseSession);"
-                $controllerText = $controllerText.Replace($old, $new)
-                Write-Host 'Restored startup RequireValidLicense wiring from approved source patch.'
+                $sig = 'int\s+WINAPI\s+wWinMain\s*\([^\)]*\)\s*\{'
+                $m = [regex]::Match($controllerText, $sig)
+                if (-not $m.Success) { throw 'Cannot locate wWinMain signature for license-gate repair' }
+                $tailStart = $m.Index + $m.Length
+                $tail = $controllerText.Substring($tailStart)
+                $dpi = [regex]::Match($tail, 'EnableDpiAwareness\s*\(\s*\)\s*;')
+                if (-not $dpi.Success) { throw 'Cannot locate EnableDpiAwareness inside wWinMain' }
+                $insertAt = $tailStart + $dpi.Index + $dpi.Length
+                $licenseLines = "`r`n    thanlong_license::Session licenseSession{};`r`n    if (!thanlong_license::RequireValidLicense(instance, licenseSession)) return 10;"
+                $controllerText = $controllerText.Insert($insertAt, $licenseLines)
+
+                $after = $controllerText.Substring($insertAt + $licenseLines.Length)
+                $appMatch = [regex]::Match($after, 'App\s+app\s*;')
+                if (-not $appMatch.Success) { throw 'Cannot locate App app declaration inside wWinMain' }
+                $appEnd = $insertAt + $licenseLines.Length + $appMatch.Index + $appMatch.Length
+                $controllerText = $controllerText.Insert($appEnd, "`r`n    app.SetLicenseSession(licenseSession);")
+                Write-Host 'Restored startup RequireValidLicense wiring.'
               }
+
               [IO.File]::WriteAllText($controllerPath, $controllerText, (New-Object System.Text.UTF8Encoding($false)))
 
               $verifyOut = & python tools\verify_license_ui.py 2>&1
@@ -65,10 +77,15 @@ jobs:
               $verifyOut | Tee-Object -FilePath '..\dist\VERIFY_LICENSE_UI.txt' | Write-Host
               if ($verifyCode -ne 0) { throw "verify_license_ui.py failed: $verifyCode :: $($verifyOut -join ' | ')" }
 
-              cmake -S . -B build -A x64
-              if ($LASTEXITCODE -ne 0) { throw "CMake configure failed: $LASTEXITCODE" }
-              cmake --build build --config Release --parallel
-              if ($LASTEXITCODE -ne 0) { throw "Release build failed: $LASTEXITCODE" }
+              $configureOut = & cmake -S . -B build -A x64 2>&1
+              $configureCode = $LASTEXITCODE
+              $configureOut | Tee-Object -FilePath '..\dist\CMAKE_CONFIGURE.txt' | Write-Host
+              if ($configureCode -ne 0) { throw "CMake configure failed: $configureCode" }
+
+              $buildOut = & cmake --build build --config Release --parallel 2>&1
+              $buildCode = $LASTEXITCODE
+              $buildOut | Tee-Object -FilePath '..\dist\CMAKE_BUILD.txt' | Write-Host
+              if ($buildCode -ne 0) { throw "Release build failed: $buildCode" }
 
               $tests = @(
                 'route_logic_tests.exe',
@@ -81,10 +98,18 @@ jobs:
                 'travel_fight_guard_logic_tests.exe',
                 'auto_fight_retry_logic_tests.exe'
               )
+              $testLog = @()
               foreach ($t in $tests) {
-                & ".\build\Release\$t"
-                if ($LASTEXITCODE -ne 0) { throw "$t failed: $LASTEXITCODE" }
+                $out = & ".\build\Release\$t" 2>&1
+                $code = $LASTEXITCODE
+                $testLog += "==== $t (exit=$code) ===="
+                $testLog += $out
+                if ($code -ne 0) {
+                  $testLog | Set-Content '..\dist\LOGIC_TESTS.txt' -Encoding UTF8
+                  throw "$t failed: $code"
+                }
               }
+              $testLog | Set-Content '..\dist\LOGIC_TESTS.txt' -Encoding UTF8
 
               New-Item -ItemType Directory -Force stage | Out-Null
               Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.10.exe
@@ -110,6 +135,7 @@ jobs:
               "source_payload_sha256=$actual",
               "exe_sha256=$exeHash",
               "built_from=$env:GITHUB_SHA",
+              "run_id=$env:GITHUB_RUN_ID",
               "built_utc=$([DateTime]::UtcNow.ToString('o'))"
             ) | Set-Content "$statusDir\BUILD_STATUS.txt" -Encoding UTF8
           }
@@ -117,6 +143,7 @@ jobs:
             @(
               'FAILED',
               "built_from=$env:GITHUB_SHA",
+              "run_id=$env:GITHUB_RUN_ID",
               "failed_utc=$([DateTime]::UtcNow.ToString('o'))",
               "error=$($_.Exception.Message)"
             ) | Set-Content "$statusDir\BUILD_FAILED.txt" -Encoding UTF8
