@@ -1,5 +1,0 @@
-FAILED
-built_from=3b5ef08fd11fc4e2a36747561ec710f6ef7cd9a6
-run_id=32514742567
-failed_utc=2026-08-21T18:43:04.1686563Z
-error=Could not find a part of the path 'D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\tools\verify_setup_license.py'.

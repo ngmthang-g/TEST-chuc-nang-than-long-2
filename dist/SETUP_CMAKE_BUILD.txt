@@ -10,10 +10,10 @@ MSBuild version 18.9.1+a81b43525 for .NET Framework
   background_ui_logic_test.cpp
   auto_fight_retry_logic_test.cpp
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
-cl : command line  warning D9025: overriding '/Ob2' with '/Ob3' [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongLicenseTool.vcxproj]
-  license_installer.cpp
 cl : command line  warning D9025: overriding '/Ob2' with '/Ob3' [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongItemConsolidator.vcxproj]
   controller.cpp
+cl : command line  warning D9025: overriding '/Ob2' with '/Ob3' [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongLicenseTool.vcxproj]
+  license_installer.cpp
   fixed_slot_sell_logic_test.cpp
   fixed_slot_sell_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\fixed_slot_sell_logic_tests.exe
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
@@ -23,12 +23,12 @@ D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\src\auto_fight
   background_ui_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\background_ui_logic_tests.exe
   auto_fight_retry_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\auto_fight_retry_logic_tests.exe
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
-  rotation_logic_test.cpp
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
-  internal_ui_click_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\internal_ui_click_logic_tests.exe
+  rotation_logic_test.cpp
   route_logic_test.cpp
-  Generating code
+  internal_ui_click_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\internal_ui_click_logic_tests.exe
   route_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\route_logic_tests.exe
+  Generating code
 D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\src\controller.cpp(4166,64): warning C4245: 'argument': conversion from 'int' to 'WPARAM', signed/unsigned mismatch [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongItemConsolidator.vcxproj]
 D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\src\controller.cpp(5659,53): warning C4100: 'now': unreferenced parameter [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongItemConsolidator.vcxproj]
 D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\src\controller.cpp(5866,47): warning C4100: 'now': unreferenced parameter [D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\ThanLongItemConsolidator.vcxproj]
@@ -37,17 +37,17 @@ D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\src\controller
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
   Building Custom Rule D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/source/CMakeLists.txt
   travel_fight_guard_logic_test.cpp
-  trade_coordinator_logic_test.cpp
-     Creating library D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongCleanRouteBridge.lib and object D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongCleanRouteBridge.exp
   unity_geometry_logic_test.cpp
-  ThanLongCleanRouteBridge.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\ThanLongCleanRouteBridge.dll
+     Creating library D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongCleanRouteBridge.lib and object D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongCleanRouteBridge.exp
   rotation_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\rotation_logic_tests.exe
-     Creating library D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongItemConsolidator.lib and object D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongItemConsolidator.exp
-  Generating code
+  Finished generating code
+  ThanLongCleanRouteBridge.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\ThanLongCleanRouteBridge.dll
+  trade_coordinator_logic_test.cpp
   travel_fight_guard_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\travel_fight_guard_logic_tests.exe
   unity_geometry_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\unity_geometry_logic_tests.exe
-  Finished generating code
   ThanLongLicenseTool.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\ThanLongLicenseTool.exe
+     Creating library D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongItemConsolidator.lib and object D:/a/TEST-chuc-nang-than-long-2/TEST-chuc-nang-than-long-2/build/Release/ThanLongItemConsolidator.exp
+  Generating code
   trade_coordinator_logic_tests.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\trade_coordinator_logic_tests.exe
   Finished generating code
   ThanLongItemConsolidator.vcxproj -> D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\build\Release\ThanLongItemConsolidator.exe
