@@ -27,8 +27,7 @@ jobs:
           echo 'f275f1816ca94b176473738f8d620fba9d19fc4774555aa42cfaa8ef44ddb5ed  /tmp/v0618.patch' | sha256sum -c -
           git apply --check /tmp/v0618.patch
           git apply /tmp/v0618.patch
-          rm -f .v0618/patch.b64
-          rmdir .v0618
+          rm -rf .v0618
           python tools/verify_v0618_logic.py
           git diff --check
       - name: Commit clean v0.6.1.8 source tree
@@ -38,6 +37,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- CMakeLists.txt VERSION.txt docs/history/VERSION_v0.6.1.8.md resources/app.rc src/controller.cpp src/protocol.h src/travel_fight_guard_logic.h src/travel_fight_guard_logic_test.cpp tools/verify_v0618_logic.py
-          git add -u -- .v0618/patch.b64
+          git add -u -- .v0618
           git commit -m 'refactor: finalize v0.6.1.8 route M87 dead-code maintenance'
           git push origin HEAD:codex/v0.6.1.8-route-m87-deadcode-clean
