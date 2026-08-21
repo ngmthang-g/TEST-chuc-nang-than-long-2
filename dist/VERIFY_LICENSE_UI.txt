@@ -1,15 +1,1 @@
-Traceback (most recent call last):
-  File "D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\work\tools\verify_license_ui.py", line 12, in <module>
-    c = read('src/controller.cpp')
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\work\tools\verify_license_ui.py", line 6, in read
-    return (ROOT / name).read_text(encoding='utf-8-sig')
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\pathlib.py", line 1028, in read_text
-    return f.read()
-           ^^^^^^^^
-  File "<frozen codecs>", line 322, in decode
-  File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\encodings\utf_8_sig.py", line 69, in _buffer_decode
-    return codecs.utf_8_decode(input, errors, final)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-UnicodeDecodeError: 'utf-8' codec can't decode byte 0x92 in position 84780: invalid start byte
+FAIL: startup license gate not wired
