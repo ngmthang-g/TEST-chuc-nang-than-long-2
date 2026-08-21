@@ -3,10 +3,12 @@ name: Build Than Long v0.6.1.12 Setup License
 on:
   push:
     branches: [ build/v0.6.1.12-setup-license ]
+    paths-ignore:
+      - 'setup_build/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: thanlong-v06112-setup-license
@@ -104,9 +106,7 @@ jobs:
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            choco install innosetup -y --no-progress
-          }
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe not found after install' }
           Write-Host "ISCC=$iscc"
 
@@ -147,3 +147,24 @@ jobs:
           name: ThanLong-v0.6.1.12-Setup-License-Win64
           path: artifact/*
           if-no-files-found: error
+
+      - name: Publish run status to branch
+        if: always()
+        shell: pwsh
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          New-Item -ItemType Directory -Force setup_build | Out-Null
+          @(
+            "status=$env:JOB_STATUS",
+            "run_id=$env:GITHUB_RUN_ID",
+            "commit=$env:GITHUB_SHA",
+            "updated_utc=$([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content setup_build\BUILD_STATUS.txt -Encoding UTF8
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add setup_build\BUILD_STATUS.txt
+          if (-not (git diff --cached --quiet)) {
+            git commit -m 'Publish v0.6.1.12 setup build status [skip ci]'
+            git push origin HEAD:build/v0.6.1.12-setup-license
+          }
