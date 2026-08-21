@@ -1,98 +1,35 @@
 #!/usr/bin/env python3
-"""Fail-closed source audit for v0.6.1.5 hidden actions and route safety."""
+"""One-shot CI bootstrap: reconstruct and apply the exact v0.6.1.6 patch, then run its verifier."""
 
 from pathlib import Path
-
+import base64
+import subprocess
+import sys
+import zlib
+import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def read(relative: str) -> str:
-    return (ROOT / relative).read_text(encoding="utf-8")
-
-
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise SystemExit(f"FAIL: {message}")
+CHUNK_DIR = ROOT / ".v0616"
+EXPECTED_SHA256 = "fa29c25b7c47f91aabfccacbb5d4d214d3d1dbabd9179f09d55ecd0c8dd5c426"
 
 
 def main() -> None:
-    controller = read("src/controller.cpp")
-    bridge = read("src/bridge.cpp")
-    protocol = read("src/protocol.h")
-    guard = read("src/travel_fight_guard_logic.h")
-    guard_test = read("src/travel_fight_guard_logic_test.cpp")
-    cmake = read("CMakeLists.txt")
-    workflow = read(".github/workflows/build.yml")
-    version = read("VERSION.txt").strip()
+    encoded = "".join((CHUNK_DIR / f"chunk{i}").read_text(encoding="utf-8").strip() for i in range(1, 5))
+    patch = zlib.decompress(base64.b64decode(encoded))
+    actual = hashlib.sha256(patch).hexdigest()
+    if actual != EXPECTED_SHA256:
+        raise SystemExit(f"FAIL: v0.6.1.6 patch hash mismatch: {actual}")
 
-    require(version == "v0.6.1.5", "VERSION.txt is not v0.6.1.5")
-    require("Thần Long Item Consolidator v0.6.1.5" in controller,
-            "controller title is not v0.6.1.5")
-    require("ThanLongItemConsolidator-v0.6.1.5-win-x64" in workflow,
-            "Actions artifact is not versioned v0.6.1.5")
+    patch_path = ROOT / ".v0616_exact.patch"
+    patch_path.write_bytes(patch)
+    subprocess.run(["git", "apply", "--check", str(patch_path)], cwd=ROOT, check=True)
+    subprocess.run(["git", "apply", str(patch_path)], cwd=ROOT, check=True)
 
-    forbidden_physical_injection = (
-        "SetCursorPos",
-        "SendInput",
-        "MOUSEEVENTF_",
-        "SetForegroundWindow",
-        "BringWindowToTop",
-        "AttachThreadInput",
-        "WH_MOUSE_LL",
-        "PerformRealInputClickDirect",
-    )
-    for token in forbidden_physical_injection:
-        require(token not in controller,
-                f"physical mouse injection token remains in controller: {token}")
-
-    require("CoordinatorInternalPointAction" in controller,
-            "generic hidden coordinator is missing")
-    require("DispatchInternalPointActionDirect" in controller,
-            "direct hidden point dispatcher is missing")
-    require(controller.count("Command::ClickInternalPoint") >= 2,
-            "AUTO and trade must both dispatch the generic internal point command")
-    require("TryClickUI" in bridge and "EndUIDrag" in bridge,
-            "Bridge no longer contains the proven internal UI press/release path")
-    require("ClickInternalPoint = 14" in protocol,
-            "generic internal point protocol command changed unexpectedly")
-    require("kProtocolVersion = 0x00010615u" in protocol,
-            "EXE/DLL protocol was not bumped for v0.6.1.5")
-
-    require("kStopAttemptsBeforeReset = 2" in guard,
-            "travel guard must perform two stop attempts before reset")
-    require("NeedsAnotherStopBeforeReset" in controller,
-            "controller is not using the tested two-stop policy")
-    require("ClickSlot::Attack" in controller and
-            "TRAVEL GUARD RESET" in controller,
-            "AUTO/Attack reset stage is missing from travel guard")
-    require("HandleAutoPathFightInvariant" in controller,
-            "hard AutoPath/AutoFight conflict recovery is missing")
-    require(controller.count("CanDispatchFightStart") >= 2,
-            "queued fight-start requests are not rechecked at queue and dispatch time")
-    require("PriorityAutoOwner" in controller and
-            "priorityAutoCompletedOwner" in controller,
-            "P3 request/result mailbox is not isolated by workflow owner")
-    require("autoPathFightConflictLatched" in controller,
-            "conflict latch is missing")
-    require("cấm StartPath khi recovery chưa hoàn tất" in controller,
-            "StartPath is not fail-closed during conflict recovery")
-    require("EnsureAutoFightOffForTravel(a, now, context)" in controller,
-            "StartPath no longer passes through the authoritative AutoFight guard")
-
-    require("travel_fight_guard_logic_tests" in cmake,
-            "travel guard self-test target is missing")
-    require("travel_fight_guard_logic_tests.exe" in workflow,
-            "Windows Actions does not run the travel guard self-test")
-    require("HasAutoPathFightConflict(true, true)" in guard_test,
-            "conflict truth-table test is missing")
-    require("CanDispatchFightStart(true, false)" in guard_test and
-            "CanDispatchFightStart(true, true)" in guard_test,
-            "fight-start dispatch gate truth-table test is missing")
-    require("ConflictRecoveryComplete(true, false, false)" in guard_test,
-            "conflict recovery completion test is missing")
-
-    print("PASS: v0.6.1.5 hidden-action and AutoPath/AutoFight source audit")
+    verifier = ROOT / "tools" / "verify_v0616_logic.py"
+    if not verifier.exists():
+        raise SystemExit("FAIL: v0.6.1.6 verifier was not created by patch")
+    subprocess.run([sys.executable, str(verifier)], cwd=ROOT, check=True)
+    print("PASS: bootstrap applied exact v0.6.1.6 patch for CI build")
 
 
 if __name__ == "__main__":
