@@ -1,0 +1,65 @@
+-v0.6.1.3 Windows CI run 306 đã PASS và người dùng xác nhận luồng item chạy đủ 90 click cực kỳ thành công. v0.6.1.5 Windows MSVC x64 run 307 đã PASS verifier, build và đủ tám nhóm self-test; live trade/AUTO vẫn **RUNTIME UNTESTED** cho tới khi chạy đúng cặp EXE/DLL trên client thật.
++- v0.6.1.6 clean kiến trúc runtime còn sót từ thời click chiếm chuột: không còn hidden-action slot/owner toàn cục, SELL PID khác không khóa Trade, REC chỉ chặn đúng PID hoặc đúng cặp MAIN↔CON đang cấu hình.
++- `P1 → P2 → P3` được xét theo từng client; các PID không còn nhường nhau vì tài nguyên input chung.
++- Snapshot/Bridge `ReadState` được fan-out đồng thời theo PID để tránh độ trễ kiểu `N × timeout`; mutation FSM vẫn ở controller thread để không tạo race với UI/profile.
++- **Mọi `Mount` và mọi `StartPath` đều dùng cùng Travel Guard:** AutoFight phải OFF có bằng chứng; DỪNG #1 → DỪNG #2 → nếu vẫn ON thì AUTO→ĐÁNH QUÁI reset một lần → lặp.
++- Source branch: `codex/v0.6.1.6-independent-clients-mount-guard`. Protocol EXE/DLL: `0x00010616`; không trộn DLL từ version khác.
++- Build Windows x64 và live-client v0.6.1.6 chỉ được coi là PASS sau khi có CI/runtime evidence tương ứng.
++
++## Independent clients + common movement guard v0.6.1.6
++
++- Generic hidden point action chỉ khóa **client đích** theo trạng thái recorder của chính workflow; nó không nhìn trade lock và không sở hữu chuột Windows.
++- Trade sequence giữ một **Trade Workflow Lock** duy nhất để bảo toàn transaction MAIN↔CON, FIFO, step/repeat/group và verification. Lock này không chặn hidden action của PID ngoài cặp.
++- Auto Sell không còn dựng global barrier cho trade coordinator. SELL của PID A và trade của PID B không phải chờ nhau chỉ vì input.
++- REC Sell chặn PID đang REC; REC TradeChild chặn CON đang REC và MAIN của cặp; REC TradeMain chặn MAIN. Account không liên quan tiếp tục auto.
++- Client Freeze, F4 global pause, death lifecycle, route ownership, FIFO/re-lock và business verification được giữ vì đây là safety/nghiệp vụ, không phải di sản chuột.
++- Scheduler không được quảng cáo là full multithread FSM: phần đọc snapshot độc lập đã song song; phần mutation vẫn tuần tự trên controller/UI thread có chủ đích để tránh race với `SaveProfile`/UI.
+ 
+ ## Hidden trade + AutoPath invariant v0.6.1.5
+ 
+@@ -79,7 +83,7 @@
+ 
+ ## Kiến trúc tích hợp
+ 
+-v0.6.1.5 tiếp tục dùng Bridge DLL `WH_GETMESSAGE` vốn có của v0.5. Mỗi Bridge request chỉ phát một click hoàn chỉnh trên đúng message thread; controller tách repeat/delay thành scheduler ticks và không chạy vòng lặp dài trong hook. Không thêm `CreateRemoteThread` hoặc worker IL2CPP thứ hai.
++v0.6.1.6 tiếp tục dùng Bridge DLL `WH_GETMESSAGE` vốn có của v0.5. Mỗi Bridge request chỉ phát một click hoàn chỉnh trên đúng message thread; controller tách repeat/delay thành scheduler ticks và không chạy vòng lặp dài trong hook. Không thêm `CreateRemoteThread` hoặc worker IL2CPP thứ hai.
+ 
+ Điểm XN/Đầu thai vẫn chỉ để tương thích vì hai action này dùng semantic callback. Ba điểm AUTO/Đánh quái/Dừng đã active lại qua InputSync. Editor macro bán vẫn cung cấp tọa độ/delay ô item; bốn click mở shop cũ không quay lại active runtime.
+ 
+--- a/SOURCE_PROVENANCE.md	2026-08-20 23:14:54.000000000 +0000
++++ b/SOURCE_PROVENANCE.md	2026-08-21 01:36:19.116095706 +0000
+@@ -1,4 +1,8 @@
+-# SOURCE PROVENANCE — v0.6.1.5
++# SOURCE PROVENANCE — v0.6.1.6
++
++- Direct v0.6.1.6 base: GitHub v0.6.1.5 commit `ffc376559dd0aee6ce3966f7f7c93a828c33e465`, tree `b350db03588e2317a2e03e5b706b35ac9c695304`, branch `codex/v0.6.1.5-hidden-trade-autopath-guard`.
++- v0.6.1.6 changes controller coordination only where required to remove shared-input assumptions, adds the common Mount/StartPath AutoFight-OFF gate, concurrent per-PID snapshot polling, matching verifier/tests/docs/version wiring. It imports no donor/client binary code and adds no Windows mouse fallback.
++- Source/CI commit and artifact hashes for v0.6.1.6 are recorded only after GitHub publication/build; do not infer runtime success from source audit.
+ 
+ - Direct v0.6.1.5 base: local commit `5404f5ddbeedf47e8acec58f834b71316119dfcf` on `codex/v0.6.1.4-internal-auto-points`.
+ - Requirement input: attached `hướng dẫn làm click ẩn thần long(1).md`, derived from the supplied v0.6.1.3 source, runtime-successful 90-click behavior and the exact-client `InputSyncManager` evidence already recorded in this repository.
+--- a/TOOL_LOGIC_TABLE.html	2026-08-20 23:14:54.000000000 +0000
++++ b/TOOL_LOGIC_TABLE.html	2026-08-21 01:36:19.116337975 +0000
+@@ -1,10 +1,17 @@
+ <!doctype html>
+ <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+-<title>Thần Long Tool Logic Table v0.6.1.5</title>
++<title>Thần Long Tool Logic Table v0.6.1.6</title>
+ <style>
+ body{font-family:Segoe UI,Arial,sans-serif;margin:24px;background:#f5f7fb;color:#172033}h1,h2{margin:.3em 0}.box{background:white;border:1px solid #dce2eb;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 8px #0000000a}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#e9eef8;margin-right:6px;font-weight:600}table{border-collapse:collapse;width:100%;background:white;font-size:14px}th,td{border:1px solid #d7dde8;padding:9px;vertical-align:top}th{background:#edf2f8;position:sticky;top:0}tr:nth-child(even){background:#fafbfd}.new{font-weight:700;background:#f1f7ff!important}.removed{text-decoration:line-through;color:#7a4650}.mono{font-family:Consolas,monospace}ul{line-height:1.55}.ok{font-weight:700}</style></head><body>
+-<h1>Thần Long Item Consolidator — Bảng logic v0.6.1.5</h1>
+-<div class="box"><span class="tag">Version v0.6.1.5</span><span class="tag">Base trực tiếp: v0.6.1.4</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Client-data: InputSyncManager</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
++<h1>Thần Long Item Consolidator — Bảng logic v0.6.1.6</h1>
++<div class="box"><span class="tag">Version v0.6.1.6</span><span class="tag">Base trực tiếp: v0.6.1.5</span><span class="tag">Nền gốc: v0.5.0</span><span class="tag">Donor nghiên cứu: AutoTrain v0.8.4</span><span class="tag">Client-data: InputSyncManager</span><span class="tag">Lâu Lan = MapID 5</span><p><b>Quy tắc version:</b> 0.3 → 0.4 → … → 0.9 → 1.0 → 1.1 → … Mỗi lần sửa code thực tế tăng một version.</p></div>
++<div class="box"><h2>v0.6.1.6 — Independent clients + common movement guard</h2><ul>
++<li><b>Không còn tài nguyên input toàn cục:</b> point action theo đúng PID; SELL/REC/trade/P1-P3 của acc không liên quan không nhường nhau vì chuột.</li>
++<li><b>Trade:</b> chỉ giữ Trade Workflow Lock cho transaction MAIN↔CON; lock không chặn action PID ngoài cặp. SELL PID khác không còn dựng barrier cho trade.</li>
++<li><b>Recorder:</b> scope đúng PID/cặp đang REC, không freeze toàn tool.</li>
++<li><b>Scheduler:</b> ReadState fan-out đồng thời per PID; mutation FSM vẫn controller-thread để tránh race UI/profile.</li>
++<li><b>Movement invariant:</b> cả Mount và StartPath đều bắt buộc cùng Travel Guard DỪNG x2 → reset AUTO/ĐÁNH QUÁI → lặp đến snapshot AutoFight OFF.</li>
++</ul></div>
+ <div class="box"><h2>v0.6.1.5 — Hidden trade + AutoPath invariant</h2><ul>
+ <li><b>Input:</b> xóa đường foreground/cursor/Windows mouse và User Mouse Guard; mọi dòng trade dùng <span class="mono">ClickInternalPoint</span>.</li>
+ <li><b>Nghiệp vụ:</b> giữ delay/repeat/group/FIFO và FreeBagSpace verify; hidden lease chỉ giữ thứ tự, không sở hữu chuột.</li>
+@@ -56,15 +63,15 @@
+ <tr class="new"><td>P3</td><td>AUTO nội bộ</td><td>Có request ĐÁNH QUÁI/DỪNG AUTO</td><td>Start giữ một request qua AUTO click 1 → 500 ms → ĐÁNH QUÁI click 2; Stop click điểm DỪNG; snapshot verify ON/OFF</td><td>Dưới P1/P2; cần đúng điểm F8 theo layout</td><td>THAY INPUT RUNTIME</td><td>v0.6.1.4</td></tr>
