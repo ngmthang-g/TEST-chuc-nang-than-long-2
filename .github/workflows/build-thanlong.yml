@@ -41,7 +41,7 @@ jobs:
             }
 
             $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
-            $expected = '207566df7dc09aadd6ccb202fc41a3ef057c6d28ae9ca288e5432346507ecba2'
+            $expected = 'a00b2dd8db2045cf69124555323ebf872d9aad2070a210299d3221d6bb523d95'
             Write-Host "Clean payload SHA256: $actual"
             if ($actual -ne $expected) { throw "Clean payload SHA256 mismatch: $actual" }
 
