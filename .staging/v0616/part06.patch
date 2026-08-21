@@ -1,0 +1,153 @@
+                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
+         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
+ 
+@@ -1429,14 +1430,6 @@
+         mainTabIndex_ = index;
+     }
+ 
+-    Account* ActiveSellClickSequenceAccount() {
+-        for (auto& item : accounts_) {
+-            Account& a = *item;
+-            if (a.runtime.running && a.runtime.sellPhase == 6) return &a;
+-        }
+-        return nullptr;
+-    }
+-
+     void Log(const std::wstring& text) {
+         if (!log_) return;
+         SYSTEMTIME st{};
+@@ -1982,12 +1975,23 @@
+                            L" được lưu cho mọi CON; click MAIN vẫn tham chiếu CHUỖI GD MAIN.");
+     }
+ 
++    bool RecorderBlocksAccount(const Account& a) const {
++        if (recorderMode_ == RecorderMode::None || recorderPrimaryPid_ == 0) return false;
++        if (a.game.pid == recorderPrimaryPid_) return true;
++        if (recorderMode_ != RecorderMode::TradeChild) return false;
++        // REC chuỗi CON có thể chứa dòng thao tác trên MAIN, vì vậy chỉ khóa đúng
++        // cặp MAIN + CON đang ghi. Mọi cửa sổ khác vẫn chạy độc lập.
++        for (const auto& item : accounts_) {
++            if (item->profile.tradeRole == 1) return a.game.pid == item->game.pid;
++        }
++        return false;
++    }
++
+     void StopRecorder(bool commit) {
+         if (recorderMode_ == RecorderMode::None) return;
+         const RecorderMode mode = recorderMode_;
+         const DWORD primaryPid = recorderPrimaryPid_;
+         KillTimer(hwnd_, kRecordTimer);
+-        coordinatorRecording_ = false;
+         recorderMode_ = RecorderMode::None;
+         recorderMouseDown_ = false;
+         if (commit && !recorderClicks_.empty()) {
+@@ -1999,23 +2003,16 @@
+         recorderClicks_.clear(); recorderPrimaryPid_ = 0;
+         const std::wstring status = commit ? L"REC xong • đã chuyển " + std::to_wstring(count) + L" click thành dòng tọa độ" : L"REC đã hủy";
+         UpdateRecorderUi(status);
+-        SetTradeStatus(L"BĐPT thoát RECORDING • auto scheduler tiếp tục");
++        SetTradeStatus(L"BĐPT thoát RECORDING • các acc bị khóa cục bộ tiếp tục auto");
+     }
+ 
+     void StartRecorder(RecorderMode mode) {
+         if (recorderMode_ != RecorderMode::None) { StopRecorder(true); return; }
+-        // Recording owns the point-capture workflow. A stale hidden-action busy flag
+-        // observed here is fail-closed state, not an action currently in flight.
+-        if (coordinatorInputBusy_) {
+-            Log(L"BĐPT REC: phát hiện hidden-action slot cũ → thu hồi để vào chế độ cấu hình.");
+-            coordinatorInputBusy_ = false;
+-            if (!coordinatorSequenceLease_) coordinatorOwnerPid_ = 0;
+-        }
+         if (tradeTxn_.phase != TradePhase::Idle) {
+             AbortTrade(L"người dùng mở REC → hủy workflow giao dịch đang treo", GetTickCount());
+         }
+-        if (coordinatorSequenceLease_) {
+-            ReleaseCoordinatorSequenceLease(L"REC yêu cầu quyền cấu hình");
++        if (tradeSequenceLockActive_) {
++            ReleaseTradeSequenceLock(L"REC yêu cầu thay đổi cấu hình trade");
+         }
+         Account* primary = nullptr;
+         if (mode == RecorderMode::Sell) {
+@@ -2030,11 +2027,18 @@
+         } else return;
+         recorderClicks_.clear(); recorderMode_ = mode; recorderPrimaryPid_ = primary->game.pid;
+         recorderMouseDown_ = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+-        coordinatorRecording_ = true;
+         SetTimer(hwnd_, kRecordTimer, 10, nullptr);
+-        UpdateRecorderUi(L"REC ĐANG GHI • BĐPT khóa mọi auto action • thao tác tay trong game rồi bấm DỪNG REC");
+-        SetTradeStatus(L"RECORDING • FREEZE ALL AUTO • chỉ ghi thao tác chuột tay của người dùng");
+-        LogAccount(*primary, L"BĐPT vào RECORDING • auto action bị khóa; click tay sẽ được đổi thành các dòng tọa độ khi DỪNG REC.");
++        if (mode == RecorderMode::Sell) {
++            UpdateRecorderUi(L"REC ĐANG GHI • chỉ khóa acc đang REC BÁN • các acc khác tiếp tục auto");
++            SetTradeStatus(L"RECORDING BÁN • khóa cục bộ 1 PID • scheduler khác tiếp tục");
++        } else if (mode == RecorderMode::TradeChild) {
++            UpdateRecorderUi(L"REC ĐANG GHI • chỉ khóa cặp MAIN + CON đang REC • các acc khác tiếp tục auto");
++            SetTradeStatus(L"RECORDING GD • khóa cục bộ MAIN+CON donor • scheduler khác tiếp tục");
++        } else {
++            UpdateRecorderUi(L"REC ĐANG GHI • chỉ khóa MAIN đang REC • các acc khác tiếp tục auto");
++            SetTradeStatus(L"RECORDING MAIN • khóa cục bộ MAIN • scheduler khác tiếp tục");
++        }
++        LogAccount(*primary, L"BĐPT vào RECORDING CỤC BỘ • chỉ acc/cặp liên quan bị giữ; cửa sổ khác không nhường action.");
+     }
+ 
+     void ToggleSellRecorder() { StartRecorder(RecorderMode::Sell); }
+@@ -2296,7 +2300,7 @@
+         }
+         const SellMacroStep& step = a->profile.sellMacro[static_cast<std::size_t>(index)];
+         std::wstring error;
+-        if (!CoordinatorInternalPointAction(
++        if (!DispatchClientPointAction(
+                 *a, step.point,
+                 L"TEST CHUỖI BÁN ĐỒ dòng " + std::to_wstring(index + 1),
+                 error)) {
+@@ -2936,7 +2940,7 @@
+         if (tradeEditorMode_ == 1 || stored.target == 1) target = AccountByTradeRole(1); else target = TradeEditorChild();
+         if (!target || !effective) { Log(L"BĐPT: TEST dòng không xác định được acc/MAIN reference."); return; }
+         std::wstring error;
+-        if (!CoordinatorInternalPointAction(
++        if (!DispatchClientPointAction(
+                 *target, effective->point,
+                 L"TEST CHUỖI GD dòng " + std::to_wstring(row + 1), error)) {
+             LogAccount(*target, L"TEST chuỗi GD FAIL: " + error); return;
+@@ -3211,6 +3215,7 @@
+ 
+     bool TradeStateReady(const Account& a) const {
+         if (!a.runtime.running || !a.snapshotValid || !IsWindow(a.game.window)) return false;
++        if (RecorderBlocksAccount(a)) return false;
+         const Snapshot& s = a.snapshot;
+         const std::uint32_t need = ValidLifeState | ValidBagSpace | ValidMap | ValidPosition;
+         if ((s.validMask & need) != need) return false;
+@@ -3222,6 +3227,7 @@
+ 
+     bool TradePairReadyForPreparation(const Account& main, const Account& child) const {
+         if (!main.runtime.running || !child.runtime.running) return false;
++        if (RecorderBlocksAccount(main) || RecorderBlocksAccount(child)) return false;
+         if (!main.snapshotValid || !child.snapshotValid) return false;
+         const Snapshot& ms = main.snapshot;
+         const Snapshot& cs = child.snapshot;
+@@ -3424,10 +3430,10 @@
+         tradeQueuePids_.clear();
+     }
+ 
+-    void ReleaseTradeSequenceLease(const std::wstring& reason) {
+-        if (!coordinatorSequenceLease_) return;
+-        if (tradeTxn_.mainPid == 0 || coordinatorSequenceOwnerPid_ != tradeTxn_.mainPid) return;
+-        ReleaseCoordinatorSequenceLease(reason);
++    void ReleaseTradeSequenceLockForTxn(const std::wstring& reason) {
++        if (!tradeSequenceLockActive_) return;
++        if (tradeTxn_.mainPid == 0 || tradeSequenceLockMainPid_ != tradeTxn_.mainPid) return;
++        ReleaseTradeSequenceLock(reason);
+     }
+ 
+     void AbortTrade(const std::wstring& reason, DWORD now) {
+@@ -3435,7 +3441,7 @@
+         Account* child = AccountByPid(tradeTxn_.childPid);
+         if (main) LogAccount(*main, L"GD ABORT: " + reason);
+         if (child) LogAccount(*child, L"GD ABORT: " + reason);
+-        ReleaseTradeSequenceLease(L"giao dịch abort");
++        ReleaseTradeSequenceLockForTxn(L"giao dịch abort");
+         ReleaseTradeHolds();
+         tradeTxn_.phase = TradePhase::Idle;
+         tradeTxn_.mainPid = 0;
+@@ -3443,7 +3449,7 @@
+         tradeTxn_.childSlot = 0;
