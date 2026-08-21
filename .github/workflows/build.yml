@@ -30,7 +30,19 @@ jobs:
           git apply --check /tmp/v0618.patch
           git apply /tmp/v0618.patch
           rm -rf .v0618
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/build.yml')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('build-item-consolidator-v0.6.1.7', 'build-item-consolidator-v0.6.1.8')
+          s = s.replace('Verify v0.6.1.7 AUTO-Stop hidden menu lifecycle', 'Verify v0.6.1.8 scoped route/M87/dead-code maintenance')
+          s = s.replace('tools/verify_v0617_logic.py', 'tools/verify_v0618_logic.py')
+          s = s.replace('ThanLongItemConsolidator_v0.6.1.7.exe', 'ThanLongItemConsolidator_v0.6.1.8.exe')
+          s = s.replace('ThanLongItemConsolidator-v0.6.1.7-win-x64', 'ThanLongItemConsolidator-v0.6.1.8-win-x64')
+          p.write_text(s, encoding='utf-8')
+          PY
           python tools/verify_v0618_logic.py
+          git checkout -- .github/workflows/build.yml
           git diff --check
       - name: Commit clean v0.6.1.8 source tree
         shell: bash
