@@ -1,0 +1,72 @@
+name: build-thanlong-license-premium-ui
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source payload
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem source\payload.part* | Sort-Object Name
+          if ($parts.Count -ne 18) { throw "Expected 18 payload parts, got $($parts.Count)" }
+          $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
+          [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($b64))
+          $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
+          $expected = '5937cf773fc0d9cb0b95c3cf33fe185d8eff04e570ec4bf591c2ea06d0fdd6ba'
+          if ($actual -ne $expected) { throw "Payload SHA256 mismatch: $actual" }
+          Expand-Archive -Path minbuild.zip -DestinationPath work -Force
+
+      - name: Verify license and UI scope
+        shell: pwsh
+        working-directory: work
+        run: python tools\verify_license_ui.py
+
+      - name: Configure x64
+        shell: pwsh
+        working-directory: work
+        run: cmake -S . -B build -A x64
+
+      - name: Build Release
+        shell: pwsh
+        working-directory: work
+        run: cmake --build build --config Release --parallel
+
+      - name: Run logic self-tests
+        shell: pwsh
+        working-directory: work
+        run: |
+          .\build\Release\route_logic_tests.exe
+          .\build\Release\rotation_logic_tests.exe
+          .\build\Release\trade_coordinator_logic_tests.exe
+          .\build\Release\background_ui_logic_tests.exe
+          .\build\Release\fixed_slot_sell_logic_tests.exe
+          .\build\Release\unity_geometry_logic_tests.exe
+          .\build\Release\internal_ui_click_logic_tests.exe
+          .\build\Release\travel_fight_guard_logic_tests.exe
+          .\build\Release\auto_fight_retry_logic_tests.exe
+
+      - name: Stage artifact
+        shell: pwsh
+        working-directory: work
+        run: |
+          New-Item -ItemType Directory -Force stage | Out-Null
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.10.exe
+          Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
+          Copy-Item ThanLongLicense.ini stage\ThanLongLicense.ini
+          Copy-Item license_server\README.md stage\LICENSE_SETUP.md
+          Copy-Item license_server\Code.gs stage\LICENSE_SERVER_Code.gs
+          Copy-Item license_server\LICENSE_KEYS_TEMPLATE.csv stage\LICENSE_KEYS_TEMPLATE.csv
+          Copy-Item license_server\LICENSE_DEVICES_TEMPLATE.csv stage\LICENSE_DEVICES_TEMPLATE.csv
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ThanLongItemConsolidator-v0.6.1.10-license-premium-ui-win-x64
+          path: work\stage
+          if-no-files-found: error
