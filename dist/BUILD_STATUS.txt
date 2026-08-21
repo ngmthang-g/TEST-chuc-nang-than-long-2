@@ -1,4 +1,4 @@
 FAILED
-built_from=81cdccca28b438f664c59d4d6b67bb4484a7574e
-failed_utc=2026-08-21T07:36:30.3565248Z
-error=Payload SHA256 mismatch: 78176a313926ef23b6edb3e03fd5a8585aa5cb20d78cb24b061e40c2e58d9cc9
+built_from=b1e29f8c340a30e0f2f502795babd42e1093bef5
+failed_utc=2026-08-21T09:12:28.5195450Z
+error=verify_license_ui.py failed: 1
