@@ -1,0 +1,130 @@
+         tradeTxn_.sequenceIndex = 0; tradeTxn_.sequenceRepeatDone = 0; tradeTxn_.sequenceGroupRepeatDone = 0; tradeTxn_.sequencePass = 1; tradeTxn_.sequenceDueTick = 0; tradeTxn_.sequenceMainFreeBeforePass = -1; tradeTxn_.sequenceBagVerifyStartedTick = 0; tradeTxn_.sequenceBagStableSinceTick = 0; tradeTxn_.sequenceBagLastFree = -1;
+         tradeTxn_.cooldownUntil = now + 2500;
+-        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + hidden lease");
++        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + trade workflow lock");
+     }
+ 
+     void FinishTrade(DWORD now) {
+@@ -3457,7 +3463,7 @@
+         if (child) LogAccount(*child, L"GD ĐẠT ĐIỀU KIỆN MỚI • pass cuối làm MAIN nhận ≤8 slot"
+                                   L" • nhả HOLD để core quay bãi; slot queue giải phóng ngay.");
+ 
+-        ReleaseTradeSequenceLease(L"chuỗi click giao dịch hoàn tất");
++        ReleaseTradeSequenceLockForTxn(L"chuỗi click giao dịch hoàn tất");
+         if (child) ReleaseTradeHold(*child);
+         RemoveTradeQueuePid(finishedChildPid);
+ 
+@@ -3483,7 +3489,7 @@
+             // to become stable before applying the R10 <=8-slot heuristic.
+             if (tradeTxn_.sequenceDueTick != 0 && static_cast<LONG>(now - tradeTxn_.sequenceDueTick) < 0) return true;
+             if (!main.snapshotValid || (main.snapshot.validMask & ValidBagSpace) == 0) {
+-                SetTradeStatus(L"HIDDEN LEASE • chờ MAIN FreeBagSpace hợp lệ sau pass GD");
++                SetTradeStatus(L"TRADE LOCK • chờ MAIN FreeBagSpace hợp lệ sau pass GD");
+                 return true;
+             }
+ 
+@@ -3492,13 +3498,13 @@
+                 tradeTxn_.sequenceBagVerifyStartedTick = now;
+                 tradeTxn_.sequenceBagStableSinceTick = now;
+                 tradeTxn_.sequenceBagLastFree = observedFree;
+-                SetTradeStatus(L"HIDDEN LEASE • xác minh ổn định túi MAIN sau pass GD");
++                SetTradeStatus(L"TRADE LOCK • xác minh ổn định túi MAIN sau pass GD");
+                 return true;
+             }
+             if (observedFree != tradeTxn_.sequenceBagLastFree) {
+                 tradeTxn_.sequenceBagLastFree = observedFree;
+                 tradeTxn_.sequenceBagStableSinceTick = now;
+-                SetTradeStatus(L"HIDDEN LEASE • MAIN FreeBagSpace vừa đổi → reset cửa sổ ổn định");
++                SetTradeStatus(L"TRADE LOCK • MAIN FreeBagSpace vừa đổi → reset cửa sổ ổn định");
+                 return true;
+             }
+             const bool stableEnough = Elapsed(now, tradeTxn_.sequenceBagStableSinceTick, kTradeBagStableMs);
+@@ -3518,7 +3524,7 @@
+                 tradeTxn_.sequenceBagVerifyStartedTick = 0;
+                 tradeTxn_.sequenceBagStableSinceTick = 0;
+                 tradeTxn_.sequenceBagLastFree = -1;
+-                SetTradeStatus(L"HIDDEN LEASE • CON" + std::to_wstring(tradeTxn_.childSlot) +
++                SetTradeStatus(L"TRADE LOCK • CON" + std::to_wstring(tradeTxn_.childSlot) +
+                                L" • MAIN nhận " + std::to_wstring(receivedSlots) +
+                                L" slot (>8) sau khi túi ổn định • lặp lại toàn chuỗi GD lần " +
+                                std::to_wstring(tradeTxn_.sequencePass));
+@@ -3549,7 +3555,7 @@
+         SetTradeStatus(L"HIDDEN REQUEST → " + who + L" • bước " +
+                        std::to_wstring(tradeTxn_.sequenceIndex + 1) + L"/" +
+                        std::to_wstring(seq.size()) + L" • InputSync");
+-        if (!CoordinatorInternalPointAction(
++        if (!DispatchClientPointAction(
+                 *target, effective->point,
+                 L"GD ACC CON dùng chung → " + TradeRoleLabel(child.profile.tradeRole) +
+                     L" • bước " + std::to_wstring(tradeTxn_.sequenceIndex + 1),
+@@ -3594,19 +3600,9 @@
+     }
+ 
+     void TickTradeCoordinator(DWORD now) {
+-        // v0.6.1: P1 XN, P2 revive and SELL are internal callbacks and never borrow this
+-        // hidden trade-action lease. The logical atomic SELL rule remains: once an account enters the background sell sequence,
+-        // the trade workflow may not advance, enqueue new work, abort/release its lease,
+-        // or run rendezvous click substeps until SELL has completed the full macro.
+-        // If another sequence already owns the lease, allow that pre-existing owner to finish
+-        // (this avoids deadlock); otherwise SELL has strict priority.
+-        if (Account* seller = ActiveSellClickSequenceAccount()) {
+-            if (!coordinatorSequenceLease_ || coordinatorSequenceOwnerPid_ == seller->game.pid) {
+-                SetTradeStatus(L"BÁN ĐỒ ƯU TIÊN • " + AccountTag(*seller) +
+-                               L" đang chạy callback nội bộ • workflow GD chờ • chuột rảnh");
+-                return;
+-            }
+-        }
++        // v0.6.1.6: SELL của một PID không còn khóa workflow giao dịch của PID khác.
++        // Transaction MAIN↔CON chỉ tự khóa cặp đang giao dịch; các cửa sổ ngoài cặp
++        // tiếp tục SELL/TRAIN/REVIVE/TRAVEL độc lập.
+ 
+         if (!tradeEnabled_) {
+             if (tradeTxn_.phase != TradePhase::Idle || !tradeQueuePids_.empty())
+@@ -3748,7 +3744,7 @@
+             }
+         }
+ 
+-        // HIDDEN SEQUENCE LEASE protects the business ordering of the point-based
++        // TRADE WORKFLOW LOCK protects the business ordering of the point-based
+         // trade macro. Every dispatch is now a per-client Bridge action, so queued
+         // travelers keep progressing without borrowing the Windows mouse.
+         if (!tradeQueuePids_.empty()) {
+@@ -3819,10 +3815,10 @@
+             }
+ 
+             if (!sequenceReady) { AbortTrade(L"chuỗi click GD chưa sẵn sàng: " + sequenceReason, now); return; }
+-            // Travel/queueing owns no sequence lease. The hidden lease begins only
++            // Travel/queueing owns no global input resource. The trade workflow lock begins only
+             // when both accounts are parked and the first trade action is about to run.
+-            if (!AcquireCoordinatorSequenceLease(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
+-                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ BĐPT cấp HIDDEN LEASE cho chuỗi giao dịch");
++            if (!AcquireTradeSequenceLock(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
++                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ BĐPT cấp TRADE LOCK cho chuỗi giao dịch");
+                 return;
+             }
+             tradeTxn_.phase = TradePhase::Sequence;
+@@ -3835,11 +3831,11 @@
+             tradeTxn_.sequenceBagVerifyStartedTick = 0;
+             tradeTxn_.sequenceBagStableSinceTick = 0;
+             tradeTxn_.sequenceBagLastFree = -1;
+-            SetTradeStatus(L"HIDDEN LEASE • bắt đầu chuỗi GD CON" + std::to_wstring(tradeTxn_.childSlot) +
++            SetTradeStatus(L"TRADE LOCK • bắt đầu chuỗi GD CON" + std::to_wstring(tradeTxn_.childSlot) +
+                            L" • đo slot MAIN nhận/pass; ≤8 thì đổi CON • queued " +
+                            std::to_wstring(tradeQueuePids_.size()) + L"/3");
+             LogAccount(*activeMain, L"BĐPT: MAIN + CON" + std::to_wstring(tradeTxn_.childSlot) +
+-                                    L" đã tới TỌA GD → BẮT ĐẦU HIDDEN LEASE đúng tại chuỗi action.");
++                                    L" đã tới TỌA GD → BẮT ĐẦU TRADE LOCK đúng tại chuỗi action.");
+             return;
+         }
+ 
+@@ -3849,7 +3845,7 @@
+             }
+             if (activeMain->runtime.autoPathFightConflictLatched ||
+                 activeChild->runtime.autoPathFightConflictLatched) {
+-                SetTradeStatus(L"HIDDEN LEASE • pause action khi ROUTE/FIGHT INVARIANT đang recovery");
++                SetTradeStatus(L"TRADE LOCK • pause action khi ROUTE/FIGHT INVARIANT đang recovery");
+                 return;
+             }
+             if (activeMain->snapshot.autoPathing || activeChild->snapshot.autoPathing) {
+@@ -3858,7 +3854,7 @@
+                     Response r{}; std::wstring ignored;
