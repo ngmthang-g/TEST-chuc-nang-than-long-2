@@ -1,0 +1,148 @@
+-                        L" • workflow GD chờ • chuột hoàn toàn rảnh";
++                        L" • SELL độc lập theo PID • chuột hoàn toàn rảnh";
+             return true;
+         }
+ 
+@@ -6035,13 +5957,13 @@
+             return;
+         }
+ 
+-        // Movement observation is serviced globally before P1/P2/P3 so World Flow-held
++        // Movement observation is serviced before each account priority pass so World Flow-held
+         // accounts receive the exact same Lâu Lan stall detection as normal accounts.
+         if (HandleDeath(a, now)) return;
+         if (UpdateRotationEfficiency(a, now)) return;
+         if (HandleRouteOwnershipReset(a, now)) return;
+         if (HandleUnderworldAutoFightGuard(a, now)) return;
+-        // P1 XN is GLOBAL-PASS ONLY and now uses a per-client internal callback, so it
++        // P1 XN is handled by this client's local priority pass and uses an internal callback, so it
+         // remains eligible during World Flow HOLD without touching the Windows cursor.
+ 
+         if (rt.qualifiedMap != s.mapID) {
+@@ -6079,7 +6001,7 @@
+         }
+ 
+         // Semantic MessageBox Confirm remains disabled. Lâu Lan P1 XN is scheduled
+-        // globally before P2/P3 and is not part of this train FSM.
++        // before this client's P2/P3 and is not part of this train FSM.
+         // Steady training mode: AutoFight is checked once per minute, but ONLY when
+         // no death/sell/recovery/confirm/path action is active. A busy state does not
+         // advance the timer; the check is deferred until the account becomes idle.
+@@ -6237,35 +6159,46 @@
+         // Snapshots + movement-observation run first, then v0.6.1 services semantic
+         // background priorities before coordinate-based trade clicks.
+         std::vector<bool> snapshotReady(accounts_.size(), false);
++        struct SnapshotJob {
++            std::size_t index = 0;
++            std::future<std::pair<bool, std::wstring>> future{};
++        };
++        std::vector<SnapshotJob> jobs;
++        jobs.reserve(accounts_.size());
++        const int selectedIndex = SelectedIndex();
+         for (std::size_t i = 0; i < accounts_.size(); ++i) {
+             Account& a = *accounts_[i];
+-            const bool selected = static_cast<int>(i) == SelectedIndex();
++            const bool selected = static_cast<int>(i) == selectedIndex;
+             if (!a.runtime.running && !selected) continue;
+-            std::wstring error;
++            const DWORD timeout = a.runtime.running ? 700 : 900;
++            // BridgeClient is per Account/PID, so ReadState can safely fan out. This removes
++            // the old N×timeout behavior where one slow client made every later client wait.
++            Account* const account = &a;
++            jobs.push_back(SnapshotJob{i, std::async(std::launch::async, [this, account, timeout]() {
++                std::wstring error;
++                const bool ok = ReadSnapshot(*account, error, timeout);
++                return std::make_pair(ok, error);
++            })});
++        }
++        for (auto& job : jobs) {
++            Account& a = *accounts_[job.index];
++            const auto result = job.future.get();
+             const DWORD now = GetTickCount();
+-            if (!ReadSnapshot(a, error, a.runtime.running ? 700 : 900)) {
+-                if (a.runtime.running) MarkReadStateFailure(a, error, now);
++            if (!result.first) {
++                if (a.runtime.running) MarkReadStateFailure(a, result.second, now);
+                 else a.runtime.status = L"Mất state/bridge";
+                 continue;
+             }
+-            snapshotReady[i] = true;
++            snapshotReady[job.index] = true;
+             RefreshAccountIdentityIfNeeded(a);
+             // Read-only movement observation MUST run even when BĐPT World Flow holds
+-            // this account. This feeds the Lâu Lan 3s stall watchdog before any priority click.
++            // this account. This feeds the Lâu Lan 3s stall watchdog before local priority actions.
+             const std::uint32_t observeNeed = ValidMap | ValidPosition | ValidAutoPath;
+             if ((a.snapshot.validMask & observeNeed) == observeNeed && a.snapshot.mapReady && !a.snapshot.waitingChangeMap) {
+-                ObserveMovement(a, GetTickCount());
++                ObserveMovement(a, now);
+             }
+         }
+ 
+-        // Priority: P1 MessageBox confirm -> P2 Đầu thai -> P3 InputSync AUTO points.
+-        // All three are internal Bridge callbacks and do not foreground a game window or move the cursor.
+-        if (!globalPaused_ && !coordinatorRecording_) {
+-            (void)RunPriorityLauLanGateConfirmPass(GetTickCount(), snapshotReady);
+-            (void)RunPriorityRevivePass(GetTickCount(), snapshotReady);
+-            (void)RunPriorityAutoPass(GetTickCount(), snapshotReady);
+-        }
+-
+         for (std::size_t i = 0; i < accounts_.size(); ++i) {
+             Account& a = *accounts_[i];
+             const bool selected = static_cast<int>(i) == SelectedIndex();
+@@ -6279,17 +6212,18 @@
+             }
+             const DWORD now = GetTickCount();
+             if (a.runtime.running) {
+-                // Hidden sequence leases preserve business ordering but never own the
+-                // Windows cursor. Per-account bridge state machines can progress between actions.
+-                // Recording and F4 are still true global pauses.
+-                if (coordinatorRecording_) {
+-                    a.runtime.status = L"BĐPT RECORDING • FREEZE AUTO • đang ghi thao tác tay";
++                // v0.6.1.6: no global input lease and no global REC freeze. Each client
++                // owns its own hidden-action stream; only an explicitly recorded PID/pair
++                // is paused. F4 remains the user's intentional global pause.
++                if (RecorderBlocksAccount(a)) {
++                    a.runtime.status = L"BĐPT RECORDING CỤC BỘ • chỉ acc/cặp này tạm dừng";
+                 } else if (HoldUntilClientStable(a, now)) {
+                     UpdateAccountRow(static_cast<int>(i), a);
+                     continue;
+                 } else if (!globalPaused_) {
++                    RunAccountPriorityPass(a, now);
+                     if (HandleAutoPathFightInvariant(a, now)) {
+-                        // Hard invariant owns this tick for both normal and held accounts.
++                        // Hard invariant owns this tick for this client only.
+                     } else if (a.tradeHeld) {
+                         // World Flow HOLD never owns the life observer. P2 may have invoked
+                         // Đầu thai above; keep advancing DEAD -> revive phases -> ALIVE cold restart
+@@ -6304,7 +6238,7 @@
+             }
+             UpdateAccountRow(static_cast<int>(i), a);
+         }
+-        if (!globalPaused_ && !coordinatorRecording_) TickTradeCoordinator(GetTickCount());
++        if (!globalPaused_) TickTradeCoordinator(GetTickCount());
+         UpdateSelectedLive();
+     }
+ 
+@@ -6643,11 +6577,8 @@
+     TargetProfile tradeRendezvous_{};
+     int tradeRendezvousTolerance_ = 120;
+     int mainSellThreshold_ = 6;
+-    bool coordinatorInputBusy_ = false;
+-    DWORD coordinatorOwnerPid_ = 0;
+-    bool coordinatorSequenceLease_ = false;
+-    DWORD coordinatorSequenceOwnerPid_ = 0;
+-    bool coordinatorRecording_ = false;
++    bool tradeSequenceLockActive_ = false;
++    DWORD tradeSequenceLockMainPid_ = 0;
+     RecorderMode recorderMode_ = RecorderMode::None;
+     DWORD recorderPrimaryPid_ = 0;
+     bool recorderMouseDown_ = false;
+--- a/src/protocol.h	2026-08-20 23:14:54.000000000 +0000
++++ b/src/protocol.h	2026-08-21 01:32:31.012314738 +0000
+@@ -6,10 +6,10 @@
+ namespace cleanroute {
+ 
+ constexpr std::uint32_t kMagic = 0x4352544Cu; // CRTL
+-// v0.6.1.5 routes AUTO and the coordinate-based trade macro through the same
++// v0.6.1.6 routes AUTO and the coordinate-based trade macro through the same
