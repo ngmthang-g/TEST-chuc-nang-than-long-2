@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/build-windows.yml'
+      - 'setup_overlay/ui_text_privacy.patch'
   workflow_dispatch:
 
 permissions:
@@ -62,6 +63,7 @@ jobs:
             Copy-Item overlay_work\tools\verify_hardening.py source\tools\verify_hardening.py -Force
             Copy-Item overlay_work\tools\verify_v06110_logic.py source\tools\verify_v06110_logic.py -Force
             git apply --directory=source overlay_work/controller_setup.patch
+            git apply --directory=source setup_overlay/ui_text_privacy.patch
 
             # Preserve the proprietary / automated-analysis notice embedded in prior builds.
             $legalCpp = @'
@@ -165,6 +167,7 @@ jobs:
               'license_anchor_programdata=%ProgramData%\ThanLong\SystemData\license.dat',
               'license_anchor_registry=HKLM\SOFTWARE\ThanLong\License\StateV3',
               'uninstall_preserves_activation=true',
+              'activation_ui_internal_details_hidden=true',
               "built_from=$env:GITHUB_SHA",
               "run_id=$env:GITHUB_RUN_ID",
               "built_utc=$([DateTime]::UtcNow.ToString('o'))"
