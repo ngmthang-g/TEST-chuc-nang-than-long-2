@@ -1,0 +1,35 @@
+==== route_logic_tests.exe (exit=0) ====
+PASS invalid->wait
+PASS transition->wait
+PASS wrong-place-foot->mount
+PASS wrong-place-mounted->startpath
+PASS routing->wait
+PASS arrive-pathing->stoppath
+PASS arrive-mounted->dismount
+PASS arrive-foot->hold
+PASS mount-assist:first-mount
+PASS mount-assist:wait-first-5s
+PASS mount-assist:second-mount-at-5s
+PASS mount-assist:wait-second-5s
+PASS mount-assist:two-mount-cycle-failed
+PASS mount-assist:foot-max-15s
+PASS mount-assist:repeat-mount-cycle
+RESULT 15/15 PASS
+==== rotation_logic_tests.exe (exit=0) ====
+PASS one-spot-stays
+PASS next-1-of-3
+PASS wrap-3-to-1
+PASS death-10-not-over-limit
+PASS death-11-over-limit
+PASS death-window-prune
+PASS bag-window-before-15m
+PASS bag-window-at-15m
+RESULT 8/8 PASS
+==== trade_coordinator_logic_tests.exe (exit=0) ====
+trade_coordinator_logic_tests PASS
+==== background_ui_logic_tests.exe (exit=0) ====
+==== fixed_slot_sell_logic_tests.exe (exit=0) ====
+==== unity_geometry_logic_tests.exe (exit=0) ====
+==== internal_ui_click_logic_tests.exe (exit=0) ====
+==== travel_fight_guard_logic_tests.exe (exit=0) ====
+==== auto_fight_retry_logic_tests.exe (exit=0) ====
