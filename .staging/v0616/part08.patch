@@ -1,0 +1,142 @@
+                     (void)a->bridge.Call(Command::StopPath, 0, 0, 0, r, ignored, 700);
+                 }
+-                SetTradeStatus(L"HIDDEN LEASE • phát hiện AutoPath bật lại tại TỌA GD → StopPath trước action tiếp");
++                SetTradeStatus(L"TRADE LOCK • phát hiện AutoPath bật lại tại TỌA GD → StopPath trước action tiếp");
+                 return;
+             }
+             if (!TradeAccountAtRendezvous(*activeMain) || !TradeAccountAtRendezvous(*activeChild)) {
+@@ -4225,74 +4221,43 @@
+         return true;
+     }
+ 
+-    bool AcquireCoordinatorSequenceLease(Account& owner, const std::wstring& reason) {
+-        if (coordinatorRecording_) return false;
+-        if (coordinatorSequenceLease_) return coordinatorSequenceOwnerPid_ == owner.game.pid;
+-        if (coordinatorInputBusy_) return false;
+-        coordinatorSequenceLease_ = true;
+-        coordinatorSequenceOwnerPid_ = owner.game.pid;
+-        coordinatorOwnerPid_ = owner.game.pid;
+-        SetTradeStatus(L"HIDDEN SEQUENCE LEASE → " + AccountTag(owner) + L" • " + reason);
+-        LogAccount(owner, L"BĐPT GIỮ HIDDEN SEQUENCE LEASE đến khi chuỗi nghiệp vụ kết thúc • " + reason);
++    bool AcquireTradeSequenceLock(Account& owner, const std::wstring& reason) {
++        // This is a business-workflow lock only. It protects the single MAIN↔CON
++        // transaction state machine; it never owns or serializes input for another PID.
++        if (RecorderBlocksAccount(owner)) return false;
++        if (tradeSequenceLockActive_) return tradeSequenceLockMainPid_ == owner.game.pid;
++        tradeSequenceLockActive_ = true;
++        tradeSequenceLockMainPid_ = owner.game.pid;
++        SetTradeStatus(L"TRADE WORKFLOW LOCK → " + AccountTag(owner) + L" • " + reason);
++        LogAccount(owner, L"BĐPT GIỮ TRADE WORKFLOW LOCK cho đúng transaction MAIN↔CON; acc ngoài cặp không bị chặn.");
+         return true;
+     }
+ 
+-    void ReleaseCoordinatorSequenceLease(const std::wstring& reason) {
+-        if (!coordinatorSequenceLease_) return;
+-        Account* owner = AccountByPid(coordinatorSequenceOwnerPid_);
+-        if (owner) LogAccount(*owner, L"BĐPT NHẢ HIDDEN SEQUENCE LEASE • " + reason);
+-        coordinatorSequenceLease_ = false;
+-        coordinatorSequenceOwnerPid_ = 0;
+-        if (!coordinatorInputBusy_) {
+-            coordinatorOwnerPid_ = 0;
+-        }
+-        SetTradeStatus(L"HIDDEN LEASE RELEASE • " + reason + L" • scheduler tiếp tục");
+-    }
+-
+-    bool CoordinatorInternalPointAction(Account& target, const ClickPoint& savedPoint,
+-                                        const std::wstring& request,
+-                                        std::wstring& error) {
+-        if (coordinatorRecording_) {
+-            error = L"BĐPT đang RECORDING thao tác tay; hidden action phải chờ DỪNG REC";
+-            return false;
+-        }
+-        if (coordinatorSequenceLease_) {
+-            const bool activeTradePairTarget = tradeTxn_.phase == TradePhase::Sequence &&
+-                (target.game.pid == tradeTxn_.mainPid || target.game.pid == tradeTxn_.childPid);
+-            if (coordinatorSequenceOwnerPid_ != target.game.pid && !activeTradePairTarget) {
+-                error = L"BĐPT đang giữ HIDDEN SEQUENCE LEASE cho PID " +
+-                        std::to_wstring(coordinatorSequenceOwnerPid_) +
+-                        L"; action acc khác phải chờ lease";
+-                return false;
+-            }
+-            if (coordinatorInputBusy_) {
+-                error = L"BĐPT owner đang thực hiện hidden action trước trong SEQUENCE LEASE";
+-                return false;
+-            }
+-            coordinatorInputBusy_ = true;
+-            coordinatorOwnerPid_ = target.game.pid;
+-            SetTradeStatus(L"HIDDEN LEASE giữ nguyên → " + AccountTag(target) + L" • " + request);
+-            const bool ok = DispatchInternalPointActionDirect(target, savedPoint, request, error);
+-            coordinatorInputBusy_ = false;
+-            if (ok) LogAccount(target, L"BĐPT HIDDEN RESULT=OK • vẫn GIỮ SEQUENCE LEASE cho chuỗi");
+-            else LogAccount(target, L"BĐPT RESULT=FAIL • vẫn giữ lease đến khi workflow xử lý abort");
+-            return ok;
+-        }
+-        if (coordinatorInputBusy_) {
+-            error = L"BĐPT đang chạy hidden action cho PID " +
+-                    std::to_wstring(coordinatorOwnerPid_) + L"; yêu cầu phải chờ";
++    void ReleaseTradeSequenceLock(const std::wstring& reason) {
++        if (!tradeSequenceLockActive_) return;
++        Account* owner = AccountByPid(tradeSequenceLockMainPid_);
++        if (owner) LogAccount(*owner, L"BĐPT NHẢ TRADE WORKFLOW LOCK • " + reason);
++        tradeSequenceLockActive_ = false;
++        tradeSequenceLockMainPid_ = 0;
++        SetTradeStatus(L"TRADE WORKFLOW UNLOCK • " + reason);
++    }
++
++    bool DispatchClientPointAction(Account& target, const ClickPoint& savedPoint,
++                                   const std::wstring& request,
++                                   std::wstring& error) {
++        // Per-client hidden action: there is deliberately no global busy/owner slot.
++        // The Bridge already enforces one request in flight for THIS PID. Different
++        // windows therefore never wait on each other's mouse/input resource.
++        if (RecorderBlocksAccount(target)) {
++            error = L"acc này đang REC cấu hình; chỉ PID/cặp liên quan bị khóa cục bộ";
+             return false;
+         }
+-        coordinatorInputBusy_ = true;
+-        coordinatorOwnerPid_ = target.game.pid;
+-        SetTradeStatus(L"HIDDEN ACTION SERIALIZE → " + AccountTag(target) + L" • " + request);
+         const bool ok = DispatchInternalPointActionDirect(target, savedPoint, request, error);
+-        if (ok) LogAccount(target, L"BĐPT HIDDEN RESULT=OK • nhả action slot");
+-        else LogAccount(target, L"BĐPT HIDDEN RESULT=FAIL • " + error + L" • nhả action slot");
+-        coordinatorOwnerPid_ = 0;
+-        coordinatorInputBusy_ = false;
+-        if (ok) SetTradeStatus(L"HIDDEN ACTION xong • route/FSM tiếp tục");
+-        else SetTradeStatus(L"HIDDEN ACTION FAIL: " + error);
++        if (ok) {
++            LogAccount(target, L"CLIENT HIDDEN ACTION PASS • action độc lập theo PID");
++        } else {
++            LogAccount(target, L"CLIENT HIDDEN ACTION FAIL • " + error);
++        }
+         return ok;
+     }
+ 
+@@ -4305,7 +4270,7 @@
+         if (index < 0 || index >= static_cast<int>(a.profile.points.size())) return false;
+         std::wstring error;
+         const ClickPoint& savedPoint = a.profile.points[static_cast<std::size_t>(index)];
+-        if (!CoordinatorInternalPointAction(
++        if (!DispatchClientPointAction(
+                 a, savedPoint,
+                 reason && *reason ? std::wstring(reason) : L"CLICK SLOT",
+                 error)) {
+@@ -4484,25 +4449,13 @@
+         return ok;
+     }
+ 
+-    bool RunPriorityAutoPass(DWORD now, const std::vector<bool>& snapshotReady) {
+-        (void)now;
+-        bool clicked = false;
+-        std::vector<DWORD> visited;
+-        auto runOne = [&](Account* a) {
+-            if (!a || !a->runtime.running || a->runtime.priorityAutoRequestSlot == ClickSlot::None) return;
+-            const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
+-            if (it == accounts_.end()) return;
+-            const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
+-            if (index >= snapshotReady.size() || !snapshotReady[index]) return;
+-            if (std::find(visited.begin(), visited.end(), a->game.pid) != visited.end()) return;
+-            visited.push_back(a->game.pid);
+-            if (PriorityAutoClick(*a)) clicked = true;
+-        };
+-        // Fixed global order: P1 XN -> P2 Đầu thai -> P3 AUTO UI. Within P3 use
+-        // MAIN, CON1..CON6, then unassigned accounts for deterministic behavior.
