@@ -1,4 +1,5 @@
 FAILED
-built_from=f306dd44fa9a714445358e15eeab09370052dad1
-failed_utc=2026-08-21T09:21:10.4080677Z
-error=Cannot locate wWinMain App startup block for license-gate repair
+built_from=4243d886e8b02b1cbe1bdc703bff4beeea21ffe2
+run_id=32467813387
+failed_utc=2026-08-21T09:25:36.9361043Z
+error=Cannot locate wWinMain signature for license-gate repair
