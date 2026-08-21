@@ -8,15 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 jobs:
   export:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Decode payloads
         shell: pwsh
         run: |
@@ -42,15 +41,9 @@ jobs:
             candidate.sha256
             oldsplit.zip
             oldsplit.sha256
-      - name: Publish run id
+      - name: Publish run id as issue
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          @("run_id=$env:GITHUB_RUN_ID","commit=$env:GITHUB_SHA") | Set-Content dist\EXPORT_RUN_ID.txt -Encoding UTF8
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dist\EXPORT_RUN_ID.txt
-          if (-not (git diff --cached --quiet)) {
-            git commit -m 'Publish candidate export run [skip ci]'
-            git push origin HEAD:main
-          }
+          gh issue create --repo "${{ github.repository }}" --title "PAYLOAD_EXPORT_RUN_$env:GITHUB_RUN_ID" --body "head_sha=$env:GITHUB_SHA"
