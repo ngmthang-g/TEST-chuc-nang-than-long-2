@@ -14,4 +14,4 @@ Nội dung roadmap dùng LF trong raw string. Win32 multiline EDIT cần CRLF đ
 
 ## Validation
 - `tools/verify_v06110_logic.py` kiểm version/protocol, giữ toàn bộ invariant v0.6.1.9 và bắt buộc CRLF/bullets/blank lines.
-- Windows CI: pending.
+- Windows CI run #444 (`32452534680`): PASS verifier, MSVC x64 Release, all existing native tests including AutoFight retry timer, stage and artifact upload. Artifact ID `9436134827`.
