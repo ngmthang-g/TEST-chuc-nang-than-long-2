@@ -1,5 +1,5 @@
 FAILED
-built_from=7c9ebf9677ccf2e72bf0c0a470d741c4493febb7
-run_id=32473455089
-failed_utc=2026-08-21T10:37:17.8517446Z
-error=Cannot locate wWinMain signature for license-gate repair
+built_from=d212aa8012bef9020911a94aa27170c7307958cf
+run_id=32473492277
+failed_utc=2026-08-21T10:37:53.2896340Z
+error=Clean payload SHA256 mismatch: a00b2dd8db2045cf69124555323ebf872d9aad2070a210299d3221d6bb523d95
