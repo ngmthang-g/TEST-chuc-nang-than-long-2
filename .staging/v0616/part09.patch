@@ -1,0 +1,144 @@
+-        for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
+-        for (auto& item : accounts_) runOne(item.get());
+-        return clicked;
++    void RunAccountPriorityPass(Account& a, DWORD now) {
++        if (!a.runtime.running || !a.snapshotValid || globalPaused_ || RecorderBlocksAccount(a)) return;
++        // Priority is local to THIS client: P1 Lâu Lan -> P2 Revive -> P3 AUTO.
++        // No PID waits behind another window merely because its priority number is lower.
++        if (PriorityLauLanGateConfirmClick(a, now)) return;
++        if (PriorityReviveClick(a, now)) return;
++        if (a.runtime.priorityAutoRequestSlot != ClickSlot::None) (void)PriorityAutoClick(a);
+     }
+ 
+     void ResetTravelFightGuard(RuntimeState& rt) {
+@@ -4517,12 +4470,12 @@
+         const std::wstring where = context ? context : L"di chuyển";
+ 
+         if ((s.validMask & ValidAutoFight) == 0) {
+-            rt.status = L"TRAVEL GUARD • chờ AutoFight authoritative trước StartPath tới " + where;
++            rt.status = L"TRAVEL GUARD • chờ AutoFight authoritative trước Mount/StartPath tới " + where;
+             return false;
+         }
+         if (!s.autoFight) {
+             if (rt.travelFightGuardPhase != 0 || rt.travelFightStopAttempts != 0) {
+-                LogAccount(a, L"TRAVEL GUARD PASS: AutoFight OFF authoritative → nhả StartPath tới " + where);
++                LogAccount(a, L"TRAVEL GUARD PASS: AutoFight OFF authoritative → nhả Mount/StartPath tới " + where);
+             }
+             ResetTravelFightGuard(rt);
+             return true;
+@@ -4755,8 +4708,8 @@
+     }
+ 
+     void StopAccount(Account& a) {
+-        if (coordinatorSequenceLease_ && coordinatorSequenceOwnerPid_ == a.game.pid) {
+-            ReleaseCoordinatorSequenceLease(L"người dùng dừng acc đang chạy chuỗi bán");
++        if (tradeSequenceLockActive_ && tradeSequenceLockMainPid_ == a.game.pid) {
++            ReleaseTradeSequenceLock(L"người dùng dừng MAIN đang giữ trade workflow lock");
+         }
+         const bool wasFrozen = a.runtime.clientFreezeActive;
+         a.deathSessionLatched = false;
+@@ -4903,12 +4856,15 @@
+             return false;
+         }
+         const DWORD now = GetTickCount();
+-        // Single authoritative movement gate: no StartPath can be emitted while
+-        // AutoFight is ON/unreadable or after a path+fight conflict until the
+-        // conflict recovery has observed both states OFF.
+-        if (action == Action::StartPath) {
++        // Single authoritative movement gate: BOTH Mount and StartPath require an
++        // authoritative AutoFight=OFF snapshot. This reuses the exact existing
++        // DỪNG x2 -> AUTO/ĐÁNH QUÁI reset -> repeat Travel Guard; no second stop
++        // implementation is allowed to drift from it.
++        if (action == Action::Mount || action == Action::StartPath) {
+             if (rt.autoPathFightConflictLatched) {
+-                rt.status = L"ROUTE/FIGHT INVARIANT • cấm StartPath khi recovery chưa hoàn tất";
++                rt.status = action == Action::Mount
++                    ? L"ROUTE/FIGHT INVARIANT • cấm lên ngựa khi recovery chưa hoàn tất"
++                    : L"ROUTE/FIGHT INVARIANT • cấm StartPath khi recovery chưa hoàn tất";
+                 return false;
+             }
+             if (!EnsureAutoFightOffForTravel(a, now, context)) return false;
+@@ -5164,14 +5120,13 @@
+         }
+         if (rt.revivePhase == 0 && Elapsed(now, rt.deadSinceTick, 500) &&
+             (rt.lastReviveClickTick == 0 || Elapsed(now, rt.lastReviveClickTick, 5000))) {
+-            // The actual Revive callback is emitted ONLY by RunPriorityRevivePass(),
+-            // after the higher-priority global XN pass. Keep this per-account path fail-closed
+-            // so Đầu thai can never interleave with SELL/GD/AUTO clicks in another window.
+-            rt.status = L"ĐẦU THAI đến hạn • chờ GLOBAL BARRIER cấp 2 (sau XN map)";
++            // The actual Revive callback is emitted ONLY by this client's local priority pass,
++            // after this same PID's P1 Lâu Lan check. Other windows are not blocked.
++            rt.status = L"ĐẦU THAI đến hạn • chờ PRIORITY CỤC BỘ P2 của acc này";
+             return true;
+         }
+         if (rt.revivePhase == 1 && Elapsed(now, rt.revivePhaseTick, 900)) {
+-            // Map Confirm is not injected as a special revive action; global P1 Lâu Lan
++            // Map Confirm is not injected as a special revive action; this PID's P1 Lâu Lan
+             // watchdog owns its own internal MessageBox callback.
+             rt.revivePhase = 2;
+             rt.revivePhaseTick = now;
+@@ -5347,7 +5302,7 @@
+         RuntimeState& rt = a.runtime;
+         const Snapshot& s = a.snapshot;
+         if (!a.profile.enableConfirm) return false;
+-        if (!a.snapshotValid || rt.clientFreezeActive || globalPaused_ || coordinatorRecording_) return false;
++        if (!a.snapshotValid || rt.clientFreezeActive || globalPaused_ || RecorderBlocksAccount(a)) return false;
+         if ((s.validMask & (ValidMap | ValidPosition | ValidAutoPath | ValidLifeState)) !=
+             (ValidMap | ValidPosition | ValidAutoPath | ValidLifeState)) return false;
+         if (!s.mapReady || s.waitingChangeMap || s.dead) return false;
+@@ -5398,16 +5353,6 @@
+         return false;
+     }
+ 
+-    bool RunPriorityLauLanGateConfirmPass(DWORD now, const std::vector<bool>& snapshotReady) {
+-        bool clicked = false;
+-        for (std::size_t i = 0; i < accounts_.size(); ++i) {
+-            Account& a = *accounts_[i];
+-            if (!a.runtime.running || i >= snapshotReady.size() || !snapshotReady[i]) continue;
+-            if (PriorityLauLanGateConfirmClick(a, now)) clicked = true;
+-        }
+-        return clicked;
+-    }
+-
+     bool PrimeDeathSessionForPriorityRevive(Account& a, DWORD now) {
+         RuntimeState& rt = a.runtime;
+         const Snapshot& s = a.snapshot;
+@@ -5458,29 +5403,6 @@
+         return false;
+     }
+ 
+-    bool RunPriorityRevivePass(DWORD now, const std::vector<bool>& snapshotReady) {
+-        (void)now;
+-        bool clicked = false;
+-        std::vector<DWORD> visited;
+-
+-        auto runOne = [&](Account* a) {
+-            if (!a || !a->runtime.running) return;
+-            const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
+-            if (it == accounts_.end()) return;
+-            const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
+-            if (index >= snapshotReady.size() || !snapshotReady[index]) return;
+-            if (std::find(visited.begin(), visited.end(), a->game.pid) != visited.end()) return;
+-            visited.push_back(a->game.pid);
+-            if (PriorityReviveClick(*a, GetTickCount())) clicked = true;
+-        };
+-
+-        // Priority order is fixed: Lâu Lan gate watchdog runs first; only then
+-        // Đầu thai is serviced MAIN, CON1..CON6, then unassigned accounts.
+-        for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
+-        for (auto& item : accounts_) runOne(item.get());
+-        return clicked;
+-    }
+-
+     bool AutoFightCheckBusy(const Account& a, DWORD now) const {
+         const RuntimeState& rt = a.runtime;
+         const Snapshot& s = a.snapshot;
+@@ -5941,10 +5863,10 @@
+             ++rt.sellMacroPass;
+             rt.sellPhase = 6; rt.sellPhaseTick = now;
+             rt.sellMacroIndex = 0; rt.sellMacroRepeatDone = 0; rt.sellMacroNextTick = 0; rt.sellMacroCompletionDueTick = 0;
+-            // ActiveSellClickSequenceAccount() still blocks the trade coordinator for
+-            // logical atomicity; v0.6.1.5 uses only a hidden business-action lease.
++            // SELL atomicity is per-client only. It does not block another window's
++            // trade workflow or hidden actions.
+             rt.status = L"Đã ClickNPC nội bộ ID " + std::to_wstring(npc.npcID) +
