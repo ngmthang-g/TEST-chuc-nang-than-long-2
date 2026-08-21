@@ -1,4 +1,13 @@
-# Thần Long Item Consolidator v0.6.1.6
+# Thần Long Item Consolidator v0.6.1.7
+
+## v0.6.1.7 — AUTO → DỪNG AUTO 2 hidden sequence fix
+
+- Runtime evidence from dồn đồ: MAIN/CON entering TỌA GD all failed `DỪNG AUTO 2` with `InputSyncManager raycast không bắt được UI`.
+- Root cause: v0.6.1.4 simplified Stop to a direct `DỪNG AUTO 2` point even though that choice lives inside the AUTO menu. v0.5 correctly used `AUTO → wait → DỪNG AUTO 2`.
+- Fix: one P3 Stop request now owns `AUTO → 500 ms → DỪNG AUTO 2`, both phases via `ClickInternalPoint → TryClickUI → EndUIDrag`. Completion is published only after click 2.
+- Travel Guard still verifies authoritative `AutoFight OFF`; Stop #1 → Stop #2 → AUTO→ĐÁNH QUÁI reset → repeat is unchanged at the business layer.
+- No physical mouse input is reintroduced. FIFO/tradeHeld/SELL/per-client scheduling remain unchanged.
+- Protocol EXE/DLL: `0x00010617`.
 
 > **Residual scheduler limitation:** v0.6.1.6 removes logical cross-window input locks, but `BridgeClient::Call()` is still synchronous on the controller thread. A single Bridge timeout can therefore delay the next scheduler iteration for its bounded timeout. This is no longer mouse contention, but it is not yet a true per-PID asynchronous worker architecture. Do not claim full timing independence until Bridge calls are moved to per-client workers/mailboxes.
 

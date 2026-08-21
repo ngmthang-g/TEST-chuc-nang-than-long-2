@@ -13,11 +13,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Thang Nguyen\0"
       VALUE "FileDescription", "Than Long Item Consolidator\0"
-      VALUE "FileVersion", "0.6.1.6\0"
+      VALUE "FileVersion", "0.6.1.7\0"
       VALUE "InternalName", "ThanLongItemConsolidator\0"
-      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.1.6.exe\0"
+      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.1.7.exe\0"
       VALUE "ProductName", "Than Long Item Consolidator\0"
-      VALUE "ProductVersion", "0.6.1.6\0"
+      VALUE "ProductVersion", "0.6.1.7\0"
     END
   END
   BLOCK "VarFileInfo"

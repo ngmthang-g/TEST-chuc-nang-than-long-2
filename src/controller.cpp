@@ -28,7 +28,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.6 • PER-CLIENT HIDDEN ACTIONS";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.7 • AUTO→STOP INPUTSYNC FIX";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -1385,7 +1385,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.6",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.7",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
@@ -4359,22 +4359,29 @@ private:
         if (!s.mapReady || s.waitingChangeMap ||
             ((s.validMask & ValidLifeState) && s.dead)) return false;
 
-        constexpr auto autoStartPlan = internal_ui_click_logic::AutoStartPlan();
+        // v0.6.1.7: both AUTO->Attack and AUTO->Stop are menu-choice sequences.
+        // StopAuto2 is not a standalone visible control while the AUTO menu is closed.
+        // The v0.6.1.4 direct-Stop shortcut could therefore raycast empty UI exactly when
+        // Trade/Travel Guard tried to leave a training spot. Restore the proven v0.5
+        // lifecycle, but keep every phase on the hidden InputSync dispatcher.
+        constexpr auto autoChoicePlan = internal_ui_click_logic::AutoMenuChoicePlan();
+        const bool autoMenuChoiceSequence =
+            requestedSlot == ClickSlot::Attack || requestedSlot == ClickSlot::StopAuto2;
         ClickSlot pointSlot = requestedSlot;
-        if (requestedSlot == ClickSlot::Attack) {
+        if (autoMenuChoiceSequence) {
             if (rt.priorityAutoPointPhase < 0 ||
-                rt.priorityAutoPointPhase >= static_cast<int>(autoStartPlan.size())) {
+                rt.priorityAutoPointPhase >= static_cast<int>(autoChoicePlan.size())) {
                 rt.priorityAutoPointPhase = 0;
                 rt.priorityAutoPointTick = 0;
             }
-            const auto& step = autoStartPlan[static_cast<std::size_t>(rt.priorityAutoPointPhase)];
+            const auto& step = autoChoicePlan[static_cast<std::size_t>(rt.priorityAutoPointPhase)];
             if (step.waitBeforeMs > 0 &&
                 !Elapsed(GetTickCount(), rt.priorityAutoPointTick,
                          static_cast<DWORD>(step.waitBeforeMs))) {
                 return false;
             }
-            pointSlot = step.point == internal_ui_click_logic::AutoStartPoint::AutoMenu
-                ? ClickSlot::AutoMenu : ClickSlot::Attack;
+            pointSlot = step.point == internal_ui_click_logic::AutoMenuChoicePoint::AutoMenu
+                ? ClickSlot::AutoMenu : requestedSlot;
         }
 
         const int pointIndex = static_cast<int>(pointSlot);
@@ -4403,12 +4410,14 @@ private:
                                       response, error, 2200);
         const DWORD clickedAt = GetTickCount();
 
-        if (requestedSlot == ClickSlot::Attack && rt.priorityAutoPointPhase == 0 && ok) {
+        if (autoMenuChoiceSequence && rt.priorityAutoPointPhase == 0 && ok) {
             rt.priorityAutoPointPhase = 1;
             rt.priorityAutoPointTick = clickedAt;
-            rt.status = L"P3 AUTO INPUTSYNC • click 1/2 AUTO xong • chờ mở menu";
-            LogAccount(a, L"PRIORITY #3 AUTO INPUTSYNC PASS click 1/2: AUTO • " +
-                          std::wstring(response.detail));
+            const std::wstring next = requestedSlot == ClickSlot::Attack
+                ? L"ĐÁNH QUÁI" : L"DỪNG AUTO 2";
+            rt.status = L"P3 AUTO INPUTSYNC • click 1/2 AUTO xong • chờ mở menu để " + next;
+            LogAccount(a, L"PRIORITY #3 AUTO INPUTSYNC PASS click 1/2: AUTO → chờ " + next +
+                          L" • " + std::wstring(response.detail));
             return true;
         }
 
@@ -4416,7 +4425,9 @@ private:
         if (ok) {
             const std::wstring phase = requestedSlot == ClickSlot::Attack
                 ? L"click 2/2: ĐÁNH QUÁI" :
-                  std::wstring(kClickLabels[static_cast<std::size_t>(pointIndex)]);
+                requestedSlot == ClickSlot::StopAuto2
+                    ? L"click 2/2: DỪNG AUTO 2"
+                    : std::wstring(kClickLabels[static_cast<std::size_t>(pointIndex)]);
             LogAccount(a, L"PRIORITY #3 AUTO INPUTSYNC PASS " + phase +
                           L" • TryClickUI→EndUIDrag • không chiếm chuột Windows.");
         } else {

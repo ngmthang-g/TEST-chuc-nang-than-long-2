@@ -1,9 +1,9 @@
-# SOURCE PROVENANCE — v0.6.1.6
+# SOURCE PROVENANCE — v0.6.1.7
 
 - Direct base: user-provided `TEST-chuc-nang-than-long-2-codex-v0.6.1.5-hidden-trade-autopath-guard.zip`, corresponding to GitHub branch `codex/v0.6.1.5-hidden-trade-autopath-guard`.
 - Scope: architecture cleanup approved by user + new invariant requiring AutoFight OFF before both Mount and StartPath.
 - No donor/client binary or new RVA introduced. Bridge InputSync transport is unchanged; controller scheduling/guard logic is cleaned.
-- Target branch: `codex/v0.6.1.6-per-client-clean-movement-guard`.
+- Target branch: `codex/v0.6.1.7-autostop-hidden-sequence-fix`.
 
 
 - Direct v0.6.1.5 base: local commit `5404f5ddbeedf47e8acec58f834b71316119dfcf` on `codex/v0.6.1.4-internal-auto-points`.
@@ -37,3 +37,5 @@
 - v0.6.1.3 uses the public client-data repository only as research evidence, at commit `f0c37b7745be47e185376358c1a51ebaa376475a`. Metadata and native call sites establish the `InputSyncManager` press/release surface. No client binary, metadata blob, hardcoded RVA or donor worker is copied into this repository.
 - v0.6.1.3 changed only the item-cell dispatcher plus matching protocol/version, tests, documentation and release wiring. Fixed row/count/adaptive logic and all unrelated action FSMs remained from v0.6.1.2.
 - v0.6.1.4 adds no new client binary research and copies no binary/code from the data repository. It promotes the existing metadata-resolved InputSync dispatcher to one generic point command and changes only active P3 AUTO point sequencing, matching tests/version/docs/build wiring.
+
+- v0.6.1.7 is a narrow runtime hotfix on v0.6.1.6: restore the v0.5 AUTO-menu opener before StopAuto2 while retaining the v0.6.1.x InputSync dispatcher and all per-client cleanup.

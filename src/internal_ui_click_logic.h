@@ -43,6 +43,25 @@ inline constexpr std::array<AutoStartStep, 2> AutoStartPlan() {
     }};
 }
 
+enum class AutoMenuChoicePoint {
+    AutoMenu,
+    Choice,
+};
+
+struct AutoMenuChoiceStep {
+    AutoMenuChoicePoint point;
+    int waitBeforeMs;
+};
+
+// Both starting and stopping AutoFight select an item from the small AUTO menu.
+// The second point is not reliably raycastable until AUTO has opened the menu.
+inline constexpr std::array<AutoMenuChoiceStep, 2> AutoMenuChoicePlan() {
+    return {{
+        {AutoMenuChoicePoint::AutoMenu, 0},
+        {AutoMenuChoicePoint::Choice, 500},
+    }};
+}
+
 inline constexpr bool IsNormalizedCoordinate(int value, int scale) {
     return scale > 0 && value >= 0 && value < scale;
 }

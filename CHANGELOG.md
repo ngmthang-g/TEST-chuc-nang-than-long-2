@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## v0.6.1.7 — 2026-08-21
+
+### Runtime evidence / bug
+- With dồn đồ OFF, normal training appeared healthy.
+- With dồn đồ ON, MAIN and queued CON accounts entered TỌA GD and repeatedly failed P3 `DỪNG AUTO 2` with `InputSyncManager raycast không bắt được UI tại tọa độ đã gán`.
+
+### Root cause
+- v0.5 Travel Guard opened `AUTO`, waited for the menu, then clicked `DỪNG AUTO 2`.
+- v0.6.1.4+ accidentally dispatched `DỪNG AUTO 2` directly. When the AUTO menu is closed the saved second-level point has no raycastable UI.
+
+### Fix
+- P3 Stop is again a two-phase hidden sequence: `AUTO → wait 500 ms → DỪNG AUTO 2`.
+- Both phases use the existing proven `ClickInternalPoint → TryClickUI → EndUIDrag` path and do not move/own the Windows cursor.
+- Completion/result ownership stays per PID/workflow. Travel Guard authoritative verification and two-stop/reset policy are unchanged.
+- Bump protocol to `0x00010617`.
+
 ## v0.6.1.6 — 2026-08-21
 
 ### Clean architecture

@@ -20,6 +20,13 @@ int main() {
     static_assert(autoStart[1].point == AutoStartPoint::Attack);
     static_assert(autoStart[1].waitBeforeMs == 500);
 
+    constexpr auto autoChoice = AutoMenuChoicePlan();
+    static_assert(autoChoice.size() == 2);
+    static_assert(autoChoice[0].point == AutoMenuChoicePoint::AutoMenu);
+    static_assert(autoChoice[0].waitBeforeMs == 0);
+    static_assert(autoChoice[1].point == AutoMenuChoicePoint::Choice);
+    static_assert(autoChoice[1].waitBeforeMs == 500);
+
     assert(plan[0].methodName[0] == 'T');
     assert(plan[1].methodName[0] == 'E');
     assert(IsNormalizedCoordinate(0, 1000000));

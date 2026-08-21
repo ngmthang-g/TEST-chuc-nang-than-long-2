@@ -1,6 +1,13 @@
-# PROJECT KNOWLEDGE — v0.6.1.6 CURRENT
+# PROJECT KNOWLEDGE — v0.6.1.7 CURRENT
 
 > **Residual scheduler limitation:** v0.6.1.6 removes logical cross-window input locks, but `BridgeClient::Call()` is still synchronous on the controller thread. A single Bridge timeout can therefore delay the next scheduler iteration for its bounded timeout. This is no longer mouse contention, but it is not yet a true per-PID asynchronous worker architecture. Do not claim full timing independence until Bridge calls are moved to per-client workers/mailboxes.
+
+## v0.6.1.7 — runtime correction: Stop là menu sequence
+
+- Evidence 2026-08-21: bật dồn đồ làm MAIN/CON cùng cần Travel Guard trước TỌA GD; direct `DỪNG AUTO 2` InputSync fail raycast trên nhiều PID.
+- Confirmed against v0.5 source: old guard used `AUTO → wait → DỪNG AUTO 2`; v0.6.1.4+ had removed the AUTO opener only for Stop.
+- Current rule: P3 Stop owns two phases `AUTO → 500 ms → DỪNG AUTO 2`; only click 2 completes the request. Snapshot `AutoFight` remains business proof.
+- This is a UI lifecycle fix, not a return to physical mouse input or global leases.
 
 ## v0.6.1.6 — quyết định kiến trúc hiện tại
 
