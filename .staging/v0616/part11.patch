@@ -1,0 +1,132 @@
+ // proven InputSyncManager press/release path, with no physical mouse fallback.
+ // Controller + Bridge are always shipped together; mismatched versions fail attach.
+-constexpr std::uint32_t kProtocolVersion = 0x00010615u;
++constexpr std::uint32_t kProtocolVersion = 0x00010616u;
+ constexpr UINT kWakeMessage = WM_APP + 0x531;
+ constexpr wchar_t kMappingPrefix[] = L"Local\\ThanLongCleanRoute_";
+ 
+--- a/tools/verify_v0616_logic.py	1970-01-01 00:00:00.000000000 +0000
++++ b/tools/verify_v0616_logic.py	2026-08-21 01:37:11.276549182 +0000
+@@ -0,0 +1,122 @@
++#!/usr/bin/env python3
++"""Fail-closed source audit for v0.6.1.6 independent-client scheduling and movement guard."""
++
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def read(relative: str) -> str:
++    return (ROOT / relative).read_text(encoding="utf-8")
++
++
++def require(condition: bool, message: str) -> None:
++    if not condition:
++        raise SystemExit(f"FAIL: {message}")
++
++
++def between(text: str, start: str, end: str) -> str:
++    a = text.index(start)
++    b = text.index(end, a)
++    return text[a:b]
++
++
++def main() -> None:
++    controller = read("src/controller.cpp")
++    bridge = read("src/bridge.cpp")
++    protocol = read("src/protocol.h")
++    guard = read("src/travel_fight_guard_logic.h")
++    guard_test = read("src/travel_fight_guard_logic_test.cpp")
++    workflow = read(".github/workflows/build.yml")
++    version = read("VERSION.txt").strip()
++
++    require(version == "v0.6.1.6", "VERSION.txt is not v0.6.1.6")
++    require("Thần Long Item Consolidator v0.6.1.6" in controller,
++            "controller title is not v0.6.1.6")
++    require("ThanLongItemConsolidator-v0.6.1.6-win-x64" in workflow,
++            "Actions artifact is not versioned v0.6.1.6")
++    require("verify_v0616_logic.py" in workflow,
++            "Actions is not running the v0.6.1.6 audit")
++    require("kProtocolVersion = 0x00010616u" in protocol,
++            "EXE/DLL protocol was not bumped to v0.6.1.6")
++
++    # Physical Windows mouse transport and its user-mouse arbitration must stay gone.
++    forbidden_physical = (
++        "SetCursorPos", "SendInput", "MOUSEEVENTF_", "SetForegroundWindow",
++        "BringWindowToTop", "AttachThreadInput", "WH_MOUSE_LL",
++        "PerformRealInputClickDirect", "User Mouse Guard",
++    )
++    for token in forbidden_physical:
++        require(token not in controller,
++                f"obsolete physical mouse/arbitration token remains: {token}")
++
++    # No tool-global action slot/owner/recording freeze may survive.
++    for token in ("coordinatorInputBusy_", "coordinatorOwnerPid_", "coordinatorRecording_"):
++        require(token not in controller, f"obsolete global coordinator state remains: {token}")
++    require("RecorderBlocksAccount" in controller,
++            "REC is not scoped per account/pair")
++    require("RECORDING CỤC BỘ" in controller,
++            "REC UI/log does not expose local-scope behavior")
++
++    # Point actions are per client. The trade lock is business-only and must not gate unrelated PIDs.
++    require("DispatchClientPointAction" in controller,
++            "per-client hidden point dispatcher is missing")
++    dispatch = between(controller,
++                       "bool DispatchClientPointAction",
++                       "bool ClickSlotNow")
++    require("tradeSequenceLockActive_" not in dispatch and "tradeSequenceLockMainPid_" not in dispatch,
++            "trade workflow lock still serializes generic point actions")
++    require("AcquireTradeSequenceLock" in controller and "ReleaseTradeSequenceLock" in controller,
++            "trade business lock is missing")
++    require("acc ngoài cặp không bị chặn" in controller,
++            "trade lock is not documented/scoped to the active pair")
++
++    # SELL on an unrelated PID must no longer freeze the trade coordinator.
++    require("ActiveSellClickSequenceAccount" not in controller,
++            "legacy SELL->trade global blocking helper remains")
++    trade = between(controller, "void TickTradeCoordinator", "void UpdateTradeRendezvousLabel")
++    require("workflow GD chờ" not in trade,
++            "trade coordinator still contains legacy unrelated SELL wait behavior")
++
++    # Priority order is now local per client, not a global MAIN/CON arbitration pass.
++    require("RunAccountPriorityPass" in controller,
++            "per-client P1/P2/P3 priority pass is missing")
++    for token in ("RunPriorityLauLanGateConfirmPass", "RunPriorityRevivePass", "RunPriorityAutoPass"):
++        require(token not in controller, f"legacy global priority pass remains: {token}")
++
++    # ReadState fan-out removes N x timeout serialization across clients.
++    require("std::async(std::launch::async" in controller,
++            "per-PID snapshot polling is not fanned out concurrently")
++    require("old N×timeout behavior" in controller,
++            "snapshot fan-out rationale/audit marker is missing")
++    require("[this, account, timeout]" in controller and "ReadSnapshot(*account" in controller,
++            "snapshot worker must capture a stable Account pointer by value")
++    require("[this, &a, timeout]" not in controller,
++            "snapshot worker captures the loop-local Account reference variable unsafely")
++
++    # Critical requested invariant: both Mount and StartPath reuse the exact same stop/reset guard.
++    send = between(controller, "bool SendDecision", "void ObserveMovement")
++    require("action == Action::Mount || action == Action::StartPath" in send,
++            "Mount and StartPath are not behind the same movement guard")
++    require("EnsureAutoFightOffForTravel(a, now, context)" in send,
++            "movement commands do not reuse the authoritative AutoFight guard")
++    require("cấm lên ngựa khi recovery chưa hoàn tất" in send,
++            "Mount is not fail-closed during AutoPath/Fight recovery")
++    require("kStopAttemptsBeforeReset = 2" in guard,
++            "travel guard no longer performs two stop attempts before reset")
++    require("NeedsAnotherStopBeforeReset" in controller,
++            "controller is not using tested two-stop/reset policy")
++    require("HasAutoPathFightConflict(true, true)" in guard_test,
++            "AutoPath/Fight conflict truth-table test is missing")
++
++    # Internal transport remains the proven client UI path.
++    require("TryClickUI" in bridge and "EndUIDrag" in bridge,
++            "Bridge no longer contains the internal press/release path")
++    require("ClickInternalPoint = 14" in protocol,
++            "generic internal point command changed unexpectedly")
++
++    print("PASS: v0.6.1.6 independent-client + Mount/StartPath guard source audit")
++
++
++if __name__ == "__main__":
++    main()
