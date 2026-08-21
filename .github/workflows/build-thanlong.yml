@@ -3,67 +3,116 @@ name: build-thanlong-license-premium-ui
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'dist/**'
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thanlong-main-build
+  cancel-in-progress: true
 
 jobs:
   windows-x64:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Reconstruct source payload
+      - name: Build verify test and publish
         shell: pwsh
         run: |
-          $parts = Get-ChildItem source\payload.part* | Sort-Object Name
-          if ($parts.Count -ne 18) { throw "Expected 18 payload parts, got $($parts.Count)" }
-          $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
-          [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($b64))
-          $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
-          $expected = '5937cf773fc0d9cb0b95c3cf33fe185d8eff04e570ec4bf591c2ea06d0fdd6ba'
-          if ($actual -ne $expected) { throw "Payload SHA256 mismatch: $actual" }
-          Expand-Archive -Path minbuild.zip -DestinationPath work -Force
+          $ErrorActionPreference = 'Stop'
+          $statusDir = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force $statusDir | Out-Null
+          Remove-Item "$statusDir\BUILD_FAILED.txt" -ErrorAction SilentlyContinue
+          try {
+            $parts = Get-ChildItem source\payload.part* | Sort-Object Name
+            if ($parts.Count -ne 18) { throw "Expected 18 payload parts, got $($parts.Count)" }
+            $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
+            [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($b64))
+            $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
+            $expected = '5937cf773fc0d9cb0b95c3cf33fe185d8eff04e570ec4bf591c2ea06d0fdd6ba'
+            if ($actual -ne $expected) { throw "Payload SHA256 mismatch: $actual" }
 
-      - name: Verify license and UI scope
-        shell: pwsh
-        working-directory: work
-        run: python tools\verify_license_ui.py
+            Expand-Archive -Path minbuild.zip -DestinationPath work -Force
+            Push-Location work
+            try {
+              python tools\verify_license_ui.py
+              if ($LASTEXITCODE -ne 0) { throw "verify_license_ui.py failed: $LASTEXITCODE" }
 
-      - name: Configure x64
-        shell: pwsh
-        working-directory: work
-        run: cmake -S . -B build -A x64
+              cmake -S . -B build -A x64
+              if ($LASTEXITCODE -ne 0) { throw "CMake configure failed: $LASTEXITCODE" }
+              cmake --build build --config Release --parallel
+              if ($LASTEXITCODE -ne 0) { throw "Release build failed: $LASTEXITCODE" }
 
-      - name: Build Release
-        shell: pwsh
-        working-directory: work
-        run: cmake --build build --config Release --parallel
+              $tests = @(
+                'route_logic_tests.exe',
+                'rotation_logic_tests.exe',
+                'trade_coordinator_logic_tests.exe',
+                'background_ui_logic_tests.exe',
+                'fixed_slot_sell_logic_tests.exe',
+                'unity_geometry_logic_tests.exe',
+                'internal_ui_click_logic_tests.exe',
+                'travel_fight_guard_logic_tests.exe',
+                'auto_fight_retry_logic_tests.exe'
+              )
+              foreach ($t in $tests) {
+                & ".\build\Release\$t"
+                if ($LASTEXITCODE -ne 0) { throw "$t failed: $LASTEXITCODE" }
+              }
 
-      - name: Run logic self-tests
-        shell: pwsh
-        working-directory: work
-        run: |
-          .\build\Release\route_logic_tests.exe
-          .\build\Release\rotation_logic_tests.exe
-          .\build\Release\trade_coordinator_logic_tests.exe
-          .\build\Release\background_ui_logic_tests.exe
-          .\build\Release\fixed_slot_sell_logic_tests.exe
-          .\build\Release\unity_geometry_logic_tests.exe
-          .\build\Release\internal_ui_click_logic_tests.exe
-          .\build\Release\travel_fight_guard_logic_tests.exe
-          .\build\Release\auto_fight_retry_logic_tests.exe
+              New-Item -ItemType Directory -Force stage | Out-Null
+              Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.10.exe
+              Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
+              Copy-Item ThanLongLicense.ini stage\ThanLongLicense.ini
+              Copy-Item license_server\README.md stage\LICENSE_SETUP.md
+              Copy-Item license_server\Code.gs stage\LICENSE_SERVER_Code.gs
+              Copy-Item license_server\LICENSE_KEYS_TEMPLATE.csv stage\LICENSE_KEYS_TEMPLATE.csv
+              Copy-Item license_server\LICENSE_DEVICES_TEMPLATE.csv stage\LICENSE_DEVICES_TEMPLATE.csv
+            }
+            finally {
+              Pop-Location
+            }
 
-      - name: Stage artifact
-        shell: pwsh
-        working-directory: work
-        run: |
-          New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.10.exe
-          Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
-          Copy-Item ThanLongLicense.ini stage\ThanLongLicense.ini
-          Copy-Item license_server\README.md stage\LICENSE_SETUP.md
-          Copy-Item license_server\Code.gs stage\LICENSE_SERVER_Code.gs
-          Copy-Item license_server\LICENSE_KEYS_TEMPLATE.csv stage\LICENSE_KEYS_TEMPLATE.csv
-          Copy-Item license_server\LICENSE_DEVICES_TEMPLATE.csv stage\LICENSE_DEVICES_TEMPLATE.csv
+            Remove-Item "$statusDir\ThanLongItemConsolidator_v0.6.1.10_GitHubBuild.zip" -ErrorAction SilentlyContinue
+            Compress-Archive -Path work\stage\* -DestinationPath "$statusDir\ThanLongItemConsolidator_v0.6.1.10_GitHubBuild.zip" -CompressionLevel Optimal
+            Copy-Item work\stage\ThanLongItemConsolidator_v0.6.1.10.exe "$statusDir\ThanLongItemConsolidator_v0.6.1.10.exe" -Force
+            Copy-Item work\stage\ThanLongCleanRouteBridge.dll "$statusDir\ThanLongCleanRouteBridge.dll" -Force
+            Copy-Item work\stage\ThanLongLicense.ini "$statusDir\ThanLongLicense.ini" -Force
+            $exeHash = (Get-FileHash "$statusDir\ThanLongItemConsolidator_v0.6.1.10.exe" -Algorithm SHA256).Hash.ToLower()
+            @(
+              'SUCCESS',
+              "source_payload_sha256=$expected",
+              "exe_sha256=$exeHash",
+              "built_from=$env:GITHUB_SHA",
+              "built_utc=$([DateTime]::UtcNow.ToString('o'))"
+            ) | Set-Content "$statusDir\BUILD_STATUS.txt" -Encoding UTF8
+          }
+          catch {
+            @(
+              'FAILED',
+              "built_from=$env:GITHUB_SHA",
+              "failed_utc=$([DateTime]::UtcNow.ToString('o'))",
+              "error=$($_.Exception.Message)"
+            ) | Set-Content "$statusDir\BUILD_FAILED.txt" -Encoding UTF8
+            Copy-Item "$statusDir\BUILD_FAILED.txt" "$statusDir\BUILD_STATUS.txt" -Force
+          }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add dist
+          if (-not (git diff --cached --quiet)) {
+            git commit -m 'Publish Than Long Windows build status [skip ci]'
+            git push origin HEAD:main
+          }
+
+          if ((Get-Content "$statusDir\BUILD_STATUS.txt" -First 1).Trim() -ne 'SUCCESS') {
+            throw (Get-Content "$statusDir\BUILD_STATUS.txt" -Raw)
+          }
 
       - uses: actions/upload-artifact@v4
         with:
