@@ -29,8 +29,8 @@ jobs:
           pathlib.Path('/tmp/v06110.patch').write_bytes(zlib.decompress(base64.b64decode(encoded)))
           PY
           echo 'b631889562421c3c07bc07cbd935e62e38137e8959a05683a4910d85fd9a05af  /tmp/v06110.patch' | sha256sum -c -
-          git apply --check /tmp/v06110.patch
-          git apply /tmp/v06110.patch
+          git apply --check --exclude=tools/verify_v06110_logic.py --exclude=docs/history/VERSION_v0.6.1.10.md /tmp/v06110.patch
+          git apply --exclude=tools/verify_v06110_logic.py --exclude=docs/history/VERSION_v0.6.1.10.md /tmp/v06110.patch
           rm -rf .v06110
           cp .github/workflows/build.yml /tmp/build-v06110.yml
           python tools/verify_v06110_logic.py
@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- CMakeLists.txt VERSION.txt resources/app.rc src/controller.cpp src/protocol.h tools/verify_v06110_logic.py docs/history/VERSION_v0.6.1.10.md
+          git add -- CMakeLists.txt VERSION.txt resources/app.rc src/controller.cpp src/protocol.h
           git add -u -- .v06110
           git commit -m 'v0.6.1.10: format About roadmap bullets with CRLF'
           git push origin HEAD:codex/v0.6.1.10-about-bullets-crlf
