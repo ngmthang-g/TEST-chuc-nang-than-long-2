@@ -22,13 +22,13 @@ jobs:
           set -euo pipefail
           python tools/verify_v0618_logic.py
           cat .v0619/chunk0 .v0619/chunk1 .v0619/chunk2 .v0619/chunk3 > /tmp/v0619.b64
-          echo 'd9be514fc57976d51a477b59c5ea9010e076de3e25524aa319f7b63dd6dd371f  /tmp/v0619.b64' | sha256sum -c -
+          echo 'df168c20dab304fe0c058e5c445172d9b32ea21bde2dbccba1f57b126af354f2  /tmp/v0619.b64' | sha256sum -c -
           python - <<'PY'
           import base64, zlib, pathlib
           encoded = pathlib.Path('/tmp/v0619.b64').read_text().strip()
           pathlib.Path('/tmp/v0619.patch').write_bytes(zlib.decompress(base64.b64decode(encoded)))
           PY
-          echo 'bda0bffd8ceacd07d8fc793967aeb9106807abd8203afaba12ae0abe7a6a8df9  /tmp/v0619.patch' | sha256sum -c -
+          echo '45ea50b132c6ec2da792a75c512a7719cb2ac3b85db46138d8be8105013f483a  /tmp/v0619.patch' | sha256sum -c -
           git apply --check /tmp/v0619.patch
           git apply /tmp/v0619.patch
           rm -rf .v0619
