@@ -14,7 +14,7 @@ jobs:
       - name: Restore source bundle
         shell: pwsh
         run: |
-          $parts = Get-ChildItem source_parts/bundle_* | Sort-Object Name
+          $parts = Get-ChildItem source_parts/mini_* | Sort-Object Name
           $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
           [IO.File]::WriteAllBytes('source_bundle.zip', [Convert]::FromBase64String($b64))
           New-Item -ItemType Directory -Force -Path source | Out-Null
