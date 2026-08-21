@@ -1,5 +1,12 @@
-FAILED
-built_from=7b5e796230d6d0350026e9da383c7e9996c81fe6
-run_id=32513443795
-failed_utc=2026-08-21T18:27:39.7444359Z
-error=Could not find a part of the path 'D:\a\TEST-chuc-nang-than-long-2\TEST-chuc-nang-than-long-2\source\tools\verify_setup_license.py'.
+SUCCESS
+version=v0.6.1.12
+base_source_sha256=a64d11d3b98e07eb8d884f6f8b737cceb6961418dff5489a8ed52fb0270bd43a
+setup_overlay_sha256=b450064b2e8f0f684989281093c2b8130e3d0d280b1e214ec2aad60636cc27bb
+main_exe_sha256=f0d10edac4e723101436652339a79b0f9084b540065952f67068ac0e64cf155f
+setup_exe_sha256=3f2fca7ef281010bf846b51f5e875983cfcea6b25135756e79825c84fe864ccc
+license_anchor_programdata=%ProgramData%\ThanLong\SystemData\license.dat
+license_anchor_registry=HKLM\SOFTWARE\ThanLong\License\StateV3
+uninstall_preserves_activation=true
+built_from=c0808afe8ab24f98e31c6b498a48b5d3fe579447
+run_id=32513637834
+built_utc=2026-08-21T18:30:34.5542933Z
