@@ -1,0 +1,146 @@
++The user explicitly approves all ten cleanup items: remove shared input ownership/cursor-era coordination, make unrelated client actions independent, scope recorder/transaction locks, make P1/P2/P3 per-client, and reduce scheduler coupling. The user additionally requires the existing AutoFight stop policy before both AutoPath and Mount. Source review of v0.6.1.5 finds that every StartPath was centrally guarded, but the first Mount attempt was not.
++
++### v0.6.1.6 source evidence
++
++- Global coordinator input busy/owner/recording fields are absent from the active controller.
++- Generic client point dispatch does not inspect the Trade Workflow Lock.
++- SELL item phase no longer globally blocks the trade coordinator.
++- Recorder blocking is PID/pair scoped.
++- P1→P2→P3 is evaluated per client.
++- Snapshot ReadState is fan-out concurrent per PID and collected before main-thread state mutation.
++- The central decision gate applies the same `EnsureAutoFightOffForTravel` to `Mount` and `StartPath`.
++- `tools/verify_v0616_logic.py` and eight native pure logic test groups pass locally.
++
++### Does not prove
++
++- Windows MSVC build success until CI records it.
++- Live multi-window timing, saved point correctness, or live Mount/AutoFight transition behavior.
++- Fully parallel FSM execution: mutation remains controller-thread serialized intentionally for UI/profile safety.
++
+ ## EVID-012 — User requires strict AutoFight-OFF-before-AutoPath recovery
+ 
+ - Type: USER OBSERVATION + EXPLICIT REQUIREMENT
+--- a/docs/features/BACKGROUND_UI_ACTIONS.md	2026-08-20 23:14:54.000000000 +0000
++++ b/docs/features/BACKGROUND_UI_ACTIONS.md	2026-08-21 01:36:19.116016649 +0000
+@@ -19,7 +19,8 @@
+ - v0.6.1.2: BUILD PASS; RUNTIME FAIL at custom callback ownership after geometry resolved (`geometry=149`).
+ - v0.6.1.3: Windows CI PASS; user-confirmed RUNTIME PASS for the full fixed-item 90-click flow.
+ - v0.6.1.4: generic InputSync AUTO point sequence in source; build/runtime pending.
+-- v0.6.1.5: every configured trade click uses the same generic InputSync path; source audit, eight pure tests, local Windows x64 cross-build and GitHub MSVC run 307 pass; live runtime pending.
++- v0.6.1.5: every configured trade click uses the same generic InputSync path; source audit, eight pure tests and GitHub MSVC run 307 pass; live runtime pending.
++- v0.6.1.6: global input ownership removed; trade lock/REC scoped; ReadState fan-out concurrent; Mount and StartPath share the same AutoFight-OFF guard; build/runtime pending.
+ 
+ ## Version timeline
+ 
+@@ -72,6 +73,15 @@
+ - Rechecks AutoPath when AUTO/Attack is queued and immediately before dispatch, closing the stale-request race.
+ - Tags P3 request/result ownership, preventing Train, Travel Guard and Mount Recovery from consuming one another's same-slot completion.
+ 
++### v0.6.1.6
++
++- Removes global hidden-action busy/owner state; point actions are per-client.
++- Renames/reduces the sequence lease to a business-only Trade Workflow Lock.
++- Removes unrelated SELL→trade blocking and scopes REC to the recorded PID/pair.
++- Evaluates P1→P2→P3 per client and fans ReadState calls out concurrently.
++- Applies the same two-stop/reset AutoFight-OFF Travel Guard before **Mount and StartPath**.
++- Deliberately keeps FSM mutation on the controller thread because profile/UI writes are not proven thread-safe.
++
+ ## Do-not-break rules
+ 
+ - Resolve current controls for every action; never retain stale UI pointers.
+@@ -84,7 +94,7 @@
+ - An AUTO start request may publish completion only after both configured points finish.
+ - An AUTO start request may dispatch only while AutoPath is authoritatively OFF, including after it has waited in the queue.
+ - No automatic action may fall back to Windows mouse injection.
+-- No `StartPath` may pass while AutoFight is ON/unreadable or while route/fight conflict recovery is latched.
++- No `Mount` or `StartPath` may pass while AutoFight is ON/unreadable or while route/fight conflict recovery is latched.
+ 
+ ## Open architectural item
+ 
+--- a/resources/app.rc	2026-08-20 23:14:54.000000000 +0000
++++ b/resources/app.rc	2026-08-21 01:32:31.010264232 +0000
+@@ -1,8 +1,8 @@
+ #include <windows.h>
+ 1 RT_MANIFEST "app.manifest"
+ 1 VERSIONINFO
+-FILEVERSION 0,6,1,5
+-PRODUCTVERSION 0,6,1,5
++FILEVERSION 0,6,1,6
++PRODUCTVERSION 0,6,1,6
+ FILEFLAGSMASK 0x3fL
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+@@ -13,11 +13,11 @@
+     BEGIN
+       VALUE "CompanyName", "Thang Nguyen\0"
+       VALUE "FileDescription", "Than Long Item Consolidator\0"
+-      VALUE "FileVersion", "0.6.1.5\0"
++      VALUE "FileVersion", "0.6.1.6\0"
+       VALUE "InternalName", "ThanLongItemConsolidator\0"
+-      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.1.5.exe\0"
++      VALUE "OriginalFilename", "ThanLongItemConsolidator_v0.6.1.6.exe\0"
+       VALUE "ProductName", "Than Long Item Consolidator\0"
+-      VALUE "ProductVersion", "0.6.1.5\0"
++      VALUE "ProductVersion", "0.6.1.6\0"
+     END
+   END
+   BLOCK "VarFileInfo"
+--- a/src/controller.cpp	2026-08-20 23:14:54.000000000 +0000
++++ b/src/controller.cpp	2026-08-21 01:36:58.497419312 +0000
+@@ -13,6 +13,7 @@
+ #include <cstdlib>
+ #include <memory>
+ #include <utility>
++#include <future>
+ #include "protocol.h"
+ #include "route_logic.h"
+ #include "rotation_logic.h"
+@@ -28,7 +29,7 @@
+ 
+ namespace {
+ 
+-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.5 • ALL HIDDEN ACTIONS";
++constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.6 • ALL HIDDEN ACTIONS";
+ constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
+ constexpr UINT_PTR kTimer = 1;
+ constexpr UINT_PTR kRecordTimer = 2;
+@@ -307,13 +308,13 @@
+     DWORD trainRecoveryTick = 0;
+ 
+     // Dedicated trade-rendezvous state. AutoFight stopping is no longer duplicated here;
+-    // every StartPath is protected by the shared v0.3 AutoFight Travel Guard.
++    // every Mount/StartPath is protected by the shared AutoFight Travel Guard.
+     int tradeTravelPhase = 0;
+     DWORD tradeTravelTick = 0;
+     bool tradeTravelReady = false;
+     std::uint64_t tradeWorkflowEntrySeq = 0; // R7: immutable FIFO ticket while staged in workflow.
+ 
+-    // Priority-AUTO request/result mailbox. v0.6.1.5 dispatches configured points
++    // Priority-AUTO request/result mailbox. v0.6.1.6 dispatches configured points
+     // through InputSyncManager. An Attack request owns both AUTO then ĐÁNH QUÁI
+     // phases and publishes one result only after click 2 finishes.
+     ClickSlot priorityAutoRequestSlot = ClickSlot::None;
+@@ -326,7 +327,7 @@
+     int priorityAutoPointPhase = 0;
+     DWORD priorityAutoPointTick = 0;
+ 
+-    // v0.3 shared AutoFight Travel Guard. Any StartPath must prove authoritative
++    // v0.3 shared AutoFight Travel Guard. Any Mount/StartPath must prove authoritative
+     // AutoFight OFF. Two failed stop cycles trigger AUTO->Attack reset, then stop retries.
+     int travelFightGuardPhase = 0;
+     DWORD travelFightGuardTick = 0;
+@@ -358,7 +359,7 @@
+     int sellMacroIndex = 0;
+     int sellMacroRepeatDone = 0;
+     DWORD sellMacroNextTick = 0;
+-    DWORD sellMacroCompletionDueTick = 0; // R6: keep SELL sequence lease through final configured delay.
++    DWORD sellMacroCompletionDueTick = 0; // R6: keep this PID's SELL sequence atomic through final configured delay.
+     int sellMacroPass = 0;
+     int sellLastFreeBag = -1;
+     DWORD sellBagStableSince = 0;
+@@ -1385,7 +1386,7 @@
+         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
+         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
+                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
+-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.5",
++        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.6",
