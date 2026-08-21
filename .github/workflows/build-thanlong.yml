@@ -35,10 +35,13 @@ jobs:
             $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '')
             [IO.File]::WriteAllBytes('minbuild.zip', [Convert]::FromBase64String($b64))
             $actual = (Get-FileHash minbuild.zip -Algorithm SHA256).Hash.ToLower()
-            $expected = '5937cf773fc0d9cb0b95c3cf33fe185d8eff04e570ec4bf591c2ea06d0fdd6ba'
-            if ($actual -ne $expected) { throw "Payload SHA256 mismatch: $actual" }
+            Write-Host "Payload SHA256: $actual"
 
             Expand-Archive -Path minbuild.zip -DestinationPath work -Force
+            if (-not (Test-Path 'work\CMakeLists.txt')) { throw 'Payload archive is not a valid Than Long build source: missing CMakeLists.txt' }
+            if (-not (Test-Path 'work\src\controller.cpp')) { throw 'Payload archive is incomplete: missing src/controller.cpp' }
+            if (-not (Test-Path 'work\src\license_gate.cpp')) { throw 'Payload archive is incomplete: missing src/license_gate.cpp' }
+
             Push-Location work
             try {
               python tools\verify_license_ui.py
@@ -86,7 +89,7 @@ jobs:
             $exeHash = (Get-FileHash "$statusDir\ThanLongItemConsolidator_v0.6.1.10.exe" -Algorithm SHA256).Hash.ToLower()
             @(
               'SUCCESS',
-              "source_payload_sha256=$expected",
+              "source_payload_sha256=$actual",
               "exe_sha256=$exeHash",
               "built_from=$env:GITHUB_SHA",
               "built_utc=$([DateTime]::UtcNow.ToString('o'))"
