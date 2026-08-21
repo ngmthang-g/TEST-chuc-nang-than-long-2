@@ -28,7 +28,7 @@ using namespace itemtrade_coordinator;
 
 namespace {
 
-constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.7 • AUTO→STOP INPUTSYNC FIX";
+constexpr wchar_t kTitle[] = L"Thần Long Item Consolidator v0.6.1.8 • ROUTE/M87 CLEAN MAINTENANCE";
 constexpr wchar_t kGameModule[] = L"GameAssembly.dll";
 constexpr UINT_PTR kTimer = 1;
 constexpr UINT_PTR kRecordTimer = 2;
@@ -291,7 +291,6 @@ struct RuntimeState {
     DWORD stallSinceTick = 0;
     int confirmAttempts = 0;
     DWORD lastLauLanConfirmTick = 0;
-    DWORD suppressRouteSinceTick = 0;
 
     int fightPhase = 0;
     DWORD fightPhaseTick = 0;
@@ -304,7 +303,6 @@ struct RuntimeState {
     DWORD lastTrainPositionCheckTick = 0;
     DWORD lastAutoFightCheckTick = 0;
     int trainRecoveryPhase = 0;
-    DWORD trainRecoveryTick = 0;
 
     // Dedicated trade-rendezvous state. AutoFight stopping is no longer duplicated here;
     // every StartPath is protected by the shared v0.3 AutoFight Travel Guard.
@@ -322,7 +320,6 @@ struct RuntimeState {
     PriorityAutoOwner priorityAutoCompletedOwner = PriorityAutoOwner::None;
     bool priorityAutoCompletedOk = false;
     DWORD priorityAutoCompletedTick = 0;
-    std::wstring priorityAutoReason{};
     int priorityAutoPointPhase = 0;
     DWORD priorityAutoPointTick = 0;
 
@@ -362,7 +359,6 @@ struct RuntimeState {
     int sellMacroPass = 0;
     int sellLastFreeBag = -1;
     DWORD sellBagStableSince = 0;
-    bool sellTriggeredByFullBag = false;
 
     // Global per-PID transition/unresponsive safety gate. While active, no mutable
     // gameplay/window action may be dispatched. Read-only state polling continues
@@ -1385,7 +1381,7 @@ private:
         aboutControls_.push_back(Make(L"STATIC", L"GIỚI THIỆU", SS_CENTER | SS_CENTERIMAGE, 150, 250, 745, 55, 0));
         aboutControls_.push_back(Make(L"STATIC", L"Thiết kế và phát triển bởi Thắng Nguyễn - ĐỒ LONG",
                                           SS_CENTER | SS_CENTERIMAGE | WS_BORDER, 150, 330, 745, 65, 0));
-        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.7",
+        aboutControls_.push_back(Make(L"STATIC", L"Thần Long Item Consolidator • v0.6.1.8",
                                           SS_CENTER | SS_CENTERIMAGE, 150, 415, 745, 36, 0));
         for (HWND h : aboutControls_) { addFont(h); if (h) ShowWindow(h, SW_HIDE); }
 
@@ -1427,14 +1423,6 @@ private:
             autoTabVisibility_.clear();
         }
         mainTabIndex_ = index;
-    }
-
-    Account* ActiveSellClickSequenceAccount() {
-        for (auto& item : accounts_) {
-            Account& a = *item;
-            if (a.runtime.running && a.runtime.sellPhase == 6) return &a;
-        }
-        return nullptr;
     }
 
     void Log(const std::wstring& text) {
@@ -3425,18 +3413,11 @@ private:
         tradeQueuePids_.clear();
     }
 
-    void ReleaseTradeWorkflowLock(const std::wstring& reason) {
-        // Kept as a workflow hook for call-site stability. Trade ordering is owned by
-        // tradeTxn_ itself; there is no global hidden-input lease in v0.6.1.6.
-        ReleaseTradeWorkflowLockCore(reason);
-    }
-
     void AbortTrade(const std::wstring& reason, DWORD now) {
         Account* main = AccountByPid(tradeTxn_.mainPid);
         Account* child = AccountByPid(tradeTxn_.childPid);
         if (main) LogAccount(*main, L"GD ABORT: " + reason);
         if (child) LogAccount(*child, L"GD ABORT: " + reason);
-        ReleaseTradeWorkflowLock(L"giao dịch abort");
         ReleaseTradeHolds();
         tradeTxn_.phase = TradePhase::Idle;
         tradeTxn_.mainPid = 0;
@@ -3444,7 +3425,7 @@ private:
         tradeTxn_.childSlot = 0;
         tradeTxn_.sequenceIndex = 0; tradeTxn_.sequenceRepeatDone = 0; tradeTxn_.sequenceGroupRepeatDone = 0; tradeTxn_.sequencePass = 1; tradeTxn_.sequenceDueTick = 0; tradeTxn_.sequenceMainFreeBeforePass = -1; tradeTxn_.sequenceBagVerifyStartedTick = 0; tradeTxn_.sequenceBagStableSinceTick = 0; tradeTxn_.sequenceBagLastFree = -1;
         tradeTxn_.cooldownUntil = now + 2500;
-        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + workflow lock");
+        SetTradeStatus(L"HỦY • " + reason + L" • nhả hàng đợi + tradeTxn/HOLD");
     }
 
     void FinishTrade(DWORD now) {
@@ -3458,7 +3439,6 @@ private:
         if (child) LogAccount(*child, L"GD ĐẠT ĐIỀU KIỆN MỚI • pass cuối làm MAIN nhận ≤8 slot"
                                   L" • nhả HOLD để core quay bãi; slot queue giải phóng ngay.");
 
-        ReleaseTradeWorkflowLock(L"chuỗi click giao dịch hoàn tất");
         if (child) ReleaseTradeHold(*child);
         RemoveTradeQueuePid(finishedChildPid);
 
@@ -3810,12 +3790,8 @@ private:
             }
 
             if (!sequenceReady) { AbortTrade(L"chuỗi click GD chưa sẵn sàng: " + sequenceReason, now); return; }
-            // Travel/queueing owns no sequence lease. The workflow lock begins only
-            // when both accounts are parked and the first trade action is about to run.
-            if (!AcquireTradeWorkflowLock(*activeMain, L"CHUỖI CLICK GIAO DỊCH MAIN↔CON")) {
-                SetTradeStatus(L"ĐÃ TỚI TỌA GD • chờ tradeTxn_ bắt đầu chuỗi giao dịch");
-                return;
-            }
+            // tradeTxn_ itself is the only business serialization primitive. Once both
+            // accounts are parked, transition directly into the active MAIN↔CON sequence.
             tradeTxn_.phase = TradePhase::Sequence;
             tradeTxn_.sequenceIndex = 0;
             tradeTxn_.sequenceRepeatDone = 0;
@@ -4216,20 +4192,9 @@ private:
         return true;
     }
 
-    // v0.6.1.6: hidden InputSync actions do not share a Windows-input resource.
+    // v0.6.1.8: hidden InputSync actions do not share a Windows-input resource.
     // Business workflows serialize themselves (SELL per account, TRADE per active pair),
     // so there is no global input/owner/sequence lease between unrelated clients.
-    bool AcquireTradeWorkflowLock(Account& owner, const std::wstring& reason) {
-        (void)owner;
-        (void)reason;
-        // tradeTxn_ is the lock: only the active MAIN/CON pair advances this sequence.
-        return true;
-    }
-
-    void ReleaseTradeWorkflowLockCore(const std::wstring& reason) {
-        (void)reason;
-    }
-
     bool CoordinatorInternalPointAction(Account& target, const ClickPoint& savedPoint,
                                         const std::wstring& request,
                                         std::wstring& error) {
@@ -4238,34 +4203,6 @@ private:
             return false;
         }
         return DispatchInternalPointActionDirect(target, savedPoint, request, error);
-    }
-
-    bool ClickSlotNow(Account& a, ClickSlot slot, const wchar_t* reason, bool verbose = true) {
-        if (a.runtime.running && a.runtime.clientFreezeActive) {
-            if (verbose) LogAccount(a, L"CLICK bị chặn: client/map đang FREEZE");
-            return false;
-        }
-        const int index = static_cast<int>(slot);
-        if (index < 0 || index >= static_cast<int>(a.profile.points.size())) return false;
-        std::wstring error;
-        const ClickPoint& savedPoint = a.profile.points[static_cast<std::size_t>(index)];
-        if (!CoordinatorInternalPointAction(
-                a, savedPoint,
-                reason && *reason ? std::wstring(reason) : L"CLICK SLOT",
-                error)) {
-            if (verbose) LogAccount(a, L"HIDDEN CLICK " +
-                                       std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
-                                       L" FAIL: " + error);
-            return false;
-        }
-        if (verbose) {
-            std::wstring line = L"HIDDEN CLICK " +
-                                std::wstring(kClickLabels[static_cast<std::size_t>(index)]) +
-                                L" -> " + PointDescription(savedPoint) +
-                                L" • TryClickUI→EndUIDrag • cursor không đổi";
-            LogAccount(a, line);
-        }
-        return true;
     }
 
     bool QueuePriorityAutoClick(Account& a, ClickSlot slot, PriorityAutoOwner owner,
@@ -4295,11 +4232,11 @@ private:
         if (rt.priorityAutoRequestSlot != ClickSlot::None || rt.priorityAutoCompletedSlot != ClickSlot::None) return false;
         rt.priorityAutoRequestSlot = slot;
         rt.priorityAutoRequestOwner = owner;
-        rt.priorityAutoReason = reason;
         rt.priorityAutoPointPhase = 0;
         rt.priorityAutoPointTick = 0;
         rt.status = L"PRIORITY #3 AUTO INPUTSYNC • đã xếp hàng " +
                     std::wstring(kClickLabels[static_cast<std::size_t>(slot)]);
+        if (!reason.empty()) LogAccount(a, L"PRIORITY #3 AUTO QUEUE: " + reason);
         return true;
     }
 
@@ -4336,7 +4273,6 @@ private:
             rt.priorityAutoCompletedOwner = requestedOwner;
             rt.priorityAutoCompletedOk = ok;
             rt.priorityAutoCompletedTick = completedAt;
-            rt.priorityAutoReason.clear();
             rt.priorityAutoPointPhase = 0;
             rt.priorityAutoPointTick = 0;
         };
@@ -4437,26 +4373,6 @@ private:
                           L": " + error);
         }
         return ok;
-    }
-
-    bool RunPriorityAutoPass(DWORD now, const std::vector<bool>& snapshotReady) {
-        (void)now;
-        bool clicked = false;
-        std::vector<DWORD> visited;
-        auto runOne = [&](Account* a) {
-            if (!a || !a->runtime.running || RecorderBlocksAccount(*a) || a->runtime.priorityAutoRequestSlot == ClickSlot::None) return;
-            const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
-            if (it == accounts_.end()) return;
-            const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
-            if (index >= snapshotReady.size() || !snapshotReady[index]) return;
-            if (std::find(visited.begin(), visited.end(), a->game.pid) != visited.end()) return;
-            visited.push_back(a->game.pid);
-            if (PriorityAutoClick(*a)) clicked = true;
-        };
-        // Legacy helper retained for deterministic diagnostics only; runtime Tick uses per-account priority.
-        for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
-        for (auto& item : accounts_) runOne(item.get());
-        return clicked;
     }
 
     void ResetTravelFightGuard(RuntimeState& rt) {
@@ -4905,6 +4821,20 @@ private:
         return ok;
     }
 
+    bool CompleteToolOwnedRoute(RuntimeState& rt, bool atTarget, bool autoPathing, bool riding) {
+        // Intermediate map changes MUST keep ownership armed so the Lâu Lan P1 watchdog
+        // can still prove that this is the tool-owned cross-map route. Release ownership
+        // only at the physical final destination: in tolerance, AutoPath OFF, on foot.
+        if (!travel_fight_guard_logic::IsPhysicalRouteCompletion(atTarget, autoPathing, riding)) return false;
+        rt.crossMapRouteArmed = false;
+        rt.crossMapRouteMoved = false;
+        rt.crossMapSeenAutoPath = false;
+        rt.stallSinceTick = 0;
+        rt.confirmAttempts = 0;
+        rt.lastLauLanConfirmTick = 0;
+        return true;
+    }
+
     void ObserveMovement(Account& a, DWORD now) {
         RuntimeState& rt = a.runtime;
         const Snapshot& s = a.snapshot;
@@ -5159,7 +5089,6 @@ private:
             rt.crossMapRouteMoved = false;
             rt.crossMapSeenAutoPath = false;
             rt.confirmAttempts = 0;
-            rt.suppressRouteSinceTick = 0;
             rt.status = L"SESSION ROUTE RESET • AutoPath OFF • ownership sạch";
             if (!rt.routeOwnershipResetLogged) {
                 LogAccount(a, L"SESSION ROUTE RESET PASS: AutoPath OFF → route kế tiếp phải do tool StartPath mới để arm Confirm.");
@@ -5191,10 +5120,39 @@ private:
         return true;
     }
 
+    bool CurrentTravelDestinationMap(const Account& a, int& destinationMap) const {
+        const RuntimeState& rt = a.runtime;
+
+        // SELL phase 4 is the only phase currently travelling to the NPC. Phase 8 travels
+        // back to the training target. Other SELL phases are parked/working in place.
+        if (rt.sellPhase == 4) {
+            const TargetProfile npc = SellNpcTarget(a);
+            if (!npc.valid) return false;
+            destinationMap = npc.mapID;
+            return destinationMap > 0;
+        }
+        if (rt.sellPhase == 8 || rt.trainRecoveryPhase != 0) {
+            destinationMap = a.profile.target.mapID;
+            return destinationMap > 0;
+        }
+
+        // Normal training/rotation route uses the current profile target. Trade-held
+        // accounts are advanced outside TickAccount and are already protected directly
+        // by the shared Mount/StartPath Travel Guard.
+        if (!a.tradeHeld && rt.sellPhase == 0) {
+            destinationMap = a.profile.target.mapID;
+            return destinationMap > 0;
+        }
+        return false;
+    }
+
     bool HandleUnderworldAutoFightGuard(Account& a, DWORD now) {
         RuntimeState& rt = a.runtime;
         const Snapshot& s = a.snapshot;
-        if (s.mapID != kUnderworldMapId) {
+        int destinationMap = 0;
+        const bool hasTravelDestination = CurrentTravelDestinationMap(a, destinationMap);
+        if (!travel_fight_guard_logic::ShouldGuardUnderworldExit(
+                s.mapID, destinationMap, hasTravelDestination, kUnderworldMapId)) {
             rt.underworldGuardLogged = false;
             return false;
         }
@@ -5350,16 +5308,6 @@ private:
         return false;
     }
 
-    bool RunPriorityLauLanGateConfirmPass(DWORD now, const std::vector<bool>& snapshotReady) {
-        bool clicked = false;
-        for (std::size_t i = 0; i < accounts_.size(); ++i) {
-            Account& a = *accounts_[i];
-            if (!a.runtime.running || i >= snapshotReady.size() || !snapshotReady[i]) continue;
-            if (PriorityLauLanGateConfirmClick(a, now)) clicked = true;
-        }
-        return clicked;
-    }
-
     bool PrimeDeathSessionForPriorityRevive(Account& a, DWORD now) {
         RuntimeState& rt = a.runtime;
         const Snapshot& s = a.snapshot;
@@ -5410,28 +5358,6 @@ private:
         return false;
     }
 
-    bool RunPriorityRevivePass(DWORD now, const std::vector<bool>& snapshotReady) {
-        (void)now;
-        bool clicked = false;
-        std::vector<DWORD> visited;
-
-        auto runOne = [&](Account* a) {
-            if (!a || !a->runtime.running || RecorderBlocksAccount(*a)) return;
-            const auto it = std::find_if(accounts_.begin(), accounts_.end(), [&](const std::unique_ptr<Account>& x) { return x.get() == a; });
-            if (it == accounts_.end()) return;
-            const std::size_t index = static_cast<std::size_t>(std::distance(accounts_.begin(), it));
-            if (index >= snapshotReady.size() || !snapshotReady[index]) return;
-            if (std::find(visited.begin(), visited.end(), a->game.pid) != visited.end()) return;
-            visited.push_back(a->game.pid);
-            if (PriorityReviveClick(*a, GetTickCount())) clicked = true;
-        };
-
-        // Legacy helper retained for diagnostics; runtime priority is scoped per account.
-        for (int role = 1; role <= 7; ++role) runOne(AccountByTradeRole(role));
-        for (auto& item : accounts_) runOne(item.get());
-        return clicked;
-    }
-
     bool AutoFightCheckBusy(const Account& a, DWORD now) const {
         const RuntimeState& rt = a.runtime;
         const Snapshot& s = a.snapshot;
@@ -5445,7 +5371,6 @@ private:
         if (rt.travelMountAttempts != 0 || rt.travelFightBoostPhase != 0 ||
             rt.travelFootFallback) return true;
         if (rt.crossMapRouteArmed || rt.crossMapRouteMoved) return true;
-        if (rt.suppressRouteSinceTick != 0 && !Elapsed(now, rt.suppressRouteSinceTick, 2500)) return true;
         if (s.riding || s.autoPathing || s.waitingChangeMap || !s.mapReady) return true;
         if ((s.validMask & ValidLifeState) && s.dead) return true;
         return false;
@@ -5560,6 +5485,7 @@ private:
             }
             ResetRobustTravel(rt);
             ResetTravelFightGuard(rt);
+            (void)CompleteToolOwnedRoute(rt, true, s.autoPathing != 0, s.riding != 0);
             arrived = true;
             return true;
         }
@@ -5644,7 +5570,6 @@ private:
         rt.trainPositionMonitorArmed = false;
         rt.lastTrainPositionCheckTick = 0;
         rt.trainRecoveryPhase = 4;
-        rt.trainRecoveryTick = now;
         rt.fightPhase = 0;
         rt.fightAttempts = 0;
         ResetRobustTravel(rt);
@@ -5660,7 +5585,6 @@ private:
         (void)HandleRobustTravel(a, now, a.profile.target, L"bãi train", arrived);
         if (arrived) {
             rt.trainRecoveryPhase = 0;
-            rt.trainRecoveryTick = 0;
             rt.wasAtTarget = false;
             rt.fightPhase = 0;
             rt.fightAttempts = 0;
@@ -5711,7 +5635,6 @@ private:
         rt.sellMacroPass = 0;
         rt.sellLastFreeBag = a.snapshot.freeBagSpace;
         rt.sellBagStableSince = 0;
-        rt.sellTriggeredByFullBag = true;
         rt.trainPositionMonitorArmed = false;
         rt.lastTrainPositionCheckTick = 0;
         rt.trainRecoveryPhase = 0;
@@ -5945,7 +5868,7 @@ private:
             bool arrived = false;
             (void)HandleRobustTravel(a, now, trainTarget, L"bãi train", arrived);
             if (arrived) {
-                rt.sellPhase = 0; rt.sellTriggeredByFullBag = false;
+                rt.sellPhase = 0;
                 rt.fightPhase = 0; rt.fightAttempts = 0; rt.wasAtTarget = false;
                 rt.trainPositionMonitorArmed = false; rt.lastTrainPositionCheckTick = 0;
                 rt.lastAction = Action::Hold;
@@ -6111,6 +6034,7 @@ private:
         const Action action = Decide(logic, target);
         if (action == Action::Hold) {
             rt.lastAction = Action::Hold;
+            (void)CompleteToolOwnedRoute(rt, true, s.autoPathing != 0, s.riding != 0);
             if (!rt.wasAtTarget) {
                 rt.fightPhase = 0;
                 rt.fightAttempts = 0;
@@ -6209,7 +6133,7 @@ private:
             }
         }
 
-        // v0.6.1.6 priorities are scoped per account, not global input barriers.
+        // v0.6.1.8 priorities remain scoped per account, not global input barriers.
         // For each PID preserve local safety order P1 XN -> P2 revive -> P3 AUTO, while
         // unrelated windows never wait merely because another PID has a higher-priority action.
         if (!globalPaused_) {

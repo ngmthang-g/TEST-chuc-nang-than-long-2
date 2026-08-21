@@ -28,6 +28,23 @@ inline bool CanDispatchFightStart(bool autoPathStateKnown, bool autoPathing) {
     return autoPathStateKnown && !autoPathing;
 }
 
+// Route ownership is released only at the physical final destination. A map change
+// alone is not completion because cross-map routes must retain ownership through
+// intermediate maps (notably Lâu Lan gate confirmation).
+inline bool IsPhysicalRouteCompletion(bool atTarget, bool autoPathing, bool riding) {
+    return atTarget && !autoPathing && !riding;
+}
+
+// Map 87 has no special right to disable training. Its proactive guard applies only
+// while the current workflow has a real destination outside Map 87. Unknown/no
+// destination and an M87-local target are intentionally not guarded here; every actual
+// Mount/StartPath still passes through the shared movement guard separately.
+inline bool ShouldGuardUnderworldExit(int currentMap, int destinationMap,
+                                      bool hasTravelDestination, int underworldMapId = 87) {
+    return currentMap == underworldMapId && hasTravelDestination &&
+           destinationMap > 0 && destinationMap != underworldMapId;
+}
+
 inline bool ConflictRecoveryComplete(bool conflictLatched,
                                      bool autoPathing,
                                      bool autoFight) {

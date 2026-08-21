@@ -25,6 +25,16 @@ int main() {
     assert(!CanDispatchFightStart(true, true));
     assert(CanDispatchFightStart(true, false));
 
+    assert(!IsPhysicalRouteCompletion(false, false, false));
+    assert(!IsPhysicalRouteCompletion(true, true, false));
+    assert(!IsPhysicalRouteCompletion(true, false, true));
+    assert(IsPhysicalRouteCompletion(true, false, false));
+
+    assert(!ShouldGuardUnderworldExit(1, 2, true));
+    assert(!ShouldGuardUnderworldExit(87, 0, false));
+    assert(!ShouldGuardUnderworldExit(87, 87, true));
+    assert(ShouldGuardUnderworldExit(87, 5, true));
+
     assert(!ConflictRecoveryComplete(false, false, false));
     assert(!ConflictRecoveryComplete(true, true, false));
     assert(!ConflictRecoveryComplete(true, false, true));
