@@ -1,0 +1,44 @@
+name: Build Than Long Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore source bundle
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem source_parts/part_* | Sort-Object Name
+          $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          [IO.File]::WriteAllBytes('source_bundle.zip', [Convert]::FromBase64String($b64))
+          New-Item -ItemType Directory -Force -Path source | Out-Null
+          Expand-Archive source_bundle.zip -DestinationPath source -Force
+
+      - name: Configure x64 Release
+        shell: pwsh
+        run: cmake -S source -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --target ThanLongItemConsolidator ThanLongCleanRouteBridge --parallel
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item build/Release/ThanLongItemConsolidator.exe artifact/
+          Copy-Item build/Release/ThanLongCleanRouteBridge.dll artifact/
+          if (Test-Path source/VERSION.txt) { Copy-Item source/VERSION.txt artifact/ }
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThanLong-v0.6.1.10-OfflineKey30d
+          path: artifact/*
+          if-no-files-found: error
