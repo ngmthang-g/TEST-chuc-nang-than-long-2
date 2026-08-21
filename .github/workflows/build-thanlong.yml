@@ -44,8 +44,10 @@ jobs:
 
             Push-Location work
             try {
-              python tools\verify_license_ui.py
-              if ($LASTEXITCODE -ne 0) { throw "verify_license_ui.py failed: $LASTEXITCODE" }
+              $verifyOut = & python tools\verify_license_ui.py 2>&1
+              $verifyCode = $LASTEXITCODE
+              $verifyOut | Tee-Object -FilePath '..\dist\VERIFY_LICENSE_UI.txt' | Write-Host
+              if ($verifyCode -ne 0) { throw "verify_license_ui.py failed: $verifyCode :: $($verifyOut -join ' | ')" }
 
               cmake -S . -B build -A x64
               if ($LASTEXITCODE -ne 0) { throw "CMake configure failed: $LASTEXITCODE" }
