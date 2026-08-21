@@ -1,4 +1,4 @@
-name: build-item-consolidator-v0.6.1.8
+name: build-item-consolidator-v0.6.1.9
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify v0.6.1.8 scoped route/M87/dead-code cleanup
-        run: python tools/verify_v0618_logic.py
+      - name: Verify v0.6.1.9 P3 retry + 60s coordinate check + About roadmap
+        run: python tools/verify_v0619_logic.py
       - name: Configure x64
         run: cmake -S . -B build -A x64
       - name: Build Release
@@ -32,16 +32,18 @@ jobs:
         run: .\build\Release\internal_ui_click_logic_tests.exe
       - name: AutoPath and AutoFight invariant self-test
         run: .\build\Release\travel_fight_guard_logic_tests.exe
+      - name: AutoFight retry timer self-test
+        run: .\build\Release\auto_fight_retry_logic_tests.exe
       - name: Stage artifact
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force stage | Out-Null
-          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.8.exe
+          Copy-Item build\Release\ThanLongItemConsolidator.exe stage\ThanLongItemConsolidator_v0.6.1.9.exe
           Copy-Item build\Release\ThanLongCleanRouteBridge.dll stage\ThanLongCleanRouteBridge.dll
           Copy-Item README.md,PROJECT_KNOWLEDGE.md,CHANGELOG.md,VERSION.txt,SOURCE_PROVENANCE.md,TOOL_LOGIC_TABLE.html,DONOR_0.8.4_BACKGROUND_ACTION_ANALYSIS.md stage\
           Copy-Item docs stage\docs -Recurse
       - uses: actions/upload-artifact@v4
         with:
-          name: ThanLongItemConsolidator-v0.6.1.8-win-x64
+          name: ThanLongItemConsolidator-v0.6.1.9-win-x64
           path: stage
           if-no-files-found: error
